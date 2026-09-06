@@ -1,0 +1,32 @@
+# flutter team declaration: process -> roles (adapter/model/guards) -> write domain allowlist.
+# Teams run in parallel must not have overlapping domains.
+
+name: flutter
+description: flutter team - write domains: apps/flutter
+
+process: [scout, lead, validate, verify]
+
+# specs is shared; the pipeline scopes git operations to this run's spec file.
+domains:
+  - apps/flutter
+  - specs
+
+# fallbacks = rotation order when an adapter fails, usually for read-only roles.
+roles:
+  scout:
+    adapter: agy
+    prompt: factory/teams/prompts/scout.md
+    fallbacks: [codex]
+  lead:
+    adapter: claude
+    model: sonnet
+    prompt: factory/teams/prompts/lead-app.md
+    appendix: .claude/agents/flutter-lead.md
+    allowedTools: Read,Grep,Glob,Edit(specs/**),Bash(just member-build:*),Bash(just check:*)
+  member:
+    adapter: claude
+    model: sonnet
+    prompt: .claude/agents/flutter-engineer.md
+  verifier:
+    adapter: codex
+    fallbacks: [agy]

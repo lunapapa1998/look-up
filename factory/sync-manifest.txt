@@ -1,0 +1,33 @@
+# Factory core files synced VERBATIM from the template into consumer repos.
+# Paths are relative to the repo root. Lines starting with # are ignored.
+# Repo-local (NEVER listed here): root justfile, CLAUDE.md, factory/teams/*.yaml,
+# factory/teams/expertise/, factory/brain.md (regenerated from brain.template.md + team YAMLs).
+factory/adapters/agy.sh
+factory/adapters/claude.sh
+factory/adapters/codex.sh
+factory/build.sh
+factory/checks/check-teams.py
+factory/checks/usage-windows.py
+factory/delegate.sh
+factory/expertise.py
+factory/mux/tmux.sh
+factory/orchestrate.sh
+factory/office-brain.sh
+factory/pipeline.sh
+factory/recipes.just
+factory/resident-follow.sh
+factory/resident-start.sh
+factory/spawn.sh
+factory/sync.sh
+factory/team-pipeline.sh
+factory/teamcfg.py
+factory/teams/prompts/lead-app.md
+factory/teams/prompts/lead-native.md
+factory/teams/prompts/lead-resident.md
+factory/teams/prompts/lead.md
+factory/teams/prompts/member-resident.md
+factory/teams/prompts/scout-resident.md
+factory/teams/prompts/scout.md
+factory/teams/prompts/verifier-resident.md
+factory/usage-global.py
+factory/watch.sh
