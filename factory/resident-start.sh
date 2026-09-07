@@ -40,6 +40,8 @@ parse_teams() {
 
 resolve_team_file() {
   local team="$1"
+  # 짧은 팀 이름(web·qa 등, 슬래시 없음)은 factory/teams/<이름>.yaml로 해석한다
+  [[ -f "$team" || "$team" == */* ]] || team="$root/factory/teams/$team.yaml"
   [[ -f "$team" ]] || team="$root/$team"
   [[ -f "$team" ]] || { echo "team not found: $team" >&2; exit 1; }
   printf '%s' "$team"
@@ -114,7 +116,7 @@ fi
 
 for i in "${!team_files[@]}"; do
   state=""
-  if [[ "$multi_team" == "yes" || "${RESIDENT_STATE_PER_TEAM:-0}" == "1" ]]; then
+  if [[ "$multi_team" == "yes" || "${RESIDENT_STATE_PER_TEAM:-1}" == "1" ]]; then
     state="${team_names[$i]}"
   fi
   state_names+=("$state")

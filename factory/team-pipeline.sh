@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Phase 2 팀 파이프라인 (3계층, 리드 방식 A):
 #   scout(읽기전용 조사) → lead(위임 전용, 헤드리스 claude) → 검증 커맨드 → verifier(교차 모델)
-# 사용법: team-pipeline.sh <spec.md> [team.yaml (기본 factory/teams/docs.yaml)]
+# 사용법: team-pipeline.sh <spec.md> [team.yaml|팀이름 (기본 factory/teams/docs.yaml)]
 # 출력: 정규화 JSON 한 줄 { ok, spec, team, attempts, scout, lead, validation, verdict, durationMs }
 # 옵션(환경변수): MAX_ATTEMPTS(기본 2) / VERIFIER2(어댑터명 — high 티어 이중 교차 검증, 기본 없음)
 set -euo pipefail
@@ -10,8 +10,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(dirname "$here")"
 spec="${1:?usage: team-pipeline.sh <spec.md> [team.yaml]}"
 team="${2:-$here/teams/docs.yaml}"
-# 팀을 이름(backend)으로도 받는다 — 파일이 아니면 teams/<name>.yaml 로 해석.
-[[ ! -f "$team" && -f "$here/teams/$team.yaml" ]] && team="$here/teams/$team.yaml"
+# 짧은 팀 이름(web·qa 등, 슬래시 없음)은 factory/teams/<이름>.yaml로 해석한다
+[[ -f "$team" || "$team" == */* ]] || team="$here/teams/$team.yaml"
 [[ -f "$spec" ]] || { echo "{\"ok\":false,\"error\":\"spec not found: $spec\"}"; exit 1; }
 [[ -f "$team" ]] || { echo "{\"ok\":false,\"error\":\"team not found: $team\"}"; exit 1; }
 
@@ -174,6 +174,7 @@ ${feedback}"
   # FACTORY_TEAM: 리드의 just member-build가 올바른 팀 파일을 기본값으로 쓰도록 주입
   lead_json="$(env ${lead_env[@]+"${lead_env[@]}"} \
     ALLOWED_TOOLS="$lead_tools" MODEL="${lead_model:-sonnet}" FACTORY_TEAM="$team" \
+    SANDBOX=workspace-write \
     BASH_DEFAULT_TIMEOUT_MS=600000 BASH_MAX_TIMEOUT_MS=900000 \
     "$here/spawn.sh" "$lead_adapter" lead "$prompt")" || true
   lead_ok="$(jq -r '.ok // false' <<< "$lead_json")"
@@ -212,7 +213,7 @@ ${feedback}"
   else
     verify_resume=""
   fi
-  verdict="$(jq -r '.result // ""' <<< "$verify_json" | grep -Eo 'VERDICT: (PASS|FAIL)' | tail -1 | sed 's/VERDICT: //')" || true
+  verdict="$(jq -r '.result // ""' <<< "$verify_json" | grep -Eo 'VERDICT: (PASS|FAIL)' | tail -1 | sed 's/VERDICT: //')"
   [[ -z "$verdict" ]] && verdict="UNKNOWN"
   if [[ "$verdict" != "PASS" ]]; then
     feedback="$(join_feedback "$lead_failure" "[cross-model verifier report] $(jq -r '.result // ""' <<< "$verify_json")")"
@@ -222,7 +223,7 @@ ${feedback}"
   # high 티어 이중 검증 (19편 리스크 티어링): 다른 어댑터의 2차 검증자도 PASS해야 통과
   if [[ -n "${VERIFIER2:-}" ]]; then
     verify2_json="$("$here/spawn.sh" "$VERIFIER2" verifier "$verify_prompt")" || true
-    verdict2="$(jq -r '.result // ""' <<< "$verify2_json" | grep -Eo 'VERDICT: (PASS|FAIL)' | tail -1 | sed 's/VERDICT: //')" || true
+    verdict2="$(jq -r '.result // ""' <<< "$verify2_json" | grep -Eo 'VERDICT: (PASS|FAIL)' | tail -1 | sed 's/VERDICT: //')"
     if [[ "$verdict2" != "PASS" ]]; then
       verdict="FAIL"
       feedback="$(join_feedback "$lead_failure" "[second verifier report (${VERIFIER2})] $(jq -r '.result // ""' <<< "$verify2_json")")"

@@ -52,6 +52,9 @@ resolve_model() {
 }
 
 model="$(resolve_model "$adapter" "$profile")"
+reasoning_effort="$(jq -r --arg a "$adapter" --arg p "$profile" '
+  .roles.member.reasoningEffortProfiles[$a][$p] // empty
+' <<< "$cfg")"
 
 # 전문 워커 페르소나 주입 (있으면 프롬프트 맨 앞) — 리드 Bash는 한 줄 제약이라 여기서 처리
 # 프론트매터(---)를 벗겨 주입 — 프롬프트가 ---로 시작하면 claude CLI(commander)가
@@ -117,9 +120,9 @@ ${prompt}"
     # env -u MODEL: 리드 세션의 MODEL(claude용 sonnet 등)이 상속되면 codex가 400 에러
     # (2026-07-05 E2E 실측: "The 'sonnet' model is not supported ... Codex")
     if [[ -n "$model" ]]; then
-      ( cd "$root/$domain" && MODEL="$model" SANDBOX=workspace-write "$here/spawn.sh" codex member "$prompt" )
+      ( cd "$root/$domain" && MODEL="$model" REASONING_EFFORT="$reasoning_effort" SANDBOX=workspace-write "$here/spawn.sh" codex member "$prompt" )
     else
-      ( cd "$root/$domain" && env -u MODEL SANDBOX=workspace-write "$here/spawn.sh" codex member "$prompt" )
+      ( cd "$root/$domain" && env -u MODEL REASONING_EFFORT="$reasoning_effort" SANDBOX=workspace-write "$here/spawn.sh" codex member "$prompt" )
     fi
     ;;
   agy)

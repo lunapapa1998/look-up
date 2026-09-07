@@ -12,6 +12,10 @@
 #       워커 보고=.team/results/<id>-<role>.md (역할·태스크별 파일 = 파일당 writer 1개, 동시 쓰기 없음)
 #       완료 신호=.team/signals/<role>-done (R3: claude 역할이 완료 라인을 파일로도 씀 — durable,
 #       에코 오탐·렌더링 공백 유실이 구조적으로 없음. send가 디스패치 시 직전 신호를 소진)
+#       메시지 저널=.team/messages.jsonl — send/wait가 한 줄 append (진실의 원천을 pane 히스토리에서
+#       분리, 백엔드 교체 시 메시지 계약의 기준 문서. 설계: docs/14 §3.3)
+#       send 직렬화=.team/.locks/<role>.lock — pane별 mkdir 락(macOS bash 3.2: flock 없음) +
+#       최소 간격 RESIDENT_SEND_MIN_INTERVAL(기본 2초): 동시 send-keys 끼어들기·연타 주입 방지
 # 센티널 에코 함정: 채팅으로 보내는 메시지에 센티널 리터럴("DONE: <role>")을 넣으면 입력 에코가
 #   미러 로그에 남아 wait가 오탐한다 — 센티널 정의는 프롬프트 파일에만 두고 메시지에서는 우회 지칭.
 # 배관 테스트: RESIDENT_DRY=1 up ... → 에이전트 CLI 대신 bash pane (LLM 비용 0)
@@ -31,6 +35,13 @@ verb="${1:?usage: tmux.sh <up|add|send|read|wait|down> ...}"; shift
 
 strip_ansi() { perl -pe 's/\e\[[0-9;?]*[A-Za-z]//g; s/\e\][^\a]*(\a|\e\\)//g; s/\r//g'; }
 
+# 중앙 메시지 저널: 메시지 흐름의 진실을 pane 히스토리가 아니라 파일에 남긴다 (사후 분석·재생,
+# tmux→herdr→headless 백엔드 교체 시 계약 기준). 저널 실패가 동사를 죽이면 안 됨 — fail-open
+journal() {
+  jq -cn --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg verb "$1" --arg role "$2" --arg detail "$3" \
+    '{ts: $ts, verb: $verb, role: $role, detail: $detail}' >> "$teamdir/messages.jsonl" 2>/dev/null || true
+}
+
 role_kind() {
   case "$1" in
     lead|member|scout|verifier) printf '%s' "$1" ;;
@@ -40,7 +51,42 @@ role_kind() {
 }
 
 lead_adapter() {
-  printf '%s' "${RESIDENT_LEAD_ADAPTER:-$(jq -r '.roles.lead.adapter // "claude"' <<< "$cfg")}"
+  local value
+  value="${RESIDENT_LEAD_ADAPTER:-$(jq -r '.roles.lead.adapter // "claude"' <<< "$cfg")}"
+  printf '%s' "$value"
+}
+
+member_adapter() {
+  local value
+  value="${RESIDENT_MEMBER_ADAPTER:-$(jq -r '.roles.member.adapter // "claude"' <<< "$cfg")}"
+  printf '%s' "$value"
+}
+
+member_model() {
+  local adapter_name profile model
+  adapter_name="$1"
+  profile="${RESIDENT_MEMBER_PROFILE:-standard}"
+  model="$(jq -r --arg a "$adapter_name" --arg p "$profile" '.roles.member.modelProfiles[$a][$p] // empty' <<< "$cfg")"
+  if [[ -n "$model" ]]; then
+    [[ "$model" == "inherit" ]] && model=""
+    printf '%s' "$model"
+    return
+  fi
+  [[ "$profile" != "standard" ]] && {
+    echo "unknown member model profile: adapter=$adapter_name profile=$profile" >&2
+    exit 1
+  }
+  if [[ "$adapter_name" == "claude" ]]; then
+    model="$(jq -r '.roles.member.model // "sonnet"' <<< "$cfg")"
+  fi
+  printf '%s' "$model"
+}
+
+member_reasoning_effort() {
+  local adapter_name profile
+  adapter_name="$1"
+  profile="${RESIDENT_MEMBER_PROFILE:-standard}"
+  jq -r --arg a "$adapter_name" --arg p "$profile" '.roles.member.reasoningEffortProfiles[$a][$p] // empty' <<< "$cfg"
 }
 
 lead_model() {
@@ -85,6 +131,8 @@ pane_of() {
 
 load_team_context() {
   team="$1"
+  # 짧은 팀 이름(web·qa 등, 슬래시 없음)은 factory/teams/<이름>.yaml로 해석한다
+  [[ -f "$team" || "$team" == */* ]] || team="$root/factory/teams/$team.yaml"
   [[ -f "$team" ]] || team="$root/$team"
   [[ -f "$team" ]] || { echo "team not found: $team" >&2; exit 1; }
   cfg="$(python3 "$root/factory/teamcfg.py" "$team")"
@@ -152,7 +200,8 @@ boot_cmd() {
       esac
       ;;
     member)
-      m="$(jq -r '.roles.member.model // "sonnet"' <<< "$cfg")"
+      adapter_name="$(member_adapter)"
+      m="$(member_model "$adapter_name")"
       # Edit(<teamdir>/signals/**): R3 완료 신호 파일 쓰기 허용 — 주의: 자동 승인은 Edit() 규칙이
       # 파일 편집 도구 전체(Write 포함)를 관장하고, Write() 규칙은 효력이 없다 (R3 프로브 실측).
       # 경로는 state 스코프 반영 필수 — 프롬프트는 .team/<state>/signals/에 쓰라고 지시하는데
@@ -160,12 +209,26 @@ boot_cmd() {
       # results/**: R4 워커 보고 파일. shared.md는 의도적으로 제외 — 보드 단일 writer(리드)를
       # 프롬프트 규약이 아니라 권한 레벨에서 강제한다.
       local rel_teamdir="${teamdir#$root/}"
-      t="Read,Grep,Glob,Bash(just check:*),Edit($rel_teamdir/signals/**),Edit($rel_teamdir/results/**)"
+      t="Read,Grep,Glob,Bash(just check:*),Edit($rel_teamdir/signals/**),Edit($rel_teamdir/results/**),Edit($rel_teamdir/replies/**)"
       while IFS= read -r d; do
         [[ -z "$d" ]] && continue
         t="$t,Edit($d/**),Write($d/**)"
       done <<< "$(jq -r '.domains[]?' <<< "$cfg")"
-      printf '%sclaude --permission-mode default --model %q --allowedTools %q' "$state_env" "$m" "$t"
+      case "$adapter_name" in
+        claude)
+          printf '%sclaude --permission-mode default --model %q --allowedTools %q' "$state_env" "$m" "$t"
+          ;;
+        codex)
+          effort="$(member_reasoning_effort "$adapter_name")"
+          printf '%scodex -s workspace-write' "$state_env"
+          [[ -n "$m" ]] && printf ' -m %q' "$m"
+          [[ -n "$effort" ]] && printf ' -c %q' "model_reasoning_effort=\"$effort\""
+          ;;
+        *)
+          echo "unsupported RESIDENT_MEMBER_ADAPTER: $adapter_name (claude|codex)" >&2
+          exit 1
+          ;;
+      esac
       ;;
     scout)
       # R2: 읽기 전용 조사 상주 — agy 대화형 + sandbox (Antigravity 구독)
@@ -194,8 +257,9 @@ up)
   fi
   load_team_context "$team"
   tmux has-session -t "$session" 2>/dev/null && { echo "session already up: $session (just team-down first)" >&2; exit 1; }
-  mkdir -p "$teamdir/panes" "$teamdir/prompts" "$teamdir/signals" "$teamdir/tasks" "$teamdir/results"
+  mkdir -p "$teamdir/panes" "$teamdir/prompts" "$teamdir/signals" "$teamdir/tasks" "$teamdir/results" "$teamdir/replies"
   rm -f "$teamdir/signals/"*   # 이전 세션의 stale 신호 제거
+  rm -rf "$teamdir/.locks"     # 이전 세션의 stale send 락·간격 타임스탬프 제거
   # 팀 보드(R4): 리드 단일 writer. 없을 때만 스켈레톤 생성 — 이전 세션 보드가 있으면 보존해
   # 재기동 리드가 이어받는다 (restart resilience). 리셋 판단은 리드 프롬프트 규칙 8의 몫.
   if [[ ! -f "$teamdir/shared.md" ]]; then
@@ -211,7 +275,11 @@ up)
         la="$(lead_adapter)"
         plan="$plan lead=$la/$(lead_model "$la")"
         ;;
-      member) plan="$plan $role=claude/$(jq -r '.roles.member.model // "sonnet"' <<< "$cfg")";;
+      member)
+        ma="$(member_adapter)"
+        plan="$plan $role=$ma/$(member_model "$ma")"
+        [[ -n "$(member_reasoning_effort "$ma")" ]] && plan="$plan($(member_reasoning_effort "$ma"))"
+        ;;
       scout)  plan="$plan scout=agy";;
       verifier) plan="$plan verifier=codex";;
     esac
@@ -236,6 +304,14 @@ up)
     role_list+=("$role"); pane_list+=("$pane")
   done
   tmux select-layout -t "$session:0" tiled >/dev/null
+  # pane 배지: 네이티브 agent teams 뷰처럼 각 pane 하단 우측에 @역할명 컬러 칩을 띄운다.
+  # window 옵션이라 이후 add로 붙는 pane에도 자동 적용, 세션 스코프라 전역 tmux.conf 오염 없음.
+  # 색: lead=파랑, verifier=보라, scout=초록, 그 외(worker/member)=노랑
+  tmux set-option -t "$session:0" -w pane-border-status bottom
+  tmux set-option -t "$session:0" -w pane-border-format \
+    '#[align=right]#{?#{==:#{pane_title},lead},#[fg=colour235]#[bg=colour110],#{?#{==:#{pane_title},verifier},#[fg=colour235]#[bg=colour176],#{?#{==:#{pane_title},scout},#[fg=colour235]#[bg=colour150],#[fg=colour235]#[bg=colour221]}}} @#{pane_title} #[default]'
+  tmux set-option -t "$session" pane-border-style 'fg=colour240'
+  tmux set-option -t "$session" pane-active-border-style 'fg=colour110'
 
   ros='{}'
   for i in "${!role_list[@]}"; do
@@ -270,7 +346,7 @@ add)
   team="$(jq -r '.team' "$roster")"
   load_team_context "$team"
   tmux has-session -t "$session" 2>/dev/null || { echo "session not found: $session" >&2; exit 1; }
-  mkdir -p "$teamdir/panes" "$teamdir/prompts" "$teamdir/signals" "$teamdir/tasks" "$teamdir/results"
+  mkdir -p "$teamdir/panes" "$teamdir/prompts" "$teamdir/signals" "$teamdir/tasks" "$teamdir/results" "$teamdir/replies"
 
   for role in "${roles[@]}"; do
     if jq -e --arg r "$role" '.roles[$r] != null' "$roster" >/dev/null; then
@@ -310,10 +386,31 @@ send)
   role="${1:?usage: send <role> \"<text>\"}"; text="${2:?text required}"
   text="${text//$'\n'/ }"   # 단일 라인 강제 (cmux 교훈: 개행 = 미완성 프롬프트 조기 발사)
   pane="$(pane_of "$role")"
+  # pane별 직렬화 + 최소 간격 — 주입 레이스의 최소 보험 (pane→headless 이주 레퍼런스들이 공통으로
+  # 겪은 "잘린 입력/밟힌 출력"): 두 프로세스가 같은 pane에 동시에 send-keys하면 문자가 끼어들고,
+  # 연타 디스패치는 TUI 입력 큐를 흔든다. 큐+재시도 전체 기계는 과잉(우리 프로토콜은 신호 이후
+  # 디스패치가 기본이라 충돌 창이 좁음) — 락과 간격만 둔다. 하드킬로 락이 남으면 타임아웃 후
+  # 에러 메시지의 rmdir 힌트로 수동 해소.
+  lockroot="$teamdir/.locks"; mkdir -p "$lockroot"
+  lock="$lockroot/$role.lock"; lock_waited=0
+  until mkdir "$lock" 2>/dev/null; do
+    (( lock_waited >= ${RESIDENT_SEND_LOCK_TIMEOUT:-30} )) \
+      && { echo "send lock timeout (${lock_waited}s): $role — stale lock? rmdir '$lock'" >&2; exit 1; }
+    sleep 1; lock_waited=$((lock_waited + 1))
+  done
+  trap 'rmdir "$lock" 2>/dev/null || true' EXIT
+  min_gap="${RESIDENT_SEND_MIN_INTERVAL:-2}"
+  last_file="$lockroot/$role.last"
+  if [[ -f "$last_file" ]]; then
+    gap=$(( $(date +%s) - $(cat "$last_file" 2>/dev/null || echo 0) ))
+    (( gap < min_gap )) && sleep $(( min_gap - gap ))
+  fi
   rm -f "$teamdir/signals/$role-done"   # 새 태스크 디스패치 = 직전 완료 신호 소진 (stale 오탐 방지)
   tmux send-keys -t "$pane" -l -- "$text"
   sleep 0.4
   tmux send-keys -t "$pane" Enter
+  date +%s > "$last_file"
+  journal send "$role" "$text"
   ;;
 
 read)
@@ -336,14 +433,19 @@ wait)
   waited=0
   until { [[ -f "$sig" ]] && LC_ALL=C grep -aqF -- "$pattern" "$sig"; } \
      || tmux capture-pane -p -t "$pane" -S -2000 2>/dev/null | LC_ALL=C grep -aqF -- "$pattern"; do
-    (( waited >= timeout )) && { echo "wait timeout (${timeout}s): $role / $pattern" >&2; exit 1; }
+    (( waited >= timeout )) && {
+      journal wait "$role" "TIMEOUT(${timeout}s): $pattern"
+      echo "wait timeout (${timeout}s): $role / $pattern" >&2; exit 1
+    }
     sleep 2; waited=$((waited + 2))
   done
   if [[ -f "$sig" ]] && LC_ALL=C grep -aqF -- "$pattern" "$sig"; then
-    LC_ALL=C grep -aF -- "$pattern" "$sig" | tail -1
+    matched="$(LC_ALL=C grep -aF -- "$pattern" "$sig" | tail -1)"; matched_src=signal
   else
-    tmux capture-pane -p -t "$pane" -S -2000 | LC_ALL=C grep -aF -- "$pattern" | tail -1
+    matched="$(tmux capture-pane -p -t "$pane" -S -2000 | LC_ALL=C grep -aF -- "$pattern" | tail -1)"; matched_src=screen
   fi
+  journal wait "$role" "$matched_src: $matched"
+  printf '%s\n' "$matched"
   ;;
 
 down)

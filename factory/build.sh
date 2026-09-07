@@ -4,7 +4,8 @@
 #   low    → pipeline.sh      (2계층 Builder–Verifier. scout·lead 없음 — 소형/단일 파일 변경)
 #   medium → team-pipeline.sh (3계층 scout→lead→member→verifier. 기본값)
 #   high   → team-pipeline.sh + MAX_ATTEMPTS=3 + 이중 교차 검증(VERIFIER2, 기본 agy)
-# 사용법: build.sh <spec.md> [team.yaml]   (= just build <spec.md> [team.yaml])
+# 사용법: build.sh <spec.md> [team.yaml|팀이름]   (= just build <spec.md> [team])
+#         팀은 yaml 경로 또는 짧은 이름(web·qa 등 — team-pipeline.sh가 factory/teams/<이름>.yaml로 해석)
 # 옵션(환경변수): DRY_RUN=1 → 실행 없이 디스패치 결정만 JSON 출력
 # 주의: low 티어의 체크포인트 커밋은 도메인 스코프가 아니다(add -A) — orchestrate 병렬에 섞지 말 것.
 set -euo pipefail
@@ -12,13 +13,11 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 spec="${1:?usage: build.sh <spec.md> [team.yaml]}"
 team="${2:-$here/teams/docs.yaml}"
-# 팀 인자를 이름(backend)으로도 받는다 — 파일이 아니면 teams/<name>.yaml 로 해석 (카탈로그 사용법 `just build <spec> [team]`).
-[[ ! -f "$team" && -f "$here/teams/$team.yaml" ]] && team="$here/teams/$team.yaml"
 [[ -f "$spec" ]] || { echo "{\"ok\":false,\"error\":\"spec not found: $spec\"}"; exit 1; }
 
-# Read the last `- risk:` line from Metadata. Keep the Korean heading for backward compatibility.
-# First token only — template convention allows a trailing note (e.g. `- risk: medium — multi-file`).
-risk="$(awk '/^## (Metadata|메타데이터)/{f=1;next} /^## /{f=0} f' "$spec" \
+# 메타데이터 섹션의 마지막 `- risk:` 선언을 읽는다 (append-only — 나중 선언이 이긴다)
+# 티어 값은 첫 토큰만 — 템플릿 관례상 뒤에 `— 설명`이 붙는다 (예: `- risk: medium — 다중 파일`)
+risk="$(awk '/^## 메타데이터/{f=1;next} /^## /{f=0} f' "$spec" \
   | grep -E '^- risk:' | tail -1 | sed 's/^- risk:[[:space:]]*//' | awk '{print $1}' | tr -d '[:space:]' || true)"
 risk="${risk:-medium}"
 

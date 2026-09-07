@@ -21,10 +21,12 @@ mkdir -p "$here/logs"
 # 쪼개지면 집계가 불완전해진다 → 프로젝트 필드를 붙여 ~/.factory/에도 이중 기록한다.
 global_dir="${FACTORY_GLOBAL_DIR:-$HOME/.factory}"
 project="$(basename "$(dirname "$here")")"
-mkdir -p "$global_dir"
+mkdir -p "$global_dir" 2>/dev/null || true
 ledger_append() {  # $1 = usage 요약 JSON 한 줄
   printf '%s\n' "$1" >> "$here/logs/usage-ledger.jsonl"
-  jq -c --arg project "$project" '. + {project: $project}' <<< "$1" >> "$global_dir/usage-ledger.jsonl"
+  # 전역 기록은 best-effort: 샌드박스 안(예: codex 리드가 멤버 스폰)에서는 $HOME 쓰기가
+  # 막힐 수 있고, 그때 set -e로 스폰 전체가 죽으면 안 된다 (2026-07-15 실측). 로컬 원장이 원본.
+  jq -c --arg project "$project" '. + {project: $project}' <<< "$1" 2>/dev/null >> "$global_dir/usage-ledger.jsonl" || true
 }
 
 chain=("$adapter")
