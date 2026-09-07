@@ -9,6 +9,8 @@
 - modified: 2026-09-07 두뇌 세션 — "위를 봐요" MVP 첫 조각 프론트(Flutter) 스펙화, backend(001) 계약 소비
 - refs: `(원 제안서 PDF — 저장소 미포함)`(원 제안서), [001-ecolog-backend.md](001-ecolog-backend.md)(계약 publisher — 선행)
 - risk: medium
+- modified: 2026-09-07, lead: flutter-lead(claude sonnet)
+- modified: 2026-09-07, lead: flutter-lead(claude sonnet) — 빌드 #2 FAIL 후 두뇌 스펙 샤프닝 항목 2건 위임·검증·완료
 
 ## Purpose
 
@@ -56,10 +58,10 @@ apps/flutter에 Flutter 프로젝트를 스캐폴드하고, Riverpod 상태관�
 
 Flutter 프로젝트를 세우고 001 계약을 코드로 미러한다.
 
-- [ ] apps/flutter에 Flutter 프로젝트 스캐폴드(pubspec: flutter_riverpod, http; analysis_options 린트)
-- [ ] `models/observation.dart`: 001 `.team/member.md` 계약을 미러한 Observation·SpeciesType·Badge + fromJson/toJson
-- [ ] `api/ecolog_api.dart`: `EcologApi` 인터페이스(list/get/create/update/delete/badges) + HTTP 구현 + 목 구현
-- [ ] 모델 직렬화 유닛 테스트(계약 예시 JSON 라운드트립)
+- [x] apps/flutter에 Flutter 프로젝트 스캐폴드(pubspec: flutter_riverpod, http; analysis_options 린트)
+- [x] `models/observation.dart`: 001 `.team/member.md` 계약을 미러한 Observation·SpeciesType·Badge + fromJson/toJson
+- [x] `api/ecolog_api.dart`: `EcologApi` 인터페이스(list/get/create/update/delete/badges) + HTTP 구현 + 목 구현
+- [x] 모델 직렬화 유닛 테스트(계약 예시 JSON 라운드트립)
 
 **페이즈 검증**: `cd apps/flutter && flutter analyze`(무경고) + `flutter test test/`(모델·API 테스트) 통과
 
@@ -67,18 +69,18 @@ Flutter 프로젝트를 세우고 001 계약을 코드로 미러한다.
 
 세 화면을 Riverpod 상태 위에 붙인다.
 
-- [ ] Riverpod providers: 관찰 목록·배지 fetch(로딩/에러/데이터), 생성/수정/삭제 후 목록 무효화
-- [ ] `diary_list_screen`: 관찰 카드 목록 + 빈 상태 + 종류 아이콘/색, FAB → 작성 화면
-- [ ] `observation_form_screen`: 종류 토글·종명·메모·사진 선택(플레이스홀더 허용)·위치 옵션, 저장 시 API 호출
-- [ ] `badges_screen`: 배지 그리드(획득 강조·진행도 표시)
-- [ ] 위젯 테스트: 목 API 주입으로 목록 렌더·작성 제출·배지 렌더 검증
+- [x] Riverpod providers: 관찰 목록·배지 fetch(로딩/에러/데이터), 생성/수정/삭제 후 목록 무효화
+- [x] `diary_list_screen`: 관찰 카드 목록 + 빈 상태 + 종류 아이콘/색, FAB → 작성 화면
+- [x] `observation_form_screen`: 종류 토글·종명·메모·사진 선택(플레이스홀더 허용)·위치 옵션, 저장 시 API 호출
+- [x] `badges_screen`: 배지 그리드(획득 강조·진행도 표시)
+- [x] 위젯 테스트: 목 API 주입으로 목록 렌더·작성 제출·배지 렌더 검증
 
 **페이즈 검증**: `cd apps/flutter && flutter analyze`(무경고) + `flutter test`(전체) 통과
 
 ### Phase 3: 통합·문서
 
-- [ ] `apps/flutter/README.md`: 실행법(`flutter run`), backend base URL 설정 방법, 화면 구조, 001 계약 링크
-- [ ] `just flutter-check` 통과 확인
+- [x] `apps/flutter/README.md`: 실행법(`flutter run`), backend base URL 설정 방법, 화면 구조, 001 계약 링크
+- [x] `just flutter-check` 통과 확인
 
 **페이즈 검증**: `just flutter-check` 통과
 
@@ -93,11 +95,26 @@ just flutter-check
 
 ## Notes (에이전트 자유 구역)
 
-- **[선행조건 1, 두뇌 직접 — 발사 전 완료]** lookup `justfile`에 `flutter-check`(= `cd apps/flutter && flutter analyze && flutter test`) 레시피가 없다. justfile은 flutter 팀 도메인 밖이라 멤버가 추가 불가 — 발사 전 두뇌가 직접 추가.
-- **[선행조건 2, 런 내 실행성 — 미해결 리스크]** flutter 레인이 백지라 `flutter create` 스캐폴딩이 필요한데, 런 내 멤버가 flutter SDK/CLI를 실행할 수 있는지 불확실(office의 npm 미실행 선례와 동일 위험). 옵션: (A) 두뇌가 발사 전 `flutter create`로 스캐폴드만 심고 멤버는 lib/·test/만 채운다, (B) flutter SDK 런 내 가용 확인 후 스캐폴딩까지 멤버에 위임. **발사 전 (A)/(B) 결정 필요.**
+- **[선행조건 1, 두뇌 직접 — 완료]** `justfile`에 `flutter-check` 레시피 존재 확인.
+- **[선행조건 2, 런 내 실행성 — 해결]** 두뇌가 발사 전 (A) 경로로 `flutter create` 스캐폴드를 이미 심어둠(commit 0431c52). 리드 세션에서 `just check`로 flutter analyze/test 정상 실행 확인 — flutter SDK/CLI 런 내 가용.
+- **[리드 노트]** 리드 Bash는 `just member-build`/`just check` 프리픽스만 화이트리스트라 `flutter analyze` 등 직접 실행 불가 — `just check`(집계)로만 검증. `just flutter-check` 단독 호출도 화이트리스트 밖이라 불가, `just check`로 대체.
 - **[의존]** 이 스펙은 001 backend가 PASS하고 `.team/member.md` 계약이 확정된 뒤 발사해야 한다(계약 우선). 001 미완 상태로 발사하면 미러할 계약이 없어 스키마를 추측하게 됨.
 - 후속 조각 예약: 적합도 점수 카드 화면(점수+근거), 지도/스팟 리스트(에코 도보 큐레이션), 낮-밤 패키지, 그린 마일리지, '수직적 여행' 브랜딩 디자인 패스.
 
 ## Amendments (빌드 후 변경 이력, append-only)
 
-- (아직 없음 — 빌드 시작 시 리드가 기록)
+- Phase 1의 models/observation.dart, api/ecolog_api.dart, test/models/observation_test.dart는 발사 시점에 이미 파일시스템에 존재(브레인 사전 작업 추정)했으나 `.team/member.md`와 pubspec.yaml(flutter_riverpod 누락)이 미완이었음 — 첫 위임에서 정리·문서화·의존성 추가로 마무리.
+- Provider 이름은 스펙 예시(`apiProvider`)와 다르게 `ecologApiProvider`로 구현됨(멤버 산출물, 기능 동일) — Notes 참고.
+- Flutter 위젯 테스트 워커(flutter-engineer)는 Bash/삭제 도구가 없어 `test/widget_test.dart`(flutter create 기본 카운터 스모크 테스트)를 삭제하지 못하고 `void main() {}` no-op으로 대체함. `just check`는 통과하지만 죽은 빈 파일이 남아있음 — 다음 유지보수 세션에서 브레인/직접 편집으로 파일 삭제 권장.
+- **2026-09-07 두뇌(빌드 #2 검증 FAIL 후 스펙 샤프닝):** 크로스모델 검증기가 두 계약/스펙 위반을 지적. 둘 다 모호성이 아닌 명확한 누락이므로 못 박는다.
+  1. **[계약 미러 위반] `FakeEcologApi`의 배지 `name`·`description`이 영어(`First Step`…)로 하드코딩됨.** 백엔드 실제 계약(`apps/backend/.team/member.md` 72행 "Korean display name", 예시 JSON 178~218행 및 `app/badges.py`)은 **한국어 고정 문자열**을 반환한다. 테스트 목은 진실의 원천을 미러해야 하므로(설계제약 1), 아래 5개 배지의 `name`/`description`을 정확히 이 문자열로 교체하고, 관련 위젯/유닛 테스트 기대값도 한국어로 맞춘다:
+     - `first_step`: name=`첫 관찰`, description=`첫 관찰 기록을 남겼어요`, targetCount=1
+     - `explorer`: name=`탐험가`, description=`총 5개의 관찰을 기록했어요`, targetCount=5
+     - `master`: name=`관찰 마스터`, description=`총 20개의 관찰을 기록했어요`, targetCount=20
+     - `bird_watcher`: name=`새 관찰자`, description=`새(bird) 관찰을 5회 기록했어요`, targetCount=5
+     - `star_gazer`: name=`별 관찰자`, description=`별(star) 관찰을 5회 기록했어요`, targetCount=5
+  2. **[화면 누락] `diary_list_screen.dart` 관찰 카드에 사진 썸네일이 없다.** Relevant Files는 카드에 "사진 썸네일"을 명시했다. 각 카드에 `photoUrl`이 있으면 `Image.network(photoUrl)`(로딩/에러 시 플레이스홀더로 폴백)로 썸네일을 렌더하고, `photoUrl`이 null이면 종류 아이콘 기반 플레이스홀더(bird/star 구분)를 표시한다. 위젯 테스트에 photoUrl 유/무 두 경우의 썸네일 렌더 검증을 추가한다.
+- **2026-09-07 flutter-lead(빌드 #2 FAIL 사후 조치, 완료):** 위 두 항목을 `apps/flutter` 도메인 멤버(flutter-engineer)에 순차 위임·검증함.
+  1. 배지 한국어화: `lib/api/ecolog_api.dart`의 `FakeEcologApi._badgeCatalog` 5개 name/description을 스펙 지정 한국어 문자열로 교체, `test/screens/badges_screen_test.dart`의 5개 `expect(find.text(...))`도 동일하게 갱신. 멤버가 `.team/member.md` 편집을 1차 시도에서 거부당해(권한) 문서만 누락되었던 것을 후속 위임 1건으로 마무리(241행 갱신).
+  2. 사진 썸네일: `diary_list_screen.dart`의 `_ObservationCard`가 이제 56x56 고정 박스에서 `photoUrl` 유무에 따라 `Image.network`(loadingBuilder/errorBuilder 포함, 에러 시 아이콘 플레이스홀더로 폴백) 또는 종류 아이콘(`_SpeciesIconPlaceholder`)을 렌더. `test/screens/diary_list_screen_test.dart`에 photoUrl 유(Image 위젯 존재)/무(species 아이콘 존재) 두 케이스 추가.
+  - 검증: 리드가 각 위임 후 변경 파일을 직접 Read로 스팟체크했고, 최종적으로 `just check` 1회 실행으로 backend pytest 32건, `flutter analyze`(무경고), `flutter test` 15건 전부 통과 확인.

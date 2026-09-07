@@ -1,0 +1,170 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/observation.dart';
+import '../state/providers.dart';
+import 'badges_screen.dart';
+import 'observation_form_screen.dart';
+
+/// Home screen: list of observations, backed by [observationsProvider].
+class DiaryListScreen extends ConsumerWidget {
+  const DiaryListScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final observationsAsync = ref.watch(observationsProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Observation Diary'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.emoji_events_outlined),
+            tooltip: 'Badges',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BadgesScreen()),
+            ),
+          ),
+        ],
+      ),
+      body: observationsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stackTrace) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$error'),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => ref.invalidate(observationsProvider),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+        data: (observations) => observations.isEmpty
+            ? const _EmptyState()
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: observations.length,
+                itemBuilder: (context, index) =>
+                    _ObservationCard(observation: observations[index]),
+              ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ObservationFormScreen()),
+        ),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.eco_outlined,
+            size: 64,
+            color: Theme.of(context).colorScheme.outline,
+          ),
+          const SizedBox(height: 16),
+          const Text('No observations yet.'),
+          const SizedBox(height: 4),
+          const Text('Tap + to record your first bird or star sighting.'),
+        ],
+      ),
+    );
+  }
+}
+
+class _ObservationCard extends StatelessWidget {
+  final Observation observation;
+
+  const _ObservationCard({required this.observation});
+
+  static String _formatDateTime(DateTime dt) {
+    final local = dt.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isBird = observation.speciesType == SpeciesType.bird;
+    final photoUrl = observation.photoUrl;
+    final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: SizedBox(
+          width: 56,
+          height: 56,
+          child: hasPhoto
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    photoUrl,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) =>
+                        _SpeciesIconPlaceholder(isBird: isBird),
+                  ),
+                )
+              : _SpeciesIconPlaceholder(isBird: isBird),
+        ),
+        title: Text(observation.speciesName),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (observation.note != null && observation.note!.isNotEmpty)
+              Text(observation.note!),
+            Text(_formatDateTime(observation.observedAt)),
+          ],
+        ),
+        isThreeLine: observation.note != null && observation.note!.isNotEmpty,
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ObservationFormScreen(existing: observation),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SpeciesIconPlaceholder extends StatelessWidget {
+  final bool isBird;
+
+  const _SpeciesIconPlaceholder({required this.isBird});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Icon(
+        isBird ? Icons.flutter_dash : Icons.star,
+        color: isBird ? Colors.brown : Colors.indigo,
+      ),
+    );
+  }
+}
