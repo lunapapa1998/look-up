@@ -12,6 +12,8 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 spec="${1:?usage: build.sh <spec.md> [team.yaml]}"
 team="${2:-$here/teams/docs.yaml}"
+# 팀 인자를 이름(backend)으로도 받는다 — 파일이 아니면 teams/<name>.yaml 로 해석 (카탈로그 사용법 `just build <spec> [team]`).
+[[ ! -f "$team" && -f "$here/teams/$team.yaml" ]] && team="$here/teams/$team.yaml"
 [[ -f "$spec" ]] || { echo "{\"ok\":false,\"error\":\"spec not found: $spec\"}"; exit 1; }
 
 # Read the last `- risk:` line from Metadata. Keep the Korean heading for backward compatibility.

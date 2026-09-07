@@ -10,6 +10,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 root="$(dirname "$here")"
 spec="${1:?usage: team-pipeline.sh <spec.md> [team.yaml]}"
 team="${2:-$here/teams/docs.yaml}"
+# 팀을 이름(backend)으로도 받는다 — 파일이 아니면 teams/<name>.yaml 로 해석.
+[[ ! -f "$team" && -f "$here/teams/$team.yaml" ]] && team="$here/teams/$team.yaml"
 [[ -f "$spec" ]] || { echo "{\"ok\":false,\"error\":\"spec not found: $spec\"}"; exit 1; }
 [[ -f "$team" ]] || { echo "{\"ok\":false,\"error\":\"team not found: $team\"}"; exit 1; }
 
