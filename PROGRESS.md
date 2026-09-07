@@ -19,6 +19,15 @@
 - **PRD:** [`docs/PRD-look-up.md`](docs/PRD-look-up.md) — v1.0. 화면 9종·5-레이어 데이터 모델·비즈니스 모델·로드맵. 후속 조각 '적합도 점수 엔진'은 PRD 3장(5-레이어 → 0~100)을 근거로 스펙화.
 - **UI 목업:** [`docs/ui-mockups/`](docs/ui-mockups/README.md) — 화면 9종 HTML 스냅샷 + `logo.svg` + 디자인 토큰 요약. **정본은 Figma** (`VIF8Yc0dC2Qq86GOFZkJUA`). Flutter ThemeData 시드는 README의 토큰(secondary `#42e1be`, tertiary `#f5bc7e`, bg `#08122d`)을 정본으로.
 
+### API 키 발급 착수 (2026-09-08, 커밋 `2344011`)
+
+적합도 점수 엔진(후속 조각 3-a)용 OpenAPI 키 확보 시작. 현황·발급처 체크리스트: [`docs/api-keys-status.md`](docs/api-keys-status.md). **키 값은 gitignore된 `.env`에만** 저장(커밋 금지, 개발 노출분은 운영 전 재발급 권장).
+
+- **발급 완료:** data.go.kr 공통 서비스키 1개(두루누비·TourAPI 4.0·관광사진·KASI 천문현상/출몰시각/월령 공용) + OpenWeatherMap(임시).
+- **날씨는 임시로 OpenWeatherMap** 사용(`WEATHER_PROVIDER=openweathermap`). 최종은 기상청 단기예보로 교체 예정(`kma`로 스위치). OWM은 visibility 10km 캡이라 "시정 25km+" 판정 불가 — 공모전 가점(국내 공공데이터) 겸 최종 교체 필요.
+- **추가 발급 대기:** (data.go.kr 활용신청만) 기상청 단기예보·생태관광정보·관광빅데이터 / (별도 키) 바다누리 해양조석·eBird / (후속 협의) KOBIS·국립생태원.
+- **키 불필요:** 빛공해는 VIIRS 위성광 근사, 탄소계수는 정적표 내장.
+
 ## MVP 커팅 (2026-09-07)
 
 전체 5기능(실시간 생태 가이드 / 에코 도보 큐레이션 / 디지털 생태 일기 / 낮-밤 패키지 / 그린 마일리지) 중 **외부 API 의존이 가장 낮은 '디지털 생태 일기 CRUD'** 부터.
