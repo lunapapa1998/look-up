@@ -13,8 +13,24 @@ default:
     @just --list
 
 # ── Validation Commands (verifier allowlist) ──────────────────
-# TODO: replace this with project validation such as test/lint/build. Pipelines and specs only run just recipes.
+# Each app lane owns a team-scoped check; specs use these directly so a blank
+# sibling lane never fails a run. `check` aggregates whatever has been scaffolded.
 
-# Aggregate validation. This is the default for spec Validation Commands and lead self-checks.
+# backend lane: FastAPI unit/integration tests.
+backend-check:
+    cd apps/backend && uv run pytest -q
+
+# flutter lane: static analysis + widget/unit tests.
+flutter-check:
+    cd apps/flutter && flutter analyze && flutter test
+
+# Aggregate validation — runs each lane check that has been scaffolded, skips blank lanes.
+# This is the default for lead self-checks; individual specs pin their own lane check.
 check:
-    @echo "TODO: replace this project's validation recipe in justfile: check" && exit 1
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just check-teams
+    ran=0
+    if [ -f apps/backend/pyproject.toml ]; then just backend-check; ran=1; fi
+    if [ -f apps/flutter/pubspec.yaml ]; then just flutter-check; ran=1; fi
+    if [ "$ran" = 0 ]; then echo "check: no scaffolded lanes yet (nothing to validate)"; fi
