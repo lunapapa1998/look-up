@@ -53,11 +53,20 @@
 - `just check` 전체 green: backend pytest 32 + flutter analyze 무경고 + flutter test 15.
 - **크로스모델 검증(claude 빌드 ↔ codex 검증)이 실제 결함 3건을 전부 잡음** — 셋 다 `validation:true`(테스트 통과)였으나 verify가 FAIL. 상세 부검: [`docs/verification-postmortem-mvp1.md`](docs/verification-postmortem-mvp1.md).
 
+## 브랜딩 디자인 패스 완성 (2026-09-08) ✅
+
+- **003 flutter** PASS, 커밋 `39e02b5`, attempts=2. 목업(정본 Figma) 토큰 → `lib/theme/app_theme.dart`(딥네이비 다크 ColorScheme + Space Grotesk/Inter/JetBrains Mono google_fonts 3종 매핑) 정본화 후 기존 3화면 리스킨 + 영어→한글 카피. 동작·API 계약 불변(비주얼/카피 전용). `specs/003-lookup-branding-flutter.md`.
+- **크로스모델 검증(codex)이 또 실제 결함 2건을 잡음**(validation:true였으나 verify FAIL): (1) JetBrains Mono가 TextTheme에 실제 매핑 안 됨(배지 카운트 무스타일), (2) 에러 상태가 raw 예외(영문) 노출 → 고정 한글 문구로 교체. 스펙 003 Amendments에 기록. MVP1 부검(3건) 패턴과 일관 — 크로스모델 verify의 가치 재확인.
+- species 색 매핑: 새(bird)=골드 tertiary(낮) / 별(star)=틸 secondary(밤).
+
 ## 다음 세션 시작점 (후속 조각)
 
-1. **미커밋 factory 유지보수 3파일** — `factory/adapters/agy.sh`(모델 `3.5→3.6 Flash Low`), `factory/build.sh`·`factory/team-pipeline.sh`(팀 이름→`teams/<name>.yaml` 해석). 커밋 필요.
-2. **`just factory-sync` 검토** — 로컬 core가 factory-template보다 뒤처짐(팀 이름 해석이 템플릿엔 이미 canonical). sync로 로컬 임시패치를 정본으로 대체 권장.
-3. **후속 조각 스펙화** (각 001/002 Notes의 예약분): (a) 적합도 점수 엔진(기상·천문·조석·빛공해 OpenAPI 융합 → 0~100), (b) 인증·멀티유저, (c) 에코 도보 큐레이션(두루누비·위치기반관광 API), (d) SQLite 영속화, (e) '수직적 여행' 브랜딩 디자인 패스.
+**다음 조각 확정: (a) 적합도 점수 엔진** (공모전 핵심 차별성, backend 계약 publisher). 사용자와 2026-09-08 세션에서 003 다음 작업으로 확정. 근거: API 키 발급 진행 중(data.go.kr 공용키 + OWM 임시), 홈/발견 화면의 적합도 카드(목업 01/02)가 이 계약의 소비처. PRD 3장(5-레이어 → 0~100)을 스펙 근거로 `specs/004-suitability-engine-backend.md` 작성 예정. **주의**: OWM은 visibility 10km 캡이라 "시정 25km+" 판정 불가 → 최종 기상청 단기예보 교체 필요(스펙에 provider 스위치 여지 명시).
+
+기타 예약분: (b) 인증·멀티유저, (c) 에코 도보 큐레이션(두루누비·위치기반관광 API), (d) SQLite 영속화. UI 후속: 하단 탭 IA·홈/발견 셸(적합도 엔진 계약 확정 후).
+
+### 미해결 유지보수 (낮은 우선순위)
+- **`just factory-sync` 검토** — 로컬 core가 factory-template보다 뒤처졌을 수 있음(팀 이름 해석 등). 다음 세션에서 `--dry-run`으로 드리프트 확인 후 판단.
 
 ## 크레딧 감각
 
