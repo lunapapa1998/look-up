@@ -29,11 +29,21 @@
 - justfile `check` TODO → `backend-check`(uv pytest)·`flutter-check`(flutter analyze+test) + 빈 레인 skip + `check-teams` 배선 (커밋 `a9a439c`). 현재 `just check` = exit 0
 - 스펙 001·002 작성, `check-specs` 통과 (커밋 `953374d`)
 
-## 발사 전 남은 결정 3가지 (다음 세션 시작점)
+## MVP 조각 1 (디지털 생태 일기) 완성 (2026-09-07) ✅✅
 
-1. **flutter 스캐폴딩 방식** — `flutter create`를 (A) 두뇌가 발사 전 심어두고 멤버는 `lib/`·`test/`만 채우기 vs (B) 멤버에 위임. **A 추천** (office의 런 내 npm 미실행 전례 때문에 멤버가 SDK CLI를 못 돌릴 위험).
-2. **SDK/어댑터 가용 확인** — `just ping-all`(claude·codex·agy 3종), `uv`·`flutter` 실행 가능 여부.
-3. **발사 순서 (계약 우선)** — `just build specs/001-ecolog-backend.md backend` 를 백그라운드로 발사 → PASS·`.team/member.md` 계약 확정 → 그 다음 `just build specs/002-ecolog-flutter.md flutter`. 001 미완 상태로 002 발사 금지(미러할 계약이 없음).
+- **001 backend** PASS, 커밋 `218efc5`. FastAPI CRUD + 배지, pytest 32건. 계약 published: `apps/backend/.team/member.md`.
+  - 빌드 #1 검증 FAIL(codex): PATCH `observedAt:null`이 응답 스키마(non-null 필수)와 모순. 사용자 결정 "422 거부" → Amendment 명문화 후 재발사 PASS. required-non-null 3필드(speciesType·speciesName·observedAt)는 PATCH 명시적 null 불가.
+- **flutter 스캐폴딩** (A안, 두뇌 선심기) 커밋 `0431c52`.
+- **002 flutter** PASS, 커밋 `0f9aa3a`. Riverpod + 3화면(목록·작성폼·배지그리드) + API 클라이언트(HTTP/Fake) + 위젯테스트. flutter test 15건.
+  - 빌드 #1 FAIL=claude 세션 한도(용량, 스펙 아님) → 리셋 후 재개. 빌드 #2 품질 FAIL 2건(배지 name 영어→한국어 계약 미러 위반, diary 카드 사진 썸네일 누락) → 스펙 002 Amendment로 못 박고 재발사 PASS.
+- `just check` 전체 green: backend pytest 32 + flutter analyze 무경고 + flutter test 15.
+- **크로스모델 검증(claude 빌드 ↔ codex 검증)이 실제 결함 3건을 전부 잡음** — 셋 다 `validation:true`(테스트 통과)였으나 verify가 FAIL. 상세 부검: [`docs/verification-postmortem-mvp1.md`](docs/verification-postmortem-mvp1.md).
+
+## 다음 세션 시작점 (후속 조각)
+
+1. **미커밋 factory 유지보수 3파일** — `factory/adapters/agy.sh`(모델 `3.5→3.6 Flash Low`), `factory/build.sh`·`factory/team-pipeline.sh`(팀 이름→`teams/<name>.yaml` 해석). 커밋 필요.
+2. **`just factory-sync` 검토** — 로컬 core가 factory-template보다 뒤처짐(팀 이름 해석이 템플릿엔 이미 canonical). sync로 로컬 임시패치를 정본으로 대체 권장.
+3. **후속 조각 스펙화** (각 001/002 Notes의 예약분): (a) 적합도 점수 엔진(기상·천문·조석·빛공해 OpenAPI 융합 → 0~100), (b) 인증·멀티유저, (c) 에코 도보 큐레이션(두루누비·위치기반관광 API), (d) SQLite 영속화, (e) '수직적 여행' 브랜딩 디자인 패스.
 
 ## 크레딧 감각
 
