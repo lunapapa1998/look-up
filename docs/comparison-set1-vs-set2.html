@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>위를 봐요 — 목업 비교 (세트1 vs 세트2)</title>
+<style>
+  :root{ --col: 390px; }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0f1320;color:#e7ecf5;font-family:'Noto Sans KR','Apple SD Gothic Neo',sans-serif}
+  header.page{padding:40px 40px 8px;max-width:1000px;margin:0 auto}
+  header.page h1{font-size:26px;margin:0 0 6px;font-weight:800}
+  header.page p{margin:0;color:#9aa4bd;font-size:14px;line-height:1.6}
+  .legend{display:flex;gap:24px;margin:16px 0 0;flex-wrap:wrap}
+  .legend b{display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px}
+  .l1{background:#3a2a12;color:#f4c78a;border:1px solid #6b4a1e}
+  .l2{background:#0e3a33;color:#7fefd8;border:1px solid #1c6b5e}
+  .wrap{max-width:1000px;margin:0 auto;padding:24px 40px 80px}
+  .row{display:grid;grid-template-columns:var(--col) var(--col);gap:56px;margin:0 auto 56px;justify-content:center;align-items:start}
+  .rowtitle{grid-column:1 / -1;font-size:15px;font-weight:700;color:#cbd5f0;border-bottom:1px solid #232a3d;padding-bottom:8px;margin-bottom:4px}
+  .col{width:var(--col)}
+  .tag{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#8b93ab;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .dot{width:8px;height:8px;border-radius:50%}
+  .d1{background:#f4a261}.d2{background:#48e5c2}
+  .stage{width:var(--col);overflow:hidden;position:relative;border-radius:16px;background:#000;box-shadow:0 10px 30px rgba(0,0,0,.45);border:1px solid #222b40}
+  .stage iframe{border:0;position:absolute;top:0;left:0}
+  .note{margin-top:10px;font-size:12px;color:#8b93ab;line-height:1.55}
+  .foot{max-width:1000px;margin:0 auto;padding:0 40px 60px;color:#8b93ab;font-size:12.5px;line-height:1.7}
+  .foot b{color:#cbd5f0}
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>위를 봐요 — 목업 비교</h1>
+  <p>좌: <b style="color:#f4c78a">세트 1 — Stitch 원본</b> (데스크톱 와이드, 축소 렌더) · 우: <b style="color:#7fefd8">세트 2 — Claude 디자인</b> (390px 모바일 네이티브)<br>
+  같은 화면을 나란히 놓았습니다. 세트 1은 1286px 데스크톱 레이아웃을 390px 폭에 맞춰 축소한 것이라 실제로 작게 보입니다 — 이 자체가 "모바일 미최적화" 지점을 보여줍니다.</p>
+  <div class="legend">
+    <b class="l1">세트 1 · 데스크톱 대시보드</b>
+    <b class="l2">세트 2 · 모바일 390px</b>
+  </div>
+</header>
+
+<div class="wrap" id="wrap"></div>
+
+<div class="foot">
+  <p><b>보는 법.</b> 세트 1(좌)은 원본이 데스크톱 폭이라 축소되어 조밀하게 보이고, 세트 2(우)는 폰 실물 크기 그대로입니다.
+  원본을 실제 크기로 보려면 각 파일을 직접 여세요: <b>docs/ui-mockups/*.html</b> (세트1) / <b>docs/ui-mockups-2-claude-design/Look Up App.dc.html</b> (세트2).</p>
+  <p><b>핵심 대비.</b> ① 지도 화면 — 세트1은 실제 지도+GPX+핀, 세트2는 동심원 다이어그램. ② 홈 — 세트1은 텔레메트리 밀도, 세트2는 점수 위계와 여백. ③ 기록 — 세트1은 빈 뷰파인더 대형 박스, 세트2는 캡션 폴백.</p>
+</div>
+
+<script>
+  var S1 = 390/1286; // 세트1 데스크톱(1286) -> 390 축소 비율
+  var BOARD_W = 1286, BOARD_H = 4166;
+  var S2SRC = 'ui-mockups-2-claude-design/Look%20Up%20App.dc.html';
+  var CAP = 900; // 행 최대 높이
+
+  // 각 행: 제목 / 세트1 파일 / 세트2 보드 내 폰 좌표(x,y,w,h)
+  var rows = [
+    {title:'홈 · 낮의 새 모드', s1:'ui-mockups/01-home-discovery-day.html', s2:{x:40, y:250, w:390, h:817}},
+    {title:'홈 · 밤의 별 모드', s1:'ui-mockups/02-home-discovery-night.html', s2:{x:478, y:250, w:390, h:931}},
+    {title:'관찰 지도',        s1:'ui-mockups/03-observation-map.html',    s2:{x:40, y:1268, w:390, h:741}},
+    {title:'새·별 관찰 기록',  s1:'ui-mockups/06-record-observation.html', s2:{x:478, y:2235, w:390, h:855}},
+    {title:'배지 보관함',      s1:'ui-mockups/09-badges.html',             s2:{x:478, y:3288, w:390, h:822}}
+  ];
+
+  var wrap = document.getElementById('wrap');
+  rows.forEach(function(r){
+    var H = Math.min(r.s2.h, CAP);
+
+    var row = document.createElement('div'); row.className='row';
+    var t = document.createElement('div'); t.className='rowtitle'; t.textContent = r.title; row.appendChild(t);
+
+    // 세트1 (좌)
+    var c1 = document.createElement('div'); c1.className='col';
+    c1.innerHTML = '<div class="tag"><span class="dot d1"></span>세트 1 · Stitch 원본</div>';
+    var st1 = document.createElement('div'); st1.className='stage'; st1.style.height = H+'px';
+    var f1 = document.createElement('iframe');
+    f1.src = r.s1;
+    f1.style.width = 1286+'px';
+    f1.style.height = Math.ceil(H/S1)+'px';
+    f1.style.transform = 'scale('+S1+')';
+    f1.style.transformOrigin = 'top left';
+    f1.scrolling = 'no';
+    st1.appendChild(f1); c1.appendChild(st1);
+    c1.insertAdjacentHTML('beforeend','<div class="note">1286px 데스크톱 레이아웃을 390px로 축소 표시</div>');
+    row.appendChild(c1);
+
+    // 세트2 (우) — 보드에서 해당 폰만 크롭
+    var c2 = document.createElement('div'); c2.className='col';
+    c2.innerHTML = '<div class="tag"><span class="dot d2"></span>세트 2 · Claude 디자인</div>';
+    var st2 = document.createElement('div'); st2.className='stage'; st2.style.height = H+'px';
+    var f2 = document.createElement('iframe');
+    f2.src = S2SRC;
+    f2.style.width = BOARD_W+'px';
+    f2.style.height = BOARD_H+'px';
+    f2.style.left = (-r.s2.x)+'px';
+    f2.style.top  = (-r.s2.y)+'px';
+    f2.scrolling = 'no';
+    st2.appendChild(f2); c2.appendChild(st2);
+    c2.insertAdjacentHTML('beforeend','<div class="note">390px 모바일 프레임 실물 크기</div>');
+    row.appendChild(c2);
+
+    wrap.appendChild(row);
+  });
+</script>
+</body>
+</html>

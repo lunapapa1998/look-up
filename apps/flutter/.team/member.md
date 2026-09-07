@@ -372,3 +372,276 @@ contracts. Pipeline validate stage should run
   is correct. Grepped the whole `apps/flutter` tree for `telemetryStyle` and raw `$error`/`'$error'`
   interpolation in `test/` — no remaining references, so no test fallout expected. Pipeline
   validate stage should run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## `lib/screens/placeholder_screen.dart` — reusable "coming soon" screen
+
+- New file only, nothing else touched. `PlaceholderScreen({super.key, required IconData icon,
+  required String title})` — `StatelessWidget`, const constructor, no other params.
+- `Scaffold` with `AppBar(title: Text(title))`; body is a centered `Column` (icon at size 64,
+  `colorScheme.outline`; `title` styled `textTheme.headlineSmall`; fixed Korean copy
+  `준비 중이에요` styled `textTheme.bodyMedium` + `colorScheme.onSurfaceVariant`). All colors/text
+  styles read from `Theme.of(context)` per `app_theme.dart` — no hardcoded colors, no
+  `google_fonts` import.
+- Usable directly inside `Navigator.push`/`IndexedStack`, e.g.
+  `const PlaceholderScreen(icon: Icons.map_outlined, title: '지도')`.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  isn't available here) — statically re-checked field names against `app_theme.dart`
+  (`colorScheme.outline`/`.onSurfaceVariant`, `textTheme.headlineSmall`/`.bodyMedium`). Pipeline
+  validate stage should run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## `lib/screens/app_shell.dart` — bottom-nav shell wiring the 5 top-level tabs
+
+```dart
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
+}
+```
+
+- New file only, nothing else touched. `Scaffold(body: IndexedStack(index: _selectedIndex,
+  children: [...5 screens...]), bottomNavigationBar: NavigationBar(...))` — `IndexedStack` (not
+  route replacement) so tabs preserve their state when switching. Default `_selectedIndex = 0`
+  (발견·큐레이션 active on launch).
+- Tabs 1–4 use the existing `PlaceholderScreen(icon:, title:)` (`Icons.radar`/`Icons.map`/
+  `Icons.hiking`/`Icons.route`); tab 5 uses the existing `DiaryListScreen()`. `NavigationBar` has 5
+  matching `NavigationDestination`s (same icons + Korean labels), `onDestinationSelected` calls
+  `setState` to update `_selectedIndex`.
+- **TODO left in code** (`lib/screens/app_shell.dart`, tab 1 of `_tabs`): tab 1 is a temporary
+  `PlaceholderScreen` stand-in — a later task should replace it with the real home/discovery
+  screen (`lib/screens/discovery_providers.dart`/`lib/models/discovery.dart` already exist as a
+  mock data seam for that screen, per the entry below).
+- `AppShell` is not yet wired into `lib/main.dart` (`MaterialApp.home` still points at
+  `DiaryListScreen()` directly) — out of scope for this task, left for whoever wires navigation.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  isn't available here) — statically re-checked constructors: `PlaceholderScreen({icon:, title:})`
+  and `DiaryListScreen()` both confirmed against their source files. Pipeline validate stage should
+  run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## `lib/state/discovery_providers.dart` — new discovery/suitability mock-data provider file (separate from `providers.dart`)
+
+- **Fully new, separate file** — did not touch `lib/models/observation.dart` or
+  `lib/state/providers.dart`. Only imports `flutter/material.dart` (for `IconData`/`Icons`),
+  `flutter_riverpod`, and `../models/discovery.dart` (models untouched, consumed as-is).
+- `obsModeProvider` — `StateProvider<ObsMode>`, default `ObsMode.day`.
+- `DiscoveryOverview` (new wrapper class, this file only): `{ SuitabilityIndex suitabilityIndex;
+  List<GoldenHour> goldenHours; List<TelemetryReading> telemetry; }`.
+- `discoveryProvider` — `Provider<DiscoveryOverview>`. Mock `SuitabilityIndex(score: 88, label:
+  '매우 쾌적 · 프라임 등급', sqmValue: 21.6, skyClass: 'Class 2 · 최적 암흑 하늘')`; two `GoldenHour`s
+  (day `14:00 - 17:30`, night `21:40 - 01:20`); 4 `TelemetryReading`s using `Icons.waves` (조수),
+  `Icons.visibility` (가시거리), `Icons.air` (바람), `Icons.cloud_queue` (구름량).
+- `hotspotsProvider` — `Provider<List<Hotspot>>`, exactly 2 mock `Hotspot`s: one `ObsMode.day`
+  (탐조/갯벌 copy), one `ObsMode.night` (별자리/다크스카이 copy). Icons for `Hotspot` fields
+  (`scoreIcon`/`overlayIcon`/`HotspotMeta.icon`) are placeholders not specified by the models
+  contract — free to restyle.
+- No new pubspec dependency (`flutter_riverpod` already present).
+- Doc comment at top of file marks all providers as a mock seam for the future
+  fitness/suitability engine backend API (forward-design note only, no override mechanism yet).
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  isn't available here) — statically re-checked every field name/type against
+  `lib/models/discovery.dart` (all constructors are `const` with named required params; matched
+  exactly). Pipeline validate stage should run
+  `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## `test/screens/app_shell_test.dart` — new widget test for `AppShell` nav
+
+- New test file only, nothing else touched. Two `testWidgets`, both pump
+  `ProviderScope(child: MaterialApp(home: AppShell()))` with no provider overrides (no
+  `FakeEcologApi`): (1) asserts 5 `NavigationDestination`s and that `발견·큐레이션` renders
+  (`findsWidgets`, not `findsOneWidget` — it's simultaneously the nav label and the initial
+  `PlaceholderScreen`'s AppBar/body title); (2) taps `Icons.auto_stories`, `pumpAndSettle`s, and
+  asserts `관찰 일지` (the `DiaryListScreen` AppBar title) becomes visible. Deliberately no
+  `findsNothing` check on the discovery label — `AppShell` uses `IndexedStack` (all 5 tabs stay
+  mounted), and the label also lives permanently in the bottom `NavigationBar`.
+- No `ecologApiProvider` override needed for test 2: `DiaryListScreen`'s `AppBar` title renders
+  synchronously regardless of `observationsProvider`'s loading/error state, and the real
+  `HttpEcologApi` call to `localhost:8000` fails fast (connection refused, not a hang) in the test
+  sandbox, so `pumpAndSettle` doesn't time out.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  isn't available here) — statically re-checked constructors/strings against
+  `lib/screens/app_shell.dart` and `lib/screens/diary_list_screen.dart` (`관찰 일지` AppBar title
+  confirmed at `diary_list_screen.dart:19`). Pipeline validate stage should run
+  `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## `lib/main.dart` — wired `AppShell` as the entry screen
+
+- `lib/main.dart` now imports `screens/app_shell.dart` (was `screens/diary_list_screen.dart`) and
+  `MaterialApp.home` is `const AppShell()` (was `const DiaryListScreen()`); no other line touched
+  (`ProviderScope`, title, theme/darkTheme/themeMode untouched). Could not run `flutter analyze`/
+  `flutter test` in this harness (Bash requires approval) — statically re-checked `AppShell({super.key})`
+  is a const-constructible `StatefulWidget` (`lib/screens/app_shell.dart`). Pipeline validate stage
+  should run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## `lib/state/discovery_providers.dart:1` — fixed `unused_shown_name` analyzer warning
+
+- `import 'package:flutter/material.dart' show IconData, Icons;` → `show Icons;` — `IconData` was
+  never referenced by name in the file (only `Icons.*` constants, which are typed `IconData` but
+  don't require importing the type name itself). One-line change, nothing else touched. Statically
+  re-confirmed via grep: no `IconData` reference remains in the file, `Icons.*` usage intact.
+
+## `test/screens/app_shell_test.dart` — fixed real-HTTP-call flake by overriding `ecologApiProvider`
+
+- Both `testWidgets` now pump `ProviderScope(overrides: [ecologApiProvider.overrideWithValue(FakeEcologApi())], child: const MaterialApp(home: AppShell()))`
+  (was unoverridden `const ProviderScope(...)`), matching the pattern in
+  `test/screens/diary_list_screen_test.dart`. Tab 5's `DiaryListScreen` reads `observationsProvider`
+  → `ecologApiProvider` → `HttpEcologApi` by default, which was making a real network call in the
+  test sandbox. Added imports `package:lookup/api/ecolog_api.dart` and
+  `package:lookup/state/providers.dart`; test names/assertions unchanged (still 2 tests, no
+  `findsNothing` added). Could not run `flutter analyze`/`flutter test` in this harness (Bash
+  requires approval) — statically confirmed `FakeEcologApi` (`lib/api/ecolog_api.dart:128`) and
+  `ecologApiProvider` (`lib/state/providers.dart:12`) exist and match the import paths used.
+
+## `lib/widgets/score_gauge.dart` — new `ScoreGauge` widget (circular score ring)
+
+- New file only, nothing else touched. `ScoreGauge({super.key, required int score, double size = 120})`
+  — `StatelessWidget`, const constructor. Usage: `ScoreGauge(score: 88)` or `ScoreGauge(score: 88, size: 160)`.
+- Renders via `Stack` (`CustomPaint(size: Size.square(size), painter: _ScoreGaugePainter(...))` +
+  centered `Text('$score')`): a full-circle track ring (`colorScheme.surfaceContainerHighest`,
+  10px stroke, round cap) then a clockwise progress arc from -pi/2 proportional to `score/100`
+  (`colorScheme.secondary`, same stroke/cap). Center text uses
+  `textTheme.labelMedium` (JetBrains Mono per `app_theme.dart`) `.copyWith(fontSize: 32,
+  fontWeight: FontWeight.bold, color: colorScheme.secondary)`. No new colors, no backend contract
+  (pure presentational widget, caller passes `score`).
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  isn't available here) — statically re-checked field names against `app_theme.dart`
+  (`colorScheme.surfaceContainerHighest`/`.secondary`, `textTheme.labelMedium`). Pipeline validate
+  stage should run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## `lib/screens/home_discovery_screen.dart` — new home/discovery screen (sections 1-3, header + greeting + suitability card)
+
+```dart
+class HomeDiscoveryScreen extends ConsumerWidget {
+  const HomeDiscoveryScreen({super.key, required this.onViewMapPressed});
+  final VoidCallback onViewMapPressed; // stored only, not wired to any button yet
+}
+```
+
+- New file only. Watches `discoveryProvider` (`DiscoveryOverview`) for the suitability card (`ScoreGauge`
+  + label/SQM/sky class + 2 golden-hour tiles keyed off `ObsMode` + horizontal-scroll telemetry row).
+  `hotspotsProvider`/`obsModeProvider` are imported (per spec) alongside `discoveryProvider` but not
+  yet referenced — reserved for the mode-switcher/hotspot sections a later task appends after the
+  trailing `// TODO(phase2-followup): ...` comment at the end of the body `Column`.
+- All styling reads `Theme.of(context).colorScheme`/`.textTheme` (per `lib/theme/app_theme.dart`) —
+  no raw `Color(...)`, no `google_fonts` import, no `Image.network`.
+- Not yet wired into `AppShell`/`main.dart` — out of scope for this task; a later task should swap
+  `app_shell.dart`'s tab-1 `PlaceholderScreen` for `HomeDiscoveryScreen(onViewMapPressed: ...)`.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that isn't
+  available here) — statically re-checked every field/type against `lib/models/discovery.dart`,
+  `lib/state/discovery_providers.dart`, and `lib/widgets/score_gauge.dart`'s `ScoreGauge({score:,
+  size:})` constructor. Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/state/discovery_providers.dart` — mock copy aligned to mockup reference
+
+- Content-only pass: replaced the literal Korean/value strings inside `discoveryProvider`'s
+  `SuitabilityIndex`/`GoldenHour`s/`TelemetryReading`s and `hotspotsProvider`'s two `Hotspot`s to
+  match the mockup reference exactly (강화도 동막갯벌 day hotspot, 영월 별마로 night hotspot). No
+  types/fields/structure/imports/icon set changed — same 4 telemetry icons in the same order, same
+  2 `HotspotMeta` icons per hotspot. Could not run `flutter analyze` in this harness (Bash requires
+  approval); statically re-checked every literal against `lib/models/discovery.dart`'s field types.
+  Pipeline validate stage should run `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/screens/home_discovery_screen.dart` — section 4: mode switcher (replaced `mode switcher` half of the phase2 TODO)
+
+- Added `final currentMode = ref.watch(obsModeProvider);` right after `overview`, and replaced the
+  old `// TODO(phase2-followup): mode switcher + hotspot sections...` comment with the mode-switcher
+  UI: a header `Row` (`지금 시선의 초점` + `필터 맞춤 설정` hint) then a pill-shaped `Container` holding two
+  `GestureDetector` segments (day/night) that set `ref.read(obsModeProvider.notifier).state`, styled
+  off `currentMode == ObsMode.day/night` (`colorScheme.tertiary`/`.secondary` fill,
+  `Icons.flutter_dash`/`Icons.star`). Only that one comment line was touched; the trailing
+  `// TODO(phase2-followup): hotspot section appended by a later task.` comment remains for the next
+  task. Built against the already-imported `../state/discovery_providers.dart` (`obsModeProvider`)
+  and `../models/discovery.dart` (`ObsMode`) — no new imports/deps. Could not run `flutter analyze`/
+  `flutter test` in this harness (Bash requires approval that isn't available here) — statically
+  re-checked brace/comma balance and confirmed `obsModeProvider`/`ObsMode` are already imported.
+  Pipeline validate stage should run `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/screens/home_discovery_screen.dart:526` — fixed `prefer_interpolation_to_compose_strings` lint
+
+- Replaced `'적합도 ' + hotspot.suitabilityScore.toString() + '점'` with a single interpolated
+  literal `'적합도 ${hotspot.suitabilityScore}점'` — same displayed text, no `.toString()` needed
+  (interpolation calls it implicitly; keeping it would trigger `unnecessary_string_interpolations`).
+  One line changed, nothing else touched. Could not run `flutter analyze` in this harness (Bash
+  requires approval that wasn't granted) — pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/screens/home_discovery_screen.dart` — section 5: hotspot cards (final section, TODO removed)
+
+- Added `final hotspots = ref.watch(hotspotsProvider);` next to `overview`/`currentMode`, and
+  replaced the trailing `// TODO(phase2-followup): hotspot section appended by a later task.`
+  comment with the "INTEGRATED RADAR" header (`headlineMedium` title + `onViewMapPressed`
+  `TextButton` "지도에서 보기 →") followed by a `Column` of one `Card` per `hotspots` entry
+  (`AnimatedOpacity` dimmed to 0.45 when `hotspot.mode != currentMode`, else 1.0): 140px gradient
+  image block (mode icon, badge `Wrap`, suitability-score chip, bottom overlay strip) + a text body
+  (title/subtitle/description, `HotspotMeta` `Wrap`, right-aligned `FilledButton(hotspot.ctaLabel)`,
+  `onPressed: () {}` — no navigation wired, out of scope). Cards are wrapped in
+  `Padding(bottom: 16)` instead of interleaved `SizedBox`s (equivalent visual gap, trailing 16px
+  after the last card is harmless as it's the screen's bottom padding).
+- **This completes `HomeDiscoveryScreen(onViewMapPressed)` per spec** — sections 1–5 all present,
+  no remaining TODOs. Only this one comment line replaced; sections 1–4 untouched. Built entirely
+  against already-imported `../state/discovery_providers.dart` (`hotspotsProvider`) and
+  `../models/discovery.dart` (`Hotspot`/`HotspotMeta` field names/types) — no new imports/deps.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  wasn't granted) — statically re-checked every `hotspot.*`/`m.*` field against the `Hotspot`/
+  `HotspotMeta` constructors in `lib/models/discovery.dart`, and re-read the full diff for
+  brace/paren/comma balance. Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/screens/app_shell.dart` — wired tab 1 to the real `HomeDiscoveryScreen`
+
+- Added `import 'home_discovery_screen.dart';`. Converted `_tabs` from `static const List<Widget>`
+  to an instance getter `List<Widget> get _tabs => [...]` (required since the first entry now
+  builds a non-const closure). Replaced the old `PlaceholderScreen(icon: Icons.radar, ...)` + its
+  preceding TODO comment with `HomeDiscoveryScreen(onViewMapPressed: () => setState(() =>
+  _selectedIndex = 1))` — pressing "지도에서 보기" on the home screen now switches to tab index 1 (관찰
+  지도). The other 4 entries (`PlaceholderScreen` map/hiking/route + `DiaryListScreen`) are
+  unchanged, just individually marked `const` (required since the list literal itself is no longer
+  const). `build()`'s `children: _tabs` needed no edit — Dart resolves it to the getter call
+  automatically, and `IndexedStack` still preserves all 5 tabs' state across switches.
+- Built against `HomeDiscoveryScreen({super.key, required this.onViewMapPressed})` (`ConsumerWidget`,
+  `VoidCallback onViewMapPressed`), confirmed by reading `lib/screens/home_discovery_screen.dart:8-11`.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  wasn't granted) — statically re-checked import path, getter conversion (no remaining `const`
+  keyword on the list literal itself), and per-item `const` on the 4 unchanged entries. Pipeline
+  validate stage should run `cd apps/flutter && flutter analyze && flutter test`.
+
+## `test/screens/home_discovery_screen_test.dart` — new widget test for `HomeDiscoveryScreen`
+
+- New test file only, nothing else touched. Three `testWidgets`, each building its own
+  `ProviderContainer` (`addTearDown(container.dispose)`) and pumping
+  `UncontrolledProviderScope(container:, child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})))`
+  (no `ecologApiProvider` override needed — this screen only reads `discoveryProvider`/
+  `hotspotsProvider`/`obsModeProvider`, no `EcologApi`/`observationsProvider` dependency).
+- Test 1: asserts `find.text('88')` (score), `'매우 쾌적 (Prime)'` (suitability label), and both
+  golden-hour `timeRange`s `'14:00 - 17:30'`/`'21:40 - 01:20'` — all copied verbatim from
+  `lib/state/discovery_providers.dart`'s current mock data.
+- Test 2: asserts both hotspot `title`s render — `'강화도 동막갯벌 & 여차리 도래지'` (day) and
+  `'영월 별마로 & 봉래산 다크스카이'` (night).
+- Test 3: reads `container.read(obsModeProvider)` starts `ObsMode.day`, taps
+  `find.text('밤의 별을 보러 (천체관측)')` (the night segment's `Flexible` `Text`, confirmed at
+  `lib/screens/home_discovery_screen.dart:383`), `pump()`s, then asserts the provider flips to
+  `ObsMode.night`.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  wasn't granted) — statically re-checked every literal against the three source files
+  (`home_discovery_screen.dart`, `discovery_providers.dart`, `discovery.dart`) rather than
+  recalling them from memory. Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — verifier fix pass: theme-token literals, telemetry separators, placeholder comments
+
+- `lib/screens/home_discovery_screen.dart`: replaced 4 hardcoded color literals with `colorScheme`
+  tokens — mode-switcher day/night segment `Colors.transparent` → `colorScheme.surfaceContainerHigh`
+  (matches the parent pill's own fill, visually identical); hotspot bottom overlay strip
+  `Colors.black.withValues(alpha: 0.35)` → `colorScheme.scrim.withValues(alpha: 0.35)`, overlay
+  `Icon`/`overlayHeadline` `Colors.white` → `colorScheme.onSurface`, `overlayTimestamp`
+  `Colors.white70` → `colorScheme.onSurface.withValues(alpha: 0.7)`. File now has zero literal
+  `Colors.transparent`/`.black`/`.white`/`.white70` references.
+- Same file: telemetry row changed from `overview.telemetry.map(...).toList()` to a `for` loop
+  over the index inside `Row.children`, inserting a 1×24 `colorScheme.outlineVariant` divider
+  `Container` (4px horizontal margin) between consecutive entries only (`if (i > 0)` guard, none
+  before the first or after the last). Every icon/label/value widget per entry unchanged.
+- `lib/screens/app_shell.dart`: added one Korean line comment above each of the 3 remaining
+  `PlaceholderScreen` tabs (map/hiking/route) noting they're temporary pending mockups 03/04/05
+  respectively — no logic/widget changes.
+- No other lines touched in either file. Could not run `flutter analyze`/`flutter test` in this
+  harness (Bash requires approval that wasn't granted) — statically re-checked both files in full
+  for brace/comma balance and confirmed no leftover `Colors.*` literals via grep. Pipeline validate
+  stage should run `cd apps/flutter && flutter analyze && flutter test`.

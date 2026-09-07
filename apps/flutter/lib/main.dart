@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'screens/diary_list_screen.dart';
+import 'screens/app_shell.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -18,7 +18,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.dark(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.dark,
-      home: const DiaryListScreen(),
+      home: const AppShell(),
     );
   }
 }
