@@ -1,3 +1,8 @@
 factory/logs/
 /.team/
 .DS_Store
+
+# secrets / API keys
+.env
+.env.local
+.env.*.local
