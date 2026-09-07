@@ -9,6 +9,9 @@
 - modified: 2026-09-07 두뇌 세션 — 공모전 제안서 "위를 봐요" MVP 첫 조각(생태 일기 CRUD) 스펙화. lookup 백지 레포 기준(스캐폴딩 포함)
 - refs: `(원 제안서 PDF — 저장소 미포함)`(원 제안서), [002-ecolog-flutter.md](002-ecolog-flutter.md)(소비 팀 스펙)
 - risk: medium
+- modified: 2026-09-07, lead: claude sonnet (backend-lead)
+- modified: 2026-09-07, lead: claude sonnet (backend-lead) — PATCH null 계약 결함 수정
+- modified: 2026-09-07, lead: claude sonnet (backend-lead) — observedAt PATCH null 거부 확장 반영
 
 ## Purpose
 
@@ -55,10 +58,10 @@ apps/backend에 FastAPI 프로젝트를 스캐폴드하고(pyproject·`/api/heal
 
 백지 레인에 최소 동작하는 FastAPI 서비스를 세운다.
 
-- [ ] `pyproject.toml`(fastapi·uvicorn·pytest·httpx, requires-python >=3.12) + `app/` 패키지
-- [ ] `app/main.py`: FastAPI 앱 + `GET /api/health` → `{"status":"ok"}`
-- [ ] `tests/test_health.py`: health 200 + 미지정 경로 404
-- [ ] `README.md`를 실행법(`uv run uvicorn app.main:app`)·테스트법(`uv run pytest -q`) 포함 본문으로 대체
+- [x] `pyproject.toml`(fastapi·uvicorn·pytest·httpx, requires-python >=3.12) + `app/` 패키지
+- [x] `app/main.py`: FastAPI 앱 + `GET /api/health` → `{"status":"ok"}`
+- [x] `tests/test_health.py`: health 200 + 미지정 경로 404
+- [x] `README.md`를 실행법(`uv run uvicorn app.main:app`)·테스트법(`uv run pytest -q`) 포함 본문으로 대체
 
 **페이즈 검증**: `cd apps/backend && uv run pytest -q tests/test_health.py` 통과
 
@@ -66,10 +69,10 @@ apps/backend에 FastAPI 프로젝트를 스캐폴드하고(pyproject·`/api/heal
 
 관찰/배지 스키마와 저장소 추상화를 세운다.
 
-- [ ] `models.py`: `SpeciesType` Enum, `ObservationCreate`(speciesType·speciesName·note?·photoUrl?·observedAt?·lat?·lng?), `ObservationUpdate`(부분 갱신), `Observation`(+id·createdAt), `Badge`·`BadgeProgress`
-- [ ] `repository.py`: `ObservationRepository` 프로토콜(list/get/create/update/delete) + `InMemoryObservationRepository`(id 시퀀스, 없는 id는 None)
-- [ ] `badges.py`: `derive_badges(observations) -> list[BadgeProgress]` 순수 함수 — 결정론적 마일스톤 규칙
-- [ ] 모델·배지 단위 테스트
+- [x] `models.py`: `SpeciesType` Enum, `ObservationCreate`(speciesType·speciesName·note?·photoUrl?·observedAt?·lat?·lng?), `ObservationUpdate`(부분 갱신), `Observation`(+id·createdAt), `Badge`·`BadgeProgress`
+- [x] `repository.py`: `ObservationRepository` 프로토콜(list/get/create/update/delete) + `InMemoryObservationRepository`(id 시퀀스, 없는 id는 None)
+- [x] `badges.py`: `derive_badges(observations) -> list[BadgeProgress]` 순수 함수 — 결정론적 마일스톤 규칙
+- [x] 모델·배지 단위 테스트
 
 **페이즈 검증**: `cd apps/backend && uv run pytest -q -k "badge or model"` 통과
 
@@ -77,11 +80,11 @@ apps/backend에 FastAPI 프로젝트를 스캐폴드하고(pyproject·`/api/heal
 
 라우터를 붙이고 앱에 등록한다.
 
-- [ ] `routers/observations.py`: POST(201) / GET 목록(speciesType 쿼리 필터 옵션) / GET {id}(404) / PATCH {id}(부분 갱신·404) / DELETE {id}(204·404)
-- [ ] 입력 검증: 잘못된 speciesType·빈 speciesName → 422/400, observedAt 미제공 시 서버 시각 기본값
-- [ ] `routers/badges.py`: GET `/api/badges` → 현재 저장소 관찰 기준 획득/진행 배지 목록
-- [ ] `main.py`에 두 라우터 include, 저장소 싱글턴 주입
-- [ ] `README.md` 엔드포인트 표 갱신
+- [x] `routers/observations.py`: POST(201) / GET 목록(speciesType 쿼리 필터 옵션) / GET {id}(404) / PATCH {id}(부분 갱신·404) / DELETE {id}(204·404)
+- [x] 입력 검증: 잘못된 speciesType·빈 speciesName → 422/400, observedAt 미제공 시 서버 시각 기본값
+- [x] `routers/badges.py`: GET `/api/badges` → 현재 저장소 관찰 기준 획득/진행 배지 목록
+- [x] `main.py`에 두 라우터 include, 저장소 싱글턴 주입
+- [x] `README.md` 엔드포인트 표 갱신
 
 **페이즈 검증**: `cd apps/backend && uv run pytest -q` 전체 통과 (CRUD 해피패스·400/422·404·배지 도출)
 
@@ -89,8 +92,8 @@ apps/backend에 FastAPI 프로젝트를 스캐폴드하고(pyproject·`/api/heal
 
 flutter 팀이 소비할 계약을 확정 기록한다.
 
-- [ ] `apps/backend/.team/member.md`에 API 계약 작성: 엔드포인트 표 + 각 스키마 필드·타입 + 요청/응답 예시 JSON + base URL 관례
-- [ ] `just backend-check` 통과 확인
+- [x] `apps/backend/.team/member.md`에 API 계약 작성: 엔드포인트 표 + 각 스키마 필드·타입 + 요청/응답 예시 JSON + base URL 관례
+- [x] `just backend-check` 통과 확인
 
 **페이즈 검증**: `just backend-check` 통과
 
@@ -112,4 +115,12 @@ just backend-check
 
 ## Amendments (빌드 후 변경 이력, append-only)
 
-- (아직 없음 — 빌드 시작 시 리드가 기록)
+- scout(agy)가 command 권한 문제로 무출력 실패 — 스펙 서술이 이미 충분히 구체적이라 스카우트 리포트 없이 진행함.
+- 배지 규칙을 5개 고정 카탈로그로 확정: `first_step`(총 관찰≥1) / `explorer`(총≥5) / `master`(총≥20) / `bird_watcher`(bird 종류≥5) / `star_gazer`(star 종류≥5). `derive_badges`는 항상 5개 전부를 반환(달성 여부와 무관).
+- `observedAt` 서버 기본값 로직은 스펙이 routers에 배치했지만, 저장소 계층(`InMemoryObservationRepository.create`)에 단일화해 라우터의 중복 로직을 방지함.
+- 저장소 싱글턴은 `app/repository.py`의 `get_repository()` 접근자 + FastAPI `Depends`로 주입, 테스트는 `app.dependency_overrides`로 요청마다 격리.
+- Phase 3 1차 위임에서 `.team/member.md` 쓰기가 권한 승인 필요로 실패(무출력, INCOMPLETE) → 동일 프롬프트로 1회 재위임해 성공. 이어서 멤버가 DONE 센티널을 파일 본문 마지막 줄에 실수로 같이 써넣어, 2차 소규모 위임으로 그 줄만 제거.
+- 최종: `just check` 기준 27개 테스트 전부 통과, 4개 페이즈 모두 완료.
+- **[검증 실패 후 재위임]** 크로스모델 검증기가 PATCH 계약 결함을 지적: `ObservationUpdate`가 `speciesType`/`speciesName`에 명시적 `null`을 허용해, `InMemoryObservationRepository.update()`의 `model_copy(update=...)`가 검증 없이 그대로 적용 → `Observation` 스키마가 두 필드를 non-null로 요구함에도 null이 저장·응답될 수 있었음. `apps/backend/app/models.py`의 `ObservationUpdate`에 `model_validator(mode="after")`를 추가해 두 필드에 명시적 null이 오면 422(ValidationError)로 거부하도록 수정. 다른 nullable 필드(`note`/`photoUrl`/`observedAt`/`lat`/`lng`)의 명시적 null 허용 동작은 그대로 유지. 테스트 4건 추가(모델 2건 + 라우트 422 2건), `.team/member.md` 섹션 3에 예외 규정 반영. `just check` 기준 31개 테스트 전부 통과 확인.
+- **2026-09-07 두뇌(빌드 #1 검증 FAIL 후 계약 확정 — 사용자 결정):** 위 재위임이 `speciesType`·`speciesName`만 non-null 처리하고 **`observedAt`을 nullable로 남긴 것이 잘못**이다. 응답 스키마 `Observation.observedAt`은 non-null 필수 datetime이므로, PATCH `{"observedAt": null}`은 `model_copy`로 검증 없이 저장돼 응답 직렬화를 깨뜨린다(= speciesType/speciesName과 완전히 동일한 계열의 버그). **확정 계약: `observedAt`도 PATCH 명시적 null을 422로 거부한다.** 즉 required-non-null 3필드(`speciesType`·`speciesName`·`observedAt`)는 PATCH에서 명시적 `null` 불가; nullable 4필드(`note`·`photoUrl`·`lat`·`lng`)만 `null`로 비울 수 있다. 수정 지시: (1) `ObservationUpdate`의 `@model_validator(mode="after")`에 `observedAt` 명시적 null 거부 추가, (2) `.team/member.md`의 PATCH 표·설명에서 `observedAt`을 "null 불가(422)" 예외 목록으로 이동(현재 nullable로 잘못 기술됨 — 표 line 49 및 하단 문단), (3) `test_observations.py`에 PATCH `observedAt:null → 422` 테스트 추가, (4) `just backend-check` 재통과 확인.
+- **2026-09-07 두뇌 — 위 지시 위임 완료:** `apps/backend` 멤버(claude/standard) 1회 위임으로 세 파일 동시 수정. `app/models.py`의 `_reject_explicit_null_species` validator에 `observedAt` 명시적 null 거부 분기 추가(기존 speciesType/speciesName 패턴과 동일). `tests/test_observations.py`에 `test_patch_observation_null_observed_at_returns_422` 추가(기존 `test_patch_observation_null_species_name_returns_422`와 동일 패턴). `.team/member.md`의 ObservationUpdate 표(line 49 Notes)·예외 문단(line 53)·nullable 필드 목록을 `observedAt` 제외로 갱신. 멤버는 Bash 미보유로 테스트 미실행(정적 검토만 완료, DONE 센티널 확인) → 두뇌가 `just check`로 직접 실행해 32개 테스트 전부 통과 확인(기존 31 + 신규 1). 스팟체크로 세 파일 diff 모두 지시대로 반영됨을 확인.
