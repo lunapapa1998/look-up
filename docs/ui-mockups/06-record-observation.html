@@ -1,0 +1,426 @@
+<!-- 새·별 관찰 기록하기 (관찰 입력 폼) -->
+<!DOCTYPE html>
+
+<html class="dark" lang="ko"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "error": "#ffb4ab", "inverse-on-surface": "#262f4c", "error-container": "#93000a", "background": "#08122d", "surface-variant": "#2b3450", "secondary-fixed": "#63fbd7", "inverse-primary": "#565d79", "on-secondary": "#00382d", "on-tertiary-container": "#a5753e", "primary": "#bec5e5", "on-error-container": "#ffdad6", "on-error": "#690005", "surface-container-high": "#202945", "tertiary-fixed": "#ffddbb", "surface-container-low": "#111a36", "tertiary-container": "#211000", "surface-dim": "#08122d", "surface-bright": "#2f3855", "secondary": "#42e1be", "on-secondary-container": "#004b3d", "on-tertiary-fixed": "#2b1700", "on-primary-fixed": "#131a33", "tertiary-fixed-dim": "#f5bc7e", "inverse-surface": "#dbe1ff", "on-surface": "#dbe1ff", "secondary-container": "#00c4a3", "on-secondary-fixed-variant": "#005142", "surface-tint": "#bec5e5", "primary-fixed-dim": "#bec5e5", "surface-container-lowest": "#030c28", "on-primary-fixed-variant": "#3e4660", "on-primary-container": "#767e9b", "surface": "#08122d", "on-secondary-fixed": "#002019", "surface-container-highest": "#2b3450", "primary-fixed": "#dbe1ff", "outline": "#909098", "on-background": "#dbe1ff", "on-surface-variant": "#c6c6ce", "on-tertiary": "#482900", "primary-container": "#0b132b", "on-tertiary-fixed-variant": "#653e0b", "tertiary": "#f5bc7e", "surface-container": "#151e3a", "on-primary": "#282f49", "secondary-fixed-dim": "#3edebb", "outline-variant": "#45464d" }, "borderRadius": { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, "spacing": { "gutter-tablet": "1.25rem", "space-sm": "0.75rem", "space-xs": "0.5rem", "screen-margin-tablet": "2rem", "space-2xs": "0.25rem", "space-md": "1rem", "space-lg": "1.5rem", "space-2xl": "3rem", "gutter-mobile": "0.75rem", "space-xl": "2rem", "screen-margin-mobile": "1.25rem" }, "fontFamily": { "telemetry-sm": ["JetBrains Mono"], "caption-korean": ["Inter"], "body-sm": ["Inter"], "headline-sm": ["Space Grotesk"], "body-md": ["Inter"], "display-hero": ["Space Grotesk"], "headline-lg": ["Space Grotesk"], "headline-lg-mobile": ["Space Grotesk"], "telemetry-lg": ["JetBrains Mono"], "display-hero-mobile": ["Space Grotesk"], "headline-md": ["Space Grotesk"], "body-lg": ["Inter"], "telemetry-md": ["JetBrains Mono"] }, "fontSize": { "telemetry-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500" }], "caption-korean": ["12px", { "lineHeight": "16px", "fontWeight": "500" }], "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }], "headline-sm": ["18px", { "lineHeight": "26px", "fontWeight": "600" }], "body-md": ["15px", { "lineHeight": "22px", "fontWeight": "400" }], "display-hero": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.03em", "fontWeight": "700" }], "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "headline-lg-mobile": ["26px", { "lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "telemetry-lg": ["20px", { "lineHeight": "24px", "letterSpacing": "-0.02em", "fontWeight": "600" }], "display-hero-mobile": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "headline-md": ["22px", { "lineHeight": "30px", "letterSpacing": "-0.01em", "fontWeight": "600" }], "body-lg": ["17px", { "lineHeight": "26px", "fontWeight": "400" }], "telemetry-md": ["14px", { "lineHeight": "18px", "letterSpacing": "0.01em", "fontWeight": "500" }] } } } };</script><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#08122d;}body{overscroll-behavior:none;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head><body class="bg-background text-on-surface font-body-md text-body-md flex flex-col min-h-screen"><header class="fixed top-0 inset-x-0 z-50 bg-primary-container/80 backdrop-blur-xl pt-safe shadow-[0_1px_16px_rgba(3,12,40,0.7)]"><div class="h-16 px-screen-margin-mobile flex items-center justify-between gap-space-xs"><div class="flex items-center gap-space-xs min-w-0"><img alt="Look Up Logo" class="h-8 w-auto object-contain shrink-0" src="logo.svg"/><div class="flex flex-col truncate"><span class="font-headline-sm text-headline-sm text-on-surface tracking-tight leading-none font-bold">위를 봐요</span><span class="font-telemetry-sm text-telemetry-sm text-secondary uppercase tracking-widest leading-tight">Look Up</span></div></div><div class="flex items-center gap-space-xs shrink-0"><button class="min-h-[44px] px-space-xs py-space-2xs rounded-full bg-surface-container/70 text-on-surface flex items-center gap-1 backdrop-blur-md shadow-[0_0_8px_rgba(66,225,190,0.12)] hover:bg-surface-container transition-colors" type="button"><span class="material-symbols-outlined text-secondary text-[16px]">explore</span><span class="font-caption-korean text-caption-korean truncate max-w-[96px]">강화·서해안</span><span class="material-symbols-outlined text-on-surface-variant text-[14px]">arrow_drop_down</span></button><div class="relative flex items-center justify-center"><button class="min-h-[44px] min-w-[44px] p-space-2xs flex items-center justify-center rounded-full hover:opacity-90 transition-opacity" type="button"><span class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center"><span class="material-symbols-outlined text-on-surface-variant text-[20px]">person</span></span><span class="absolute bottom-1 right-1 w-3 h-3 bg-secondary rounded-full flex items-center justify-center shadow-[0_0_6px_#42e1be]"><span class="material-symbols-outlined text-on-secondary text-[9px] leading-none font-bold">eco</span></span></button></div></div></div></header><main class="flex flex-col relative w-full pt-16 pb-20 bg-background flex-1"><div class="flex flex-col w-full px-screen-margin-mobile pb-space-2xl gap-space-lg">
+<!-- Segmented Mode Selector & Subheader -->
+<section class="flex flex-col gap-space-xs pt-space-xs">
+<div class="relative flex items-center justify-between p-1 bg-surface-container-low rounded-full">
+<!-- Active Bird Mode -->
+<button class="flex-1 flex items-center justify-center gap-space-2xs py-2 px-space-sm rounded-full bg-secondary text-on-secondary shadow-[0_0_12px_rgba(66,225,190,0.35)] transition-all" id="mode-bird-btn" type="button">
+<span class="material-symbols-outlined text-[18px]">flutter_dash</span>
+<span class="font-headline-sm text-caption-korean tracking-tight font-bold">낮의 새 기록</span>
+<span class="w-1.5 h-1.5 rounded-full bg-on-secondary ml-0.5"></span>
+</button>
+<!-- Inactive Star Mode with quick hint -->
+<button class="flex-1 flex items-center justify-center gap-space-2xs py-2 px-space-sm rounded-full text-on-surface-variant hover:text-on-surface transition-all" id="mode-star-btn" type="button">
+<span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+<span class="font-headline-sm text-caption-korean tracking-tight font-medium">밤의 별·천체 기록</span>
+<span class="font-telemetry-sm text-[10px] text-tertiary uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-surface-container-high">Bortle 2</span>
+</button>
+</div>
+<!-- Mode Info / Guidance Banner -->
+<div class="flex items-center gap-space-2xs px-space-xs py-1 rounded-lg bg-surface-container/60">
+<span class="material-symbols-outlined text-secondary text-[16px] shrink-0">sensors_krx</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">
+        사진이나 소리를 올리면 AI와 공공데이터가 종을 분석하여 시민과학 DB로 연계됩니다.
+      </p>
+</div>
+</section>
+<!-- Real-time Viewfinder Card -->
+<section class="flex flex-col gap-space-xs">
+<div class="relative w-full rounded-xl overflow-hidden bg-surface-container-lowest shadow-[0_12px_32px_rgba(3,12,40,0.85)]">
+<!-- Image with AI Bounding Overlay -->
+<div class="relative w-full aspect-[4/3] bg-surface-container-lowest overflow-hidden">
+<!-- Top Conservation Status Badges -->
+<div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-1 z-10">
+<div class="flex items-center gap-1">
+<span class="px-2 py-0.5 rounded-full bg-error-container/90 text-on-error-container font-caption-korean text-caption-korean font-semibold backdrop-blur-md flex items-center gap-1 shadow-sm">
+<span class="w-1.5 h-1.5 rounded-full bg-error"></span>
+              멸종위기 야생생물 I급
+            </span>
+<span class="px-2 py-0.5 rounded-full bg-tertiary-container/90 text-tertiary font-caption-korean text-caption-korean font-semibold backdrop-blur-md shadow-sm">
+              천연기념물 제205-1호
+            </span>
+</div>
+<span class="font-telemetry-sm text-telemetry-sm text-secondary px-2 py-0.5 rounded-full bg-surface-container-lowest/80 backdrop-blur-md">
+            RAW · GPS LOCKED
+          </span>
+</div>
+<!-- AI Precision Bounding Box (Visual Augmented Reality HUD) -->
+<div class="absolute inset-x-8 top-12 bottom-10 pointer-events-none flex flex-col justify-between p-2 rounded-lg shadow-[0_0_24px_rgba(66,225,190,0.18)_inset]">
+<!-- Corner brackets simulated -->
+<div class="flex justify-between items-start">
+<div class="w-4 h-4 bg-secondary/80 rounded-tl-sm -ml-0.5 -mt-0.5"></div>
+<div class="w-4 h-4 bg-secondary/80 rounded-tr-sm -mr-0.5 -mt-0.5"></div>
+</div>
+<!-- Central AI Identification Pill Tag -->
+<div class="self-center flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary-container/90 backdrop-blur-xl shadow-[0_0_16px_rgba(66,225,190,0.4)] pointer-events-auto">
+<span class="material-symbols-outlined text-secondary text-[16px] animate-pulse">verified</span>
+<div class="flex flex-col">
+<div class="flex items-center gap-1.5">
+<span class="font-headline-sm text-caption-korean text-on-surface font-bold">저어새</span>
+<span class="font-telemetry-sm text-telemetry-sm text-secondary">98.4% 일치</span>
+</div>
+<span class="font-telemetry-sm text-[10px] text-on-surface-variant italic leading-tight">Platalea minor</span>
+</div>
+</div>
+<div class="flex justify-between items-end">
+<div class="w-4 h-4 bg-secondary/80 rounded-bl-sm -ml-0.5 -mb-0.5"></div>
+<div class="w-4 h-4 bg-secondary/80 rounded-br-sm -mr-0.5 -mb-0.5"></div>
+</div>
+</div>
+<!-- Viewfinder Reticle Crosshair Details -->
+<div class="absolute bottom-2 left-3 flex items-center gap-2 pointer-events-none">
+<span class="font-telemetry-sm text-telemetry-sm text-on-surface/80 bg-surface-container-lowest/80 px-2 py-0.5 rounded backdrop-blur-md">
+            AF-C • f/5.6 • 600mm EQV
+          </span>
+</div>
+</div>
+<!-- Quick Media Action Bar -->
+<div class="p-space-sm bg-surface-container flex items-center justify-between gap-space-2xs">
+<button class="flex-1 min-h-[44px] px-space-xs py-2 rounded-xl bg-surface-container-high text-on-surface hover:bg-surface-bright flex items-center justify-center gap-1.5 transition-colors" type="button">
+<span class="material-symbols-outlined text-secondary text-[18px]">photo_camera</span>
+<span class="font-headline-sm text-caption-korean font-semibold">다시 촬영/업로드</span>
+</button>
+<button class="flex-1 min-h-[44px] px-space-xs py-2 rounded-xl bg-surface-container-high text-on-surface hover:bg-surface-bright flex items-center justify-center gap-1.5 transition-colors" type="button">
+<span class="material-symbols-outlined text-tertiary text-[18px]">mic</span>
+<span class="font-headline-sm text-caption-korean font-semibold">소리인식 (울음소리 AI)</span>
+</button>
+<button class="min-h-[44px] px-space-sm py-2 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center gap-1 transition-all" id="digiscope-toggle" type="button">
+<span class="material-symbols-outlined text-[18px]">filter_center_focus</span>
+<span class="font-headline-sm text-caption-korean font-bold whitespace-nowrap">디지스코핑 ON</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Auto-detected Field Telemetry (OpenAPI 연계) -->
+<section class="flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-secondary text-[18px]">satellite_alt</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">자동 감지 환경 텔레메트리</h2>
+</div>
+<span class="font-telemetry-sm text-telemetry-sm text-secondary bg-surface-container px-2 py-0.5 rounded-full flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary animate-ping"></span>
+        LIVE GPS SYNC
+      </span>
+</div>
+<!-- Telemetry Bento Grid Card -->
+<div class="bg-surface-container/80 backdrop-blur-md rounded-xl p-space-md flex flex-col gap-space-sm shadow-sm">
+<!-- Primary Location & Durunubi Trail Route -->
+<div class="flex flex-col gap-1 pb-space-xs bg-surface-container-low/60 p-space-sm rounded-lg">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5 min-w-0">
+<span class="material-symbols-outlined text-secondary text-[18px] shrink-0">pin_drop</span>
+<span class="font-headline-sm text-body-md text-on-surface font-semibold truncate">인천 강화군 화도면 여차리 갯벌</span>
+</div>
+<span class="font-telemetry-sm text-telemetry-sm text-on-surface-variant shrink-0 ml-2">정확도 ±3m</span>
+</div>
+<p class="font-telemetry-sm text-telemetry-sm text-on-surface-variant font-mono pl-6">
+          37.5921° N, 126.3984° E • 해발고도 2.1m
+        </p>
+<div class="flex items-center gap-1.5 mt-1 pl-6">
+<span class="material-symbols-outlined text-tertiary text-[16px]">hiking</span>
+<span class="font-caption-korean text-caption-korean text-tertiary font-medium truncate">
+            두루누비 서해랑길 64코스 트레일 상 주요 탐조 거점
+          </span>
+</div>
+</div>
+<!-- Atmospheric & Marine Realtime Telemetry -->
+<div class="grid grid-cols-2 gap-space-xs">
+<!-- Tide Level Card -->
+<div class="flex flex-col p-space-xs rounded-lg bg-surface-container-high/60 gap-1">
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-secondary text-[16px]">tsunami</span>
+<span class="font-caption-korean text-caption-korean">국립해양조원 물때 정보</span>
+</div>
+<span class="font-headline-sm text-caption-korean text-on-surface font-semibold">
+            만조 1시간 전 (해수 유입 피크)
+          </span>
+<span class="font-telemetry-sm text-telemetry-sm text-secondary">
+            조석 조위 742cm • 밀물 진행중
+          </span>
+</div>
+<!-- Weather Card -->
+<div class="flex flex-col p-space-xs rounded-lg bg-surface-container-high/60 gap-1">
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-secondary text-[16px]">thermostat</span>
+<span class="font-caption-korean text-caption-korean">기상청 현장 측정값</span>
+</div>
+<span class="font-headline-sm text-caption-korean text-on-surface font-semibold">
+            14.2°C • 쾌청 (시정 25km)
+          </span>
+<span class="font-telemetry-sm text-telemetry-sm text-on-surface-variant">
+            서남서풍 1.8m/s • 습도 58%
+          </span>
+</div>
+</div>
+<!-- Wildlife Ethical Safety Range Sensor -->
+<div class="flex items-center justify-between p-space-xs rounded-lg bg-surface-container-lowest">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[20px]">social_distance</span>
+<div class="flex flex-col">
+<span class="font-caption-korean text-caption-korean text-on-surface font-medium">윤리적 탐조 안전 거리 센서</span>
+<span class="font-telemetry-sm text-telemetry-sm text-on-surface-variant">권장 안전 50m 이상 준수 구역</span>
+</div>
+</div>
+<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary/10">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="font-telemetry-lg text-telemetry-sm text-secondary font-bold">65m (안전 거리)</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Observation Metadata & Verification Details -->
+<section class="flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-secondary text-[18px]">edit_note</span>
+<h2 class="font-headline-sm text-headline-sm text-on-surface font-semibold">관찰 상세 입력</h2>
+</div>
+<span class="font-caption-korean text-caption-korean text-on-surface-variant">필수 검증 항목</span>
+</div>
+<div class="bg-surface-container/80 backdrop-blur-md rounded-xl p-space-md flex flex-col gap-space-md">
+<!-- Count Stepper -->
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex flex-col">
+<label class="font-headline-sm text-caption-korean text-on-surface font-semibold">관찰 개체수 (Count)</label>
+<span class="font-body-sm text-body-sm text-on-surface-variant">동일 시야 내 동시 확인된 수</span>
+</div>
+<div class="flex items-center gap-space-xs bg-surface-container-high rounded-full p-1">
+<button class="w-8 h-8 rounded-full bg-surface-container-lowest text-on-surface flex items-center justify-center hover:bg-surface-bright active:scale-95 transition-all" id="count-minus" type="button">
+<span class="material-symbols-outlined text-[16px]">remove</span>
+</button>
+<div class="min-w-[48px] text-center">
+<span class="font-telemetry-lg text-telemetry-lg text-secondary font-bold" id="bird-count">3</span>
+<span class="font-caption-korean text-caption-korean text-on-surface-variant ml-0.5">마리</span>
+</div>
+<button class="w-8 h-8 rounded-full bg-surface-container-lowest text-on-surface flex items-center justify-center hover:bg-surface-bright active:scale-95 transition-all" id="count-plus" type="button">
+<span class="material-symbols-outlined text-[16px]">add</span>
+</button>
+</div>
+</div>
+<!-- Behavior Chips -->
+<div class="flex flex-col gap-space-xs">
+<div class="flex items-center justify-between">
+<label class="font-headline-sm text-caption-korean text-on-surface font-semibold">관찰 생태 행동 (Behavior)</label>
+<span class="font-caption-korean text-caption-korean text-secondary">복수 선택 가능</span>
+</div>
+<div class="flex flex-wrap gap-1.5" id="behavior-container">
+<button class="behavior-chip px-3 py-1.5 rounded-full font-caption-korean text-caption-korean font-medium bg-secondary text-on-secondary shadow-[0_0_8px_rgba(66,225,190,0.3)] transition-all flex items-center gap-1" data-selected="true" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-on-secondary"></span>
+            먹이활동/섭식 (주걱질)
+          </button>
+<button class="behavior-chip px-3 py-1.5 rounded-full font-caption-korean text-caption-korean font-medium bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all flex items-center gap-1" data-selected="false" type="button">
+<span class="material-symbols-outlined text-[14px]">bedtime</span>
+            휴식/선잠
+          </button>
+<button class="behavior-chip px-3 py-1.5 rounded-full font-caption-korean text-caption-korean font-medium bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all flex items-center gap-1" data-selected="false" type="button">
+<span class="material-symbols-outlined text-[14px]">flight</span>
+            비행/선회
+          </button>
+<button class="behavior-chip px-3 py-1.5 rounded-full font-caption-korean text-caption-korean font-medium bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all flex items-center gap-1" data-selected="false" type="button">
+<span class="material-symbols-outlined text-[14px]">favorite</span>
+            구애/세력권 과시
+          </button>
+<button class="behavior-chip px-3 py-1.5 rounded-full font-caption-korean text-caption-korean font-medium bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all flex items-center gap-1" data-selected="false" type="button">
+<span class="material-symbols-outlined text-[14px]">child_care</span>
+            어린 개체(유조) 동반
+          </button>
+</div>
+</div>
+<!-- Gear Used Dropdown / Badge Picker -->
+<div class="flex flex-col gap-1">
+<label class="font-headline-sm text-caption-korean text-on-surface font-semibold">사용한 관찰 장비 (Optics)</label>
+<div class="flex items-center justify-between p-space-xs rounded-xl bg-surface-container-low text-on-surface">
+<div class="flex items-center gap-2 min-w-0">
+<span class="material-symbols-outlined text-secondary text-[20px] shrink-0">view_in_ar</span>
+<div class="flex flex-col truncate">
+<span class="font-body-md text-caption-korean font-semibold truncate">코와 스포팅스코프 TSN-883 (20-60x)</span>
+<span class="font-telemetry-sm text-telemetry-sm text-on-surface-variant">스마트폰 폰스코프 어댑터 결착</span>
+</div>
+</div>
+<button class="p-1 text-on-surface-variant hover:text-on-surface" type="button">
+<span class="material-symbols-outlined text-[20px]">swap_vert</span>
+</button>
+</div>
+</div>
+<!-- Field Observation Memo -->
+<div class="flex flex-col gap-1">
+<div class="flex items-center justify-between">
+<label class="font-headline-sm text-caption-korean text-on-surface font-semibold">현장 생태 메모</label>
+<span class="font-telemetry-sm text-telemetry-sm text-on-surface-variant">72 / 300자</span>
+</div>
+<div class="relative rounded-xl bg-surface-container-low p-space-xs focus-within:ring-2 focus-within:ring-secondary/50 transition-all">
+<textarea class="w-full bg-transparent text-on-surface font-body-sm text-body-sm placeholder:text-on-surface-variant/50 focus:outline-none resize-none" placeholder="새의 무리 행동, 주변 종과의 상호작용, 갯벌 갯골 상태 등을 기록해주세요." rows="3">만조 직전 얕은 갯골에서 특유의 좌우 주걱 부리 젓기 행동 관찰됨. 주변 왜가리 2개체 및 괭이갈매기와 평화롭게 혼식 중.</textarea>
+</div>
+</div>
+</div>
+</section>
+<!-- Citizen Science & Open Data Impact Banner -->
+<section class="flex flex-col gap-space-xs">
+<div class="bg-surface-container-low rounded-xl p-space-md flex flex-col gap-space-sm shadow-md">
+<!-- Privacy Masking Assurance -->
+<div class="flex items-start gap-space-xs p-space-xs rounded-lg bg-surface-container">
+<span class="material-symbols-outlined text-secondary text-[20px] shrink-0 mt-0.5">encrypted</span>
+<div class="flex flex-col gap-0.5">
+<span class="font-headline-sm text-caption-korean text-on-surface font-semibold">멸종위기종 번식지 안심 마스킹 적용</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+            공개 피드에는 위치가 반경 5km 셀 단위로 흐림 처리(Fuzzing)되며, 원본 정밀 좌표는 학술 보전 목적의 국립생태원 공공망에만 암호화되어 안전하게 전송됩니다.
+          </p>
+</div>
+</div>
+<!-- Sync Agreement Checklist -->
+<div class="flex items-center justify-between py-1">
+<div class="flex items-center gap-2">
+<input checked="" class="w-4 h-4 rounded bg-surface-container-high text-secondary accent-secondary focus:ring-0 cursor-pointer" id="kobis-sync" type="checkbox"/>
+<label class="font-caption-korean text-caption-korean text-on-surface cursor-pointer select-none" for="kobis-sync">
+            국립생태원 국가생물다양성정보공유체계(KOBIS) 및 eBird 자동 동기화 동의
+          </label>
+</div>
+<span class="material-symbols-outlined text-secondary text-[18px]">verified_user</span>
+</div>
+<!-- Expected Reward / Stewardship Level Up -->
+<div class="pt-space-xs border-t-0 flex flex-col gap-1.5">
+<div class="flex items-center justify-between text-caption-korean">
+<span class="font-headline-sm text-caption-korean text-tertiary font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-tertiary text-[16px]">stars</span>
+            기여 예상 보상
+          </span>
+<span class="font-telemetry-sm text-telemetry-sm text-tertiary font-semibold">+50 Eco-P</span>
+</div>
+<div class="flex items-center justify-between p-space-xs rounded-lg bg-surface-container-high/70">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-tertiary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-tertiary text-[18px]">military_tech</span>
+</div>
+<div class="flex flex-col">
+<span class="font-headline-sm text-caption-korean text-on-surface font-semibold">'저어새의 수호자' 배지</span>
+<span class="font-telemetry-sm text-telemetry-sm text-on-surface-variant">서해안 갯벌 관찰 5회 중 4회차 달성</span>
+</div>
+</div>
+<span class="font-telemetry-md text-telemetry-md text-secondary font-bold">80%</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Sticky Bottom Controls -->
+<section class="sticky bottom-20 z-40 pt-space-xs">
+<div class="p-space-xs rounded-2xl bg-surface-container-lowest/90 backdrop-blur-2xl shadow-[0_8px_32px_rgba(3,12,40,0.9)] flex items-center gap-space-xs">
+<!-- Draft Cache Button -->
+<button class="min-h-[48px] px-space-md rounded-xl bg-surface-container text-on-surface hover:bg-surface-bright flex items-center justify-center gap-1.5 transition-colors shrink-0" id="draft-btn" type="button">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">cloud_off</span>
+<span class="font-headline-sm text-caption-korean font-semibold">오프라인 임시저장</span>
+</button>
+<!-- Primary Submit CTA -->
+<button class="flex-1 min-h-[48px] px-space-md rounded-xl bg-secondary text-on-secondary shadow-[0_0_20px_rgba(66,225,190,0.45)] hover:shadow-[0_0_28px_rgba(66,225,190,0.65)] hover:bg-secondary-fixed transition-all flex items-center justify-center gap-2 group active:scale-[0.99]" id="submit-log-btn" type="button">
+<span class="material-symbols-outlined text-on-secondary text-[20px] group-hover:scale-110 transition-transform">cloud_upload</span>
+<span class="font-headline-sm text-caption-korean font-bold tracking-tight">국립생태원 DB 전송 &amp; 일기 기록</span>
+<span class="material-symbols-outlined text-on-secondary text-[18px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+</button>
+</div>
+</section>
+<!-- Quick Feedback Toast / Dialog Simulation (Hidden by default) -->
+<div class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-300" id="toast">
+<div class="px-space-md py-2 rounded-full bg-secondary text-on-secondary font-headline-sm text-caption-korean font-bold shadow-[0_4px_20px_rgba(66,225,190,0.5)] flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]">check_circle</span>
+<span id="toast-text">기록이 성공적으로 동기화되었습니다!</span>
+</div>
+</div>
+</div>
+<script>
+  (function() {
+    // Stepper functionality
+    const countEl = document.getElementById('bird-count');
+    const btnMinus = document.getElementById('count-minus');
+    const btnPlus = document.getElementById('count-plus');
+    let count = 3;
+
+    if (btnMinus && btnPlus && countEl) {
+      btnMinus.addEventListener('click', () => {
+        if (count > 1) {
+          count--;
+          countEl.textContent = count;
+        }
+      });
+      btnPlus.addEventListener('click', () => {
+        count++;
+        countEl.textContent = count;
+      });
+    }
+
+    // Behavior chips toggle
+    const behaviorChips = document.querySelectorAll('.behavior-chip');
+    behaviorChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const isSelected = chip.getAttribute('data-selected') === 'true';
+        if (isSelected) {
+          chip.setAttribute('data-selected', 'false');
+          chip.className = 'behavior-chip px-3 py-1.5 rounded-full font-caption-korean text-caption-korean font-medium bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all flex items-center gap-1';
+        } else {
+          chip.setAttribute('data-selected', 'true');
+          chip.className = 'behavior-chip px-3 py-1.5 rounded-full font-caption-korean text-caption-korean font-medium bg-secondary text-on-secondary shadow-[0_0_8px_rgba(66,225,190,0.3)] transition-all flex items-center gap-1';
+        }
+      });
+    });
+
+    // Digiscoping toggle micro-interaction
+    const digiToggle = document.getElementById('digiscope-toggle');
+    if (digiToggle) {
+      let active = true;
+      digiToggle.addEventListener('click', () => {
+        active = !active;
+        if (active) {
+          digiToggle.className = 'min-h-[44px] px-space-sm py-2 rounded-xl bg-secondary-container/20 text-secondary flex items-center justify-center gap-1 transition-all';
+          digiToggle.innerHTML = '<span class="material-symbols-outlined text-[18px]">filter_center_focus</span><span class="font-headline-sm text-caption-korean font-bold whitespace-nowrap">디지스코핑 ON</span>';
+        } else {
+          digiToggle.className = 'min-h-[44px] px-space-sm py-2 rounded-xl bg-surface-container-high text-on-surface-variant flex items-center justify-center gap-1 transition-all';
+          digiToggle.innerHTML = '<span class="material-symbols-outlined text-[18px]">crop_free</span><span class="font-headline-sm text-caption-korean font-medium whitespace-nowrap">일반 렌즈 모드</span>';
+        }
+      });
+    }
+
+    // Toast feedback helper
+    const showToast = (message) => {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      if (!toast || !toastText) return;
+      toastText.textContent = message;
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 2500);
+    };
+
+    const submitBtn = document.getElementById('submit-log-btn');
+    if (submitBtn) {
+      submitBtn.addEventListener('click', () => {
+        showToast('국립생태원 KOBIS 망으로 기록이 전송되었습니다! (+50 Eco-P)');
+      });
+    }
+
+    const draftBtn = document.getElementById('draft-btn');
+    if (draftBtn) {
+      draftBtn.addEventListener('click', () => {
+        showToast('현장 오프라인 캐시에 안전하게 보관되었습니다.');
+      });
+    }
+
+    // Top Mode Toggle Switcher
+    const birdBtn = document.getElementById('mode-bird-btn');
+    const starBtn = document.getElementById('mode-star-btn');
+    if (birdBtn && starBtn) {
+      starBtn.addEventListener('click', () => {
+        showToast('밤하늘 천체 관측 모드로 전환합니다 (SQM·성도 뷰포트 준비중)');
+      });
+    }
+  })();
+</script></main><nav class="fixed bottom-0 inset-x-0 z-50 pb-safe bg-primary-container/85 backdrop-blur-xl shadow-[0_-4px_24px_rgba(3,12,40,0.85)]" data-active-classes="text-secondary bg-surface-container-high/60 shadow-[0_0_12px_rgba(66,225,190,0.2)]"><div class="flex justify-around items-center h-20 px-space-xs"><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-space-2xs py-1 rounded-xl text-on-surface-variant hover:text-on-surface transition-all gap-0.5" data-path="discovery-and-curation" href="#"><span class="material-symbols-outlined text-[22px]">radar</span><span class="font-caption-korean text-caption-korean tracking-tight">발견·큐레이션</span></a><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-space-2xs py-1 rounded-xl text-on-surface-variant hover:text-on-surface transition-all gap-0.5" data-path="observation-map" href="#"><span class="material-symbols-outlined text-[22px]">map</span><span class="font-caption-korean text-caption-korean tracking-tight">관찰 지도</span></a><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-space-2xs py-1 rounded-xl text-on-surface-variant hover:text-on-surface transition-all gap-0.5" data-path="trails-and-heritage-eats" href="#"><span class="material-symbols-outlined text-[22px]">hiking</span><span class="font-caption-korean text-caption-korean tracking-tight">트레일·노포</span></a><a class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-space-2xs py-1 rounded-xl text-on-surface-variant hover:text-on-surface transition-all gap-0.5" data-path="day-night-packages" href="#"><span class="material-symbols-outlined text-[22px]">routine</span><span class="font-caption-korean text-caption-korean tracking-tight">낮-밤 패키지</span></a><a aria-current="page" class="flex flex-col items-center justify-center min-w-[56px] min-h-[44px] px-space-2xs py-1 rounded-xl transition-all gap-0.5 text-secondary bg-surface-container-high/60 shadow-[0_0_12px_rgba(66,225,190,0.2)]" data-path="citizen-science-journal" href="#"><span class="material-symbols-outlined text-[22px]">auto_stories</span><span class="font-caption-korean text-caption-korean tracking-tight">내 생태일기</span></a></div></nav></body></html>
