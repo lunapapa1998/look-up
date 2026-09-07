@@ -52,7 +52,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('No observations yet.'), findsOneWidget);
+    expect(find.text('아직 관찰 기록이 없어요.'), findsOneWidget);
   });
 
   testWidgets('renders photo thumbnail when observation has a photoUrl', (tester) async {

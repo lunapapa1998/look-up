@@ -111,7 +111,7 @@ class _ObservationFormScreenState extends ConsumerState<ObservationFormScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Observation' : 'New Observation'),
+        title: Text(_isEditing ? '관찰 수정' : '새 관찰 기록'),
       ),
       body: Form(
         key: _formKey,
@@ -122,12 +122,12 @@ class _ObservationFormScreenState extends ConsumerState<ObservationFormScreen> {
               segments: const [
                 ButtonSegment(
                   value: SpeciesType.bird,
-                  label: Text('Bird'),
+                  label: Text('새'),
                   icon: Icon(Icons.flutter_dash),
                 ),
                 ButtonSegment(
                   value: SpeciesType.star,
-                  label: Text('Star'),
+                  label: Text('별'),
                   icon: Icon(Icons.star),
                 ),
               ],
@@ -139,10 +139,10 @@ class _ObservationFormScreenState extends ConsumerState<ObservationFormScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _speciesNameController,
-              decoration: const InputDecoration(labelText: 'Species name'),
+              decoration: const InputDecoration(labelText: '종 이름'),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Species name is required';
+                  return '종 이름을 입력해주세요';
                 }
                 return null;
               },
@@ -150,32 +150,32 @@ class _ObservationFormScreenState extends ConsumerState<ObservationFormScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _noteController,
-              decoration: const InputDecoration(labelText: 'Note'),
+              decoration: const InputDecoration(labelText: '메모'),
               maxLines: 3,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _photoUrlController,
-              decoration: const InputDecoration(labelText: 'Photo URL'),
+              decoration: const InputDecoration(labelText: '사진 URL'),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _latController,
-              decoration: const InputDecoration(labelText: 'Latitude'),
+              decoration: const InputDecoration(labelText: '위도'),
               keyboardType:
                   const TextInputType.numberWithOptions(signed: true, decimal: true),
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _lngController,
-              decoration: const InputDecoration(labelText: 'Longitude'),
+              decoration: const InputDecoration(labelText: '경도'),
               keyboardType:
                   const TextInputType.numberWithOptions(signed: true, decimal: true),
             ),
             const SizedBox(height: 24),
             FilledButton(
               onPressed: _saving ? null : _save,
-              child: Text(_saving ? 'Saving...' : 'Save'),
+              child: Text(_saving ? '저장 중...' : '저장'),
             ),
           ],
         ),

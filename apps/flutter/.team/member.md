@@ -1,5 +1,50 @@
 # flutter handoff note
 
+## `lib/theme/app_theme.dart` — design-token dark theme (read this before styling any new screen)
+
+- New dependency: `google_fonts: ^6.2.1` (added to `pubspec.yaml`, alongside `http`/`flutter_riverpod`).
+- `AppTheme.dark()` — static, no args, returns a `ThemeData` (`useMaterial3: true`). Wired into
+  `lib/main.dart`: `theme: AppTheme.dark(), darkTheme: AppTheme.dark(), themeMode: ThemeMode.dark`
+  (old `ColorScheme.fromSeed(seedColor: Colors.green)` removed). Use this for any new
+  screen/widget — do not hardcode colors, read them off `Theme.of(context).colorScheme` /
+  `.textTheme`.
+- `AppTheme.telemetryStyle(...)` has been **removed**. JetBrains Mono now lives directly in the
+  `TextTheme`: `labelSmall`/`labelMedium` are sourced from `GoogleFonts.jetBrainsMonoTextTheme()`
+  (all other roles still Space Grotesk for display/headline, Inter for the rest). For
+  numeric/telemetry display (dates, counts), use `Theme.of(context).textTheme.labelSmall`
+  (`.copyWith(...)` for size/color overrides) instead of calling a helper directly.
+- `ColorScheme` tokens available via `Theme.of(context).colorScheme` (built from `ColorScheme.dark()`
+  + `.copyWith`, only the fields below are overridden — everything else is `ColorScheme.dark()`
+  default, do not assume other fields are themed):
+  - `surface` / `surfaceContainerLowest` / `surfaceContainerLow` / `surfaceContainer` /
+    `surfaceContainerHigh` / `surfaceContainerHighest` — navy background scale, darkest to
+    lightest (`#030c28` → `#2b3450`). (`background` was intentionally left unset —
+    `ColorScheme.background` is deprecated in this Flutter SDK and falls back to `surface`
+    automatically, so it still resolves to the same navy.)
+  - `secondary` (`#42e1be`, teal) / `onSecondary` (`#00382d`) — star/night accent; also the
+    `FilledButton` background/foreground.
+  - `tertiary` (`#f5bc7e`, gold) / `onTertiary` (`#482900`) — bird/day accent (not wired into any
+    component theme yet, available for screens to use directly).
+  - `primary` (`#bec5e5`), `onSurface` (`#dbe1ff`), `onSurfaceVariant` (`#c6c6ce`),
+    `outline` (`#909098`), `error` (`#ffb4ab`).
+- `TextTheme`: display*/headline* roles use `GoogleFonts.spaceGroteskTextTheme()`, `labelSmall`/
+  `labelMedium` use `GoogleFonts.jetBrainsMonoTextTheme()` (numeric/telemetry look), all remaining
+  roles (body*/labelLarge/title*) use `GoogleFonts.interTextTheme()`; every role's `color` is
+  `onSurface`.
+- Component themes set: `cardTheme` (`surfaceContainer` fill, 12px radius), `appBarTheme`
+  (`surface` background, `onSurface` foreground, `headlineSmall` title style),
+  `inputDecorationTheme` (filled, `surfaceContainerHigh` fill, 8px radius, no border side),
+  `filledButtonTheme` (`secondary`/`onSecondary`, fully pill-shaped radius 9999).
+- Lane: only `pubspec.yaml`, `lib/theme/app_theme.dart`, `lib/main.dart` touched this task — no
+  screens/tests/api/models/providers changed.
+- Could not run `flutter analyze`/`flutter test` in this harness (no Bash access to the `flutter`
+  binary — confined to Read/Grep/Glob/Edit/Write). Statically re-checked against the installed
+  Flutter SDK source (`/opt/homebrew/share/flutter/packages/flutter/lib/src/material/color_scheme.dart`
+  and `theme_data.dart`) for every field/type used (`ColorScheme.dark().copyWith` field names,
+  `CardThemeData` vs old `CardTheme`, `TextTheme.apply(bodyColor:, displayColor:)`,
+  `FilledButton.styleFrom`). Pipeline validate stage should run
+  `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
 - Status: added `Observation` DTOs (manual JSON, no code-gen) + round-trip unit tests; added `EcologApi` (Http + Fake) client; added `flutter_riverpod` dependency
 - Last update: 2026-09-07
 - Files: `lib/models/observation.dart`, `test/models/observation_test.dart`, `lib/api/ecolog_api.dart`
@@ -244,3 +289,86 @@ Could not run `flutter analyze`/`flutter test` in this harness (same approval re
 above) — statically re-checked against the `providers.dart`/`observation.dart`/`ecolog_api.dart`
 contracts. Pipeline validate stage should run
 `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## `lib/screens/diary_list_screen.dart` — reskinned with `AppTheme.dark` + Korean copy
+
+- Copy-and-styling-only pass, no logic/provider/navigation changes: AppBar title `관찰 일지`,
+  badges `IconButton` tooltip `배지`, error-state `FilledButton` text `다시 시도`, empty-state
+  strings `아직 관찰 기록이 없어요.` / `+ 버튼을 눌러 첫 새 또는 별 관찰을 기록해보세요.`.
+- `_SpeciesIconPlaceholder` no longer hardcodes `Colors.brown`/`Colors.indigo` — reads
+  `Theme.of(context).colorScheme.tertiary` (gold, bird) / `.secondary` (teal, star).
+- `_ObservationCard`'s date/time `Text` now styled with
+  `AppTheme.telemetryStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)` (relative import
+  `../theme/app_theme.dart`) for the JetBrains Mono timestamp look.
+- `test/screens/diary_list_screen_test.dart`: updated the empty-state assertion to
+  `'아직 관찰 기록이 없어요.'`; the other three tests (species names, image/icon types) untouched.
+- Could not run `flutter analyze`/`flutter test` in this harness (same approval restriction as
+  above) — statically re-checked field names against `app_theme.dart`
+  (`AppTheme.telemetryStyle`, `colorScheme.tertiary`/`.secondary`/`.onSurfaceVariant`). Pipeline
+  validate stage should run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## `lib/screens/observation_form_screen.dart` — reskinned with Korean copy
+
+- Copy-only pass, no logic/provider/navigation changes: `AppBar` title `관찰 수정`/`새 관찰 기록`
+  (edit/create mode), `SegmentedButton` segment labels `새`/`별` (bird/star), `TextFormField`
+  labels 종 이름/메모/사진 URL/위도/경도, species-name validator error `종 이름을 입력해주세요`,
+  save button text `저장`/`저장 중...` (saving state).
+- `test/screens/observation_form_screen_test.dart`: updated the tap-target string from `Save` to
+  `저장` to match.
+- Could not run `flutter analyze`/`flutter test` in this harness (same approval restriction as
+  above) — statically re-checked the changed strings against the widget/test source. Pipeline
+  validate stage should run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## `lib/screens/badges_screen.dart` — reskinned with `AppTheme.dark` + Korean copy (contrast fix)
+
+- Copy-and-styling-only pass, no logic/provider/grid-layout/model changes: `AppBar` title `배지`,
+  error-state `FilledButton` text `다시 시도`. `badge.name`/`badge.description` left untouched
+  (existing Korean backend contract).
+- `_BadgeCard`: replaced the plain `Colors.amber`/`Colors.grey` trophy icon colors with
+  `Theme.of(context).colorScheme.tertiary` (achieved) / `.outline` (unachieved) for stronger
+  contrast against the `Opacity` dimming already in place; `Card` `color` (`primaryContainer` when
+  achieved) unchanged. Added explicit `shape: RoundedRectangleBorder(borderRadius:
+  BorderRadius.circular(12))` on the `Card` to match the theme's card radius token.
+- `test/screens/badges_screen_test.dart`: read but not touched — it only asserts on the 5 Korean
+  badge names (`find.text('첫 관찰')` etc.), no `find.text('Badges')`/`'Retry'` assertions present.
+- Could not run `flutter analyze`/`flutter test` in this harness (same approval restriction as
+  above) — statically re-checked field names against `app_theme.dart` (`colorScheme.tertiary`/
+  `.outline`/`.primaryContainer`) and the unchanged `Badge`/`BadgeProgress` models. Pipeline
+  validate stage should run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## Lint fix: `unnecessary_underscores` in `AsyncValue.error` callbacks
+
+- `lib/screens/diary_list_screen.dart:32` and `lib/screens/badges_screen.dart:19`: changed
+  `error: (_, __) => Center(` to `error: (_, _) => Center(` — Dart's `unnecessary_underscores`
+  lint wants repeated bare `_` for multiple unused positional params, not `_`/`__`. One-token
+  change per file, nothing else touched.
+- Built against no new backend contract (pure lint fix, no logic/DTO change).
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  isn't available here) — grepped the whole `apps/flutter/lib` tree for `error: (_, _+)` and
+  confirmed only these two matches, both now single-underscore. Pipeline validate stage should
+  run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.
+
+## Cross-model-verifier fix pass: JetBrains Mono into `TextTheme`, no raw error text in UI
+
+- `lib/theme/app_theme.dart`: `telemetryStyle()` static helper **removed**. `labelSmall`/
+  `labelMedium` are now sourced from `GoogleFonts.jetBrainsMonoTextTheme()` inside the
+  `textTheme.copyWith(...)` call (alongside the existing Space Grotesk display/headline overrides),
+  still passed through the same `.apply(bodyColor: onSurface, displayColor: onSurface)`, so no
+  extra color wiring was needed.
+- `lib/screens/diary_list_screen.dart`: observation timestamp now uses
+  `Theme.of(context).textTheme.labelSmall?.copyWith(color: onSurfaceVariant, fontSize: 12)` instead
+  of the removed `AppTheme.telemetryStyle(...)`; dropped the now-unused `../theme/app_theme.dart`
+  import. Error state no longer interpolates the raw error object — replaced with fixed Korean
+  copy `관찰 기록을 불러오지 못했어요.` (unused `error`/`stackTrace` callback params renamed to `_`/`__`).
+- `lib/screens/badges_screen.dart`: badge count `Text` (`currentCount / targetCount`) now styled
+  with `Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)` (was
+  unstyled). Error state fixed Korean copy `배지 정보를 불러오지 못했어요.` (same `_`/`__` param rename).
+- No API/model/provider files touched — copy/style only, per lane rules.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that isn't
+  available here) — statically re-checked: `GoogleFonts.jetBrainsMonoTextTheme()` mirrors the
+  existing `spaceGroteskTextTheme()`/`interTextTheme()` calls already used in this file;
+  `TextTheme.labelSmall`/`.labelMedium` are `TextStyle?` in the installed Flutter SDK
+  (`/opt/homebrew/share/flutter/packages/flutter/lib/src/material/text_theme.dart`), so `?.copyWith`
+  is correct. Grepped the whole `apps/flutter` tree for `telemetryStyle` and raw `$error`/`'$error'`
+  interpolation in `test/` — no remaining references, so no test fallout expected. Pipeline
+  validate stage should run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`.

@@ -16,11 +16,11 @@ class DiaryListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Observation Diary'),
+        title: const Text('관찰 일지'),
         actions: [
           IconButton(
             icon: const Icon(Icons.emoji_events_outlined),
-            tooltip: 'Badges',
+            tooltip: '배지',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const BadgesScreen()),
             ),
@@ -29,15 +29,15 @@ class DiaryListScreen extends ConsumerWidget {
       ),
       body: observationsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => Center(
+        error: (_, _) => Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('$error'),
+              const Text('관찰 기록을 불러오지 못했어요.'),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => ref.invalidate(observationsProvider),
-                child: const Text('Retry'),
+                child: const Text('다시 시도'),
               ),
             ],
           ),
@@ -76,9 +76,9 @@ class _EmptyState extends StatelessWidget {
             color: Theme.of(context).colorScheme.outline,
           ),
           const SizedBox(height: 16),
-          const Text('No observations yet.'),
+          const Text('아직 관찰 기록이 없어요.'),
           const SizedBox(height: 4),
-          const Text('Tap + to record your first bird or star sighting.'),
+          const Text('+ 버튼을 눌러 첫 새 또는 별 관찰을 기록해보세요.'),
         ],
       ),
     );
@@ -139,7 +139,13 @@ class _ObservationCard extends StatelessWidget {
           children: [
             if (observation.note != null && observation.note!.isNotEmpty)
               Text(observation.note!),
-            Text(_formatDateTime(observation.observedAt)),
+            Text(
+              _formatDateTime(observation.observedAt),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+            ),
           ],
         ),
         isThreeLine: observation.note != null && observation.note!.isNotEmpty,
@@ -160,10 +166,11 @@ class _SpeciesIconPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Center(
       child: Icon(
         isBird ? Icons.flutter_dash : Icons.star,
-        color: isBird ? Colors.brown : Colors.indigo,
+        color: isBird ? colorScheme.tertiary : colorScheme.secondary,
       ),
     );
   }

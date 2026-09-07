@@ -31,7 +31,7 @@ void main() {
     expect(find.byType(ObservationFormScreen), findsOneWidget);
 
     await tester.enterText(find.byType(TextFormField).first, 'Sparrow');
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.widgetWithText(FilledButton, '저장'));
     await tester.pumpAndSettle();
 
     final observations = await api.listObservations();

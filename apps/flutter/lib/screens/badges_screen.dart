@@ -13,18 +13,18 @@ class BadgesScreen extends ConsumerWidget {
     final badgesAsync = ref.watch(badgesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Badges')),
+      appBar: AppBar(title: const Text('배지')),
       body: badgesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stackTrace) => Center(
+        error: (_, _) => Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('$error'),
+              const Text('배지 정보를 불러오지 못했어요.'),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => ref.invalidate(badgesProvider),
-                child: const Text('Retry'),
+                child: const Text('다시 시도'),
               ),
             ],
           ),
@@ -54,13 +54,15 @@ class _BadgeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final badge = progress.badge;
     final achieved = progress.achieved;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Opacity(
       opacity: achieved ? 1.0 : 0.5,
       child: Card(
-        color: achieved
-            ? Theme.of(context).colorScheme.primaryContainer
-            : null,
+        color: achieved ? colorScheme.primaryContainer : null,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -69,7 +71,7 @@ class _BadgeCard extends StatelessWidget {
               Icon(
                 achieved ? Icons.emoji_events : Icons.emoji_events_outlined,
                 size: 40,
-                color: achieved ? Colors.amber : Colors.grey,
+                color: achieved ? colorScheme.tertiary : colorScheme.outline,
               ),
               const SizedBox(height: 8),
               Text(
@@ -90,7 +92,13 @@ class _BadgeCard extends StatelessWidget {
                 value: (progress.currentCount / badge.targetCount).clamp(0.0, 1.0),
               ),
               const SizedBox(height: 4),
-              Text('${progress.currentCount} / ${badge.targetCount}'),
+              Text(
+                '${progress.currentCount} / ${badge.targetCount}',
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: colorScheme.onSurfaceVariant),
+              ),
             ],
           ),
         ),
