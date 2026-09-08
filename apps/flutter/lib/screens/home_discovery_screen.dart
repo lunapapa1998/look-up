@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config.dart';
 import '../models/discovery.dart';
 import '../state/discovery_providers.dart';
 import '../widgets/score_gauge.dart';
@@ -17,6 +18,12 @@ class HomeDiscoveryScreen extends ConsumerWidget {
     final overviewAsync = ref.watch(discoveryProvider);
     final currentMode = ref.watch(obsModeProvider);
     final hotspots = ref.watch(hotspotsProvider);
+    final locationAsync = ref.watch(locationProvider);
+    final locationLabel = locationAsync.when(
+      data: (loc) => loc.placeName ?? fallbackPlaceName,
+      loading: () => '위치 확인 중',
+      error: (_, _) => fallbackPlaceName,
+    );
 
     return Scaffold(
       body: SafeArea(
@@ -60,7 +67,13 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                       children: [
                         const Icon(Icons.explore, size: 16),
                         const SizedBox(width: 4),
-                        const Text('강화·서해안'),
+                        Flexible(
+                          child: Text(
+                            locationLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                         const Icon(Icons.keyboard_arrow_down, size: 16),
                       ],
                     ),

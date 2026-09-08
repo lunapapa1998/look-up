@@ -884,3 +884,279 @@ abstract class SuitabilityApi {
   it already derived from the list length rather than the hardcoded `2`, so it now safely renders
   0, 1, or more golden-hour entries.
 - No other lines touched in this section; no model/provider/API changes.
+
+## 2026-09-08 — `lib/services/location_service.dart` — new `LocationService` abstraction (phase 1 of GPS spec, scaffolding only)
+
+- New file only. Also touched: `pubspec.yaml` (two new deps, added right after `flutter_riverpod:
+  ^2.6.1`), `ios/Runner/Info.plist` (one new key pair after `LSRequiresIPhoneOS`), `lib/config.dart`
+  (one new const appended). **Did not touch** `lib/state/discovery_providers.dart` or
+  `lib/screens/home_discovery_screen.dart` — wiring this into the discovery flow is a later phase.
+- New pubspec dependencies: `geolocator: ^13.0.0`, `geocoding: ^3.3.1`.
+- `ios/Runner/Info.plist`: added `NSLocationWhenInUseUsageDescription` = `관측 적합도를 현재 위치 기준으로
+  계산하기 위해 위치를 사용합니다`. No Android manifest touched (out of scope for this task — Android
+  permission wiring is not part of the 4 deliverables).
+- `lib/config.dart`: added `const String fallbackPlaceName = '강화·서해안';` below
+  `defaultObservationLng`; the two existing constants are byte-for-byte unchanged.
+- Verbatim contract for later phases to quote:
+  ```dart
+  class ObservationLocation {
+    const ObservationLocation({
+      required double lat,
+      required double lng,
+      required String? placeName,
+      required bool isFallback,
+    });
+    final double lat;
+    final double lng;
+    final String? placeName;
+    final bool isFallback;
+  }
+
+  abstract class LocationService {
+    Future<ObservationLocation> currentLocation();
+  }
+
+  class FakeLocationService implements LocationService {
+    FakeLocationService(this.location); // positional, required
+    final ObservationLocation location;
+  }
+  ```
+- `GeolocatorLocationService implements LocationService`: `currentLocation()` never throws — every
+  failure path (`Geolocator.isLocationServiceEnabled()` false; `checkPermission()`/
+  `requestPermission()` resolving to `denied`/`deniedForever`; any exception from
+  `Geolocator.getCurrentPosition()`) returns the fixed fallback `ObservationLocation(lat:
+  defaultObservationLat, lng: defaultObservationLng, placeName: null, isFallback: true)` from
+  `config.dart`. On a successful position fix, `placemarkFromCoordinates(lat, lng)` is wrapped in its
+  own try/catch; on failure or an empty placemark list, returns `ObservationLocation(lat:
+  position.latitude, lng: position.longitude, placeName: null, isFallback: false)`. On success,
+  `placeName` is built by joining, with `·`, whichever of `administrativeArea`/`locality`/
+  `subLocality` (checked in that priority order) are non-null/non-empty on the first placemark —
+  `null` if none qualify — returned as `ObservationLocation(lat: position.latitude, lng:
+  position.longitude, placeName: <built>, isFallback: false)`.
+- Could not run `flutter pub get`/`flutter analyze`/`flutter test` in this harness (Read/Grep/Glob/
+  Edit/Write only, no Bash) — statically re-checked the `geolocator` 13.x API (`Position.latitude`/
+  `.longitude`, `LocationPermission.denied`/`.deniedForever`, `Geolocator.getCurrentPosition()` takes
+  no required args) and `geocoding` 3.x API (`placemarkFromCoordinates(lat, lng) ->
+  Future<List<Placemark>>`, `Placemark.administrativeArea`/`.locality`/`.subLocality`) against the
+  package docs/pattern already used by `SuitabilityApi` in `lib/api/suitability_api.dart`. Pipeline
+  validate stage should run `cd apps/flutter && flutter pub get && flutter analyze && flutter test`
+  (new deps require `pub get` before `analyze` will resolve `package:geolocator`/`package:geocoding`).
+
+## 2026-09-08 — `pubspec.yaml` — version-pin fix: `geocoding: ^3.3.1` → `^5.0.0`
+
+- `flutter pub get` failed (`geocoding ^3.3.1` doesn't resolve). Bumped the pin to `^5.0.0` per
+  `flutter pub add geocoding:^5.0.0`'s suggestion; `geolocator: ^13.0.0` and everything else in the
+  file untouched. The `placemarkFromCoordinates`/`Placemark.administrativeArea`/`.locality`/
+  `.subLocality` API consumed in `lib/services/location_service.dart` is unchanged across this bump,
+  so no other file needed edits.
+
+## 2026-09-08 — `lib/services/location_service.dart` — fixed compile error from geocoding v3→v5 API shape change
+
+- The previous entry's version bump (`geocoding ^3.3.1` → `^5.0.0`) silently broke
+  `currentLocation()`: v5 removed the top-level `placemarkFromCoordinates(lat, lng)` function that
+  v3 exported — reverse geocoding now goes through an instance method on a new `Geocoding` class.
+  `await placemarkFromCoordinates(position.latitude, position.longitude)` → `await
+  Geocoding().placemarkFromCoordinates(position.latitude, position.longitude)` (one-line change,
+  constructed inline, no new field). `Placemark.administrativeArea`/`.locality`/`.subLocality` (all
+  `String?`) are unchanged in the v5 platform-interface type, so the fallback-building logic right
+  below needed no edits.
+- Verified against the installed package source (not memory):
+  `~/.pub-cache/hosted/pub.dev/geocoding-5.0.0/lib/geocoding.dart` (`Geocoding.placemarkFromCoordinates
+  (double, double, {Locale? locale}) -> Future<List<pi.Placemark>>`, `Placemark` re-exported via
+  `export 'package:geocoding_platform_interface/...'`, so the existing
+  `import 'package:geocoding/geocoding.dart';` stays live/used — no `unused_import` once the call
+  site references `Geocoding`) and
+  `~/.pub-cache/hosted/pub.dev/geocoding_platform_interface-5.0.0/lib/src/types/placemark.dart`
+  (confirms `administrativeArea`/`locality`/`subLocality` field names/types unchanged).
+- Could not run `flutter analyze`/`flutter test` in this harness (Read/Grep/Glob/Edit/Write only, no
+  Bash access). Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze lib/services/location_service.dart` (expect 0 issues) then the
+  full `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — `lib/state/discovery_providers.dart` — phase 2a: wired `locationProvider` into `discoveryProvider` (spec 007, GPS location)
+
+- Only this file touched (per task scope) — `lib/screens/home_discovery_screen.dart` deliberately
+  left untouched, a later task wires the location label there. Added
+  `import '../services/location_service.dart';`.
+- New, verbatim (next task should quote these, not re-derive):
+  ```dart
+  final locationServiceProvider = Provider<LocationService>((ref) {
+    return GeolocatorLocationService();
+  });
+
+  class LocationNotifier extends AsyncNotifier<ObservationLocation> {
+    @override
+    Future<ObservationLocation> build() async {
+      final service = ref.watch(locationServiceProvider);
+      return service.currentLocation();
+    }
+
+    Future<void> refresh() async {
+      state = const AsyncLoading();
+      state = await AsyncValue.guard(
+        () => ref.read(locationServiceProvider).currentLocation(),
+      );
+    }
+  }
+
+  final locationProvider =
+      AsyncNotifierProvider<LocationNotifier, ObservationLocation>(
+    LocationNotifier.new,
+  );
+  ```
+  `ref.watch(locationProvider)` returns `AsyncValue<ObservationLocation>`;
+  `ref.read(locationProvider.notifier).refresh()` forces a re-fetch (sets `AsyncLoading` first, then
+  `AsyncValue.guard`s a fresh `currentLocation()` call — mirrors `ObservationsNotifier._refresh()`'s
+  `AsyncValue.guard` pattern in `lib/state/providers.dart:47`).
+- `DiscoveryNotifier.build()` changed from the hardcoded `defaultObservationLat`/`defaultObservationLng`
+  to `final location = await ref.watch(locationProvider.future);` then
+  `api.fetchSuitability(lat: location.lat, lng: location.lng, mode: mode)` — `discoveryProvider` now
+  transitively re-fetches whenever `locationProvider`'s resolved value changes (GPS fix arrives, or
+  `refresh()` is called), in addition to the existing `obsModeProvider` dependency.
+  `obsModeProvider`/`suitabilityApiProvider`/`hotspotsProvider` bodies/signatures untouched.
+  `defaultObservationLat`/`defaultObservationLng` are no longer referenced in this file (still used
+  internally by `GeolocatorLocationService`'s fallback in `location_service.dart`), but the
+  `../config.dart` import stays — `defaultApiBaseUrl` (used by `suitabilityApiProvider`) is still
+  imported from it.
+- Built directly against `lib/services/location_service.dart`'s existing contract (read, not
+  redefined): `ObservationLocation({required lat, required lng, required placeName, required
+  isFallback})`, `abstract class LocationService { Future<ObservationLocation> currentLocation(); }`,
+  `GeolocatorLocationService()` (no-arg, never throws), `FakeLocationService(location)` (positional —
+  for the next task's tests, override via
+  `locationServiceProvider.overrideWithValue(FakeLocationService(ObservationLocation(...)))`).
+- **Known fallout, out of this task's lane**: `test/suitability_wiring_test.dart` and
+  `test/screens/home_discovery_screen_test.dart` build `ProviderContainer`s that override
+  `suitabilityApiProvider` but not `locationServiceProvider` — `discoveryProvider.build()` now also
+  awaits `locationProvider.future`, which by default resolves via the real
+  `GeolocatorLocationService` (falls back safely to `defaultObservationLat/Lng` rather than throwing
+  in a headless test environment, so tests likely still pass, but this is unverified without running
+  the suite). The next task touching those test files should add
+  `locationServiceProvider.overrideWithValue(FakeLocationService(...))` to each `ProviderContainer`
+  for determinism.
+- Could not run `flutter analyze`/`flutter test` in this harness (Read/Grep/Glob/Edit/Write only, no
+  Bash access) — statically re-checked every field/type against `lib/services/location_service.dart`
+  and matched the `AsyncNotifier`/`AsyncValue.guard` syntax exactly against `DiscoveryNotifier` (same
+  file) and `ObservationsNotifier._refresh()` (`lib/state/providers.dart:46-51`). Pipeline validate
+  stage should run `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — test fix: `locationServiceProvider` override added to all 3 test files broken by Phase 2
+
+- Closes the "known fallout" flagged in the entry directly above. Test-only pass, no `lib/` file
+  touched. Added `import 'package:lookup/services/location_service.dart';` plus a
+  `locationServiceProvider.overrideWithValue(FakeLocationService(const ObservationLocation(lat:
+  37.5921, lng: 126.3984, placeName: null, isFallback: true)))` entry to every
+  `ProviderContainer`/`ProviderScope` that builds `HomeDiscoveryScreen` directly or via `AppShell`:
+  `test/suitability_wiring_test.dart` (the shared `_pumpHome` helper — covers all 6 `testWidgets`),
+  `test/screens/home_discovery_screen_test.dart` (all 3 `ProviderContainer`s), and
+  `test/screens/app_shell_test.dart` (both `ProviderScope`s — this file also needed a new
+  `package:lookup/state/discovery_providers.dart` import since it didn't previously import the file
+  that defines `locationServiceProvider`).
+- No test names or `expect(...)` assertions changed anywhere.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't
+  granted, tried repeatedly) — statically re-checked: `locationServiceProvider` is
+  `Provider<LocationService>` in `lib/state/discovery_providers.dart:22`; `FakeLocationService`/
+  `ObservationLocation` constructors confirmed against `lib/services/location_service.dart:8-19,94-101`.
+  Pipeline validate stage should run `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — `lib/screens/home_discovery_screen.dart` — phase 2b: dynamic top-right location label (spec 007, GPS location)
+
+- Only this file touched. Added `import '../config.dart';` (for `fallbackPlaceName`) and, alongside
+  the existing `overviewAsync`/`currentMode`/`hotspots` watches, `final locationAsync =
+  ref.watch(locationProvider);` then computed the label as:
+  ```dart
+  final locationLabel = locationAsync.when(
+    data: (loc) => loc.placeName ?? fallbackPlaceName,
+    loading: () => '위치 확인 중',
+    error: (_, __) => fallbackPlaceName,
+  );
+  ```
+  The error branch never renders the raw exception — it always resolves to the `fallbackPlaceName`
+  string (`'강화·서해안'`).
+- Replaced the old `const Text('강화·서해안')` in the top-right pill `Row` with
+  `Flexible(child: Text(locationLabel, maxLines: 1, overflow: TextOverflow.ellipsis))`, keeping the
+  surrounding `Icon(Icons.explore)`/`Icon(Icons.keyboard_arrow_down)` and `Row` structure unchanged.
+  Subtitle text `' | 강화 · 영월 실시간 기상망'` (line ~95, LIVE FIELD TELEMETRY row) was left untouched
+  as instructed — out of this task's scope.
+- **For Phase 3's widget test**: assert against `locationLabel`'s three possible rendered strings —
+  `loc.placeName` when non-null, else `'위치 확인 중'` while `locationProvider` is loading, else
+  `fallbackPlaceName` (`'강화·서해안'`, from `../config.dart`) on error. The screen now watches
+  `locationProvider` (`AsyncNotifierProvider<LocationNotifier, ObservationLocation>` from
+  `lib/state/discovery_providers.dart`), so tests must override `locationServiceProvider` (see the
+  two entries directly above) for deterministic `placeName` values.
+- Could not run `flutter analyze`/`flutter test` in this harness (Read/Grep/Glob/Edit/Write only, no
+  Bash access) — statically re-checked `locationProvider`'s `AsyncValue<ObservationLocation>` type and
+  `ObservationLocation.placeName` (`String?`) against `lib/state/discovery_providers.dart:41` and
+  `lib/services/location_service.dart`, and confirmed `fallbackPlaceName` exists at
+  `lib/config.dart:11`. Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — `test/location_wiring_test.dart` — phase 3: new widget test for the location label (spec 007, GPS location)
+
+- New test file only, nothing else touched. Local `_pumpHome(tester, {required ObservationLocation
+  location})` helper mirrors `suitability_wiring_test.dart`'s pattern (`ProviderContainer(overrides:
+  [suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+  locationServiceProvider.overrideWithValue(FakeLocationService(location))])`,
+  `addTearDown(container.dispose)`, `pumpWidget(UncontrolledProviderScope(container:, child:
+  MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {}))))`).
+- Three `testWidgets`: (1) `placeName: '해운대구'` + one `pump()` → asserts `find.text('해운대구')`
+  (`findsOneWidget`) and `find.text(fallbackPlaceName)` (`findsNothing`), proving the real place name
+  wins over the fallback; (2) `placeName: null, isFallback: true` + one `pump()` → asserts
+  `find.text(fallbackPlaceName)` (imported from `package:lookup/config.dart`, not hardcoded)
+  `findsOneWidget`; (3) same location as test 1 but **no** `pump()` call after the implicit
+  `pumpWidget` pump (mirrors `suitability_wiring_test.dart`'s loading-state test) → asserts
+  `find.text('위치 확인 중')` findsOneWidget.
+- Built against `home_discovery_screen.dart:22-25`'s `locationLabel = locationAsync.when(data: (loc)
+  => loc.placeName ?? fallbackPlaceName, loading: () => '위치 확인 중', error: (_, _) =>
+  fallbackPlaceName)` (confirmed by reading the file, not from memory) and the
+  `locationServiceProvider`/`FakeLocationService`/`ObservationLocation` contracts noted in the two
+  entries above.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't
+  granted, tried repeatedly) — statically re-checked every import path, constructor, and string
+  literal against the four source files read for this task
+  (`suitability_wiring_test.dart`, `location_service.dart`, `discovery_providers.dart`, `config.dart`,
+  `home_discovery_screen.dart`). Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — `lib/services/location_service.dart` — review fix: two never-throw violations in `GeolocatorLocationService.currentLocation()`
+
+- Defect 1: the `isLocationServiceEnabled()` / `checkPermission()` / `requestPermission()` block
+  (previously bare, before the existing `getCurrentPosition()` try/catch) is now wrapped in its own
+  `try { ... } catch (_) { return _fallback; }`, matching the pattern already used for
+  `getCurrentPosition()` and the geocoding call — any exception from those three Geolocator calls
+  now resolves to `_fallback` instead of propagating out of `currentLocation()`.
+- Defect 2: the reverse-geocoding catch block (`Geocoding().placemarkFromCoordinates(...)`) no
+  longer does `placeName = null;` and falls through to the real-GPS success return — it now does
+  `return _fallback;` directly, so a geocoding failure returns the fixed fallback coordinates with
+  `isFallback: true` instead of leaking real GPS coordinates with `isFallback: false`.
+- Only `lib/services/location_service.dart` touched (2 blocks); `ObservationLocation`,
+  `LocationService`, `FakeLocationService`, and the geocoding success-path return are untouched.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't
+  granted) — statically re-checked the diff (brace balance, `_fallback` still resolves as the
+  existing static field, no unused locals introduced). Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — test-coverage fix: `FakeSuitabilityApi.onFetchSuitability` hook + `location_wiring_test.dart` coordinate assertions
+
+- `lib/api/suitability_api.dart`: added `final void Function(double lat, double lng)? onFetchSuitability`
+  field to `FakeSuitabilityApi` (new optional named ctor param, default `null`). `fetchSuitability()`
+  now calls `onFetchSuitability?.call(lat, lng);` as the unconditional first line, before the
+  `shouldThrow` check, so callers can observe the coordinates on every call including the throwing
+  path. Fully backward-compatible — `FakeSuitabilityApi()` / `FakeSuitabilityApi(degraded: true)` at
+  existing call sites (`suitability_wiring_test.dart`, `home_discovery_screen_test.dart`, both
+  untouched) keep compiling/behaving identically since the field defaults to `null`.
+- `test/location_wiring_test.dart`: `_pumpHome` gained an optional
+  `void Function(double lat, double lng)? onFetchSuitability` param, forwarded into the
+  `FakeSuitabilityApi` it constructs. The two location-resolution tests (`permission granted with
+  place name...` / `permission denied falls back...`) now pass a closure capturing `lat`/`lng` into
+  local nullable doubles, add a second `tester.pump()` for the async `discoveryProvider` chain to
+  resolve, and assert the captured coordinates equal the test's `ObservationLocation` (35.1/129.0 and
+  37.5921/126.3984 respectively) — closing the gap where only rendered label text was asserted, never
+  that the resolved/fallback coordinates actually reached suitability fetching. Third test (loading
+  placeholder) and all existing `find.text(...)` assertions untouched.
+- No backend contract involved — this is a test-observability-only change to the in-memory fake.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't
+  granted, tried repeatedly) — statically re-checked the diff: new field/param types match, default
+  `null` preserves existing call-site behavior, `onFetchSuitability?.call(lat, lng)` placement is
+  before `shouldThrow`, and the two edited tests' closures/assertions align with the `ObservationLocation`
+  literals already in each test. Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test`.

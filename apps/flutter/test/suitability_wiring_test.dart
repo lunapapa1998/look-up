@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:lookup/api/suitability_api.dart';
 import 'package:lookup/screens/home_discovery_screen.dart';
+import 'package:lookup/services/location_service.dart';
 import 'package:lookup/state/discovery_providers.dart';
 
 /// Pumps [HomeDiscoveryScreen] wired to [api] via [suitabilityApiProvider]
@@ -13,7 +14,19 @@ Future<ProviderContainer> _pumpHome(
   required SuitabilityApi api,
 }) async {
   final container = ProviderContainer(
-    overrides: [suitabilityApiProvider.overrideWithValue(api)],
+    overrides: [
+      suitabilityApiProvider.overrideWithValue(api),
+      locationServiceProvider.overrideWithValue(
+        FakeLocationService(
+          const ObservationLocation(
+            lat: 37.5921,
+            lng: 126.3984,
+            placeName: null,
+            isFallback: true,
+          ),
+        ),
+      ),
+    ],
   );
   addTearDown(container.dispose);
 

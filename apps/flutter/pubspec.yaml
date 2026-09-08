@@ -41,6 +41,11 @@ dependencies:
   # State management: providers + ConsumerWidget.
   flutter_riverpod: ^2.6.1
 
+  # Device GPS location for observation-site suitability scoring.
+  geolocator: ^13.0.0
+  # Reverse geocoding (lat/lng -> place name) for the location display.
+  geocoding: ^5.0.0
+
   # Design-token theme (Space Grotesk / Inter / JetBrains Mono).
   google_fonts: ^6.2.1
 

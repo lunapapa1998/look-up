@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/suitability_api.dart';
 import '../config.dart';
 import '../models/discovery.dart';
+import '../services/location_service.dart';
 
 /// Wiring for the suitability engine backend API.
 ///
@@ -18,14 +19,39 @@ final suitabilityApiProvider = Provider<SuitabilityApi>((ref) {
   return HttpSuitabilityApi(defaultApiBaseUrl);
 });
 
+final locationServiceProvider = Provider<LocationService>((ref) {
+  return GeolocatorLocationService();
+});
+
+class LocationNotifier extends AsyncNotifier<ObservationLocation> {
+  @override
+  Future<ObservationLocation> build() async {
+    final service = ref.watch(locationServiceProvider);
+    return service.currentLocation();
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(
+      () => ref.read(locationServiceProvider).currentLocation(),
+    );
+  }
+}
+
+final locationProvider =
+    AsyncNotifierProvider<LocationNotifier, ObservationLocation>(
+  LocationNotifier.new,
+);
+
 class DiscoveryNotifier extends AsyncNotifier<DiscoveryOverview> {
   @override
   Future<DiscoveryOverview> build() async {
     final mode = ref.watch(obsModeProvider);
     final api = ref.watch(suitabilityApiProvider);
+    final location = await ref.watch(locationProvider.future);
     return api.fetchSuitability(
-      lat: defaultObservationLat,
-      lng: defaultObservationLng,
+      lat: location.lat,
+      lng: location.lng,
       mode: mode,
     );
   }

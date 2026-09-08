@@ -75,8 +75,13 @@ class HttpSuitabilityApi implements SuitabilityApi {
 class FakeSuitabilityApi implements SuitabilityApi {
   final bool degraded;
   final bool shouldThrow;
+  final void Function(double lat, double lng)? onFetchSuitability;
 
-  FakeSuitabilityApi({this.degraded = false, this.shouldThrow = false});
+  FakeSuitabilityApi({
+    this.degraded = false,
+    this.shouldThrow = false,
+    this.onFetchSuitability,
+  });
 
   static const _goldenHours = [
     GoldenHour(
@@ -99,6 +104,7 @@ class FakeSuitabilityApi implements SuitabilityApi {
     required double lng,
     required ObsMode mode,
   }) async {
+    onFetchSuitability?.call(lat, lng);
     if (shouldThrow) {
       throw SuitabilityApiException(500, 'fake failure');
     }
