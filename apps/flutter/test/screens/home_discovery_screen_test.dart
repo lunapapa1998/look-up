@@ -25,6 +25,7 @@ void main() {
             ),
           ),
         ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
       ],
     );
     addTearDown(container.dispose);
@@ -57,6 +58,7 @@ void main() {
             ),
           ),
         ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
       ],
     );
     addTearDown(container.dispose);
@@ -69,7 +71,18 @@ void main() {
     );
     await tester.pump();
 
+    await tester.dragUntilVisible(
+      find.text('강화도 동막갯벌 & 여차리 도래지'),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
     expect(find.text('강화도 동막갯벌 & 여차리 도래지'), findsOneWidget);
+
+    await tester.dragUntilVisible(
+      find.text('영월 별마로 & 봉래산 다크스카이'),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
     expect(find.text('영월 별마로 & 봉래산 다크스카이'), findsOneWidget);
   });
 
@@ -89,6 +102,7 @@ void main() {
             ),
           ),
         ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
       ],
     );
     addTearDown(container.dispose);
@@ -101,12 +115,69 @@ void main() {
     );
     await tester.pump();
 
-    expect(container.read(obsModeProvider), ObsMode.day);
+    expect(container.read(obsModeProvider).mode, ObsMode.day);
 
-    await tester.tap(find.text('밤의 별을 보러 (천체관측)'));
+    // Collapsed toggle is only hit-testable once the header is actually
+    // collapsed (see the crossfade IgnorePointer gating below) — scroll it
+    // into its interactive state before tapping.
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -2000));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const Key('modeToggleNightCollapsed')));
     await tester.pump();
     await tester.pump();
 
-    expect(container.read(obsModeProvider), ObsMode.night);
+    expect(container.read(obsModeProvider).mode, ObsMode.night);
+  });
+
+  testWidgets('collapsing header shows only one mode control layer at a time', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    final expandedOpacity = tester.widget<Opacity>(
+      find.byKey(const Key('modeHeaderExpandedLayerOpacity')),
+    );
+    final collapsedOpacity = tester.widget<Opacity>(
+      find.byKey(const Key('modeHeaderCollapsedLayerOpacity')),
+    );
+    expect(expandedOpacity.opacity, 1.0);
+    expect(collapsedOpacity.opacity, 0.0);
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -2000));
+    await tester.pump();
+
+    final expandedOpacityAfter = tester.widget<Opacity>(
+      find.byKey(const Key('modeHeaderExpandedLayerOpacity')),
+    );
+    final collapsedOpacityAfter = tester.widget<Opacity>(
+      find.byKey(const Key('modeHeaderCollapsedLayerOpacity')),
+    );
+    expect(expandedOpacityAfter.opacity, 0.0);
+    expect(collapsedOpacityAfter.opacity, 1.0);
   });
 }

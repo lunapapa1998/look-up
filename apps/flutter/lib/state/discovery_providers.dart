@@ -11,9 +11,49 @@ import '../services/location_service.dart';
 /// [discoveryProvider] fetches live data via [SuitabilityApi]; [hotspotsProvider]
 /// still returns hardcoded mock data pending its own backend contract.
 
+/// Wall-clock provider so tests can override the clock deterministically.
+/// Read exactly once per provider build, not polled.
+final nowProvider = Provider<DateTime>((ref) => DateTime.now());
+
+enum ObsModeSource { auto, manual }
+
+class ObsModeState {
+  const ObsModeState({required this.mode, required this.source});
+
+  final ObsMode mode;
+  final ObsModeSource source;
+}
+
+ObsMode modeForHour(int hour) {
+  return (hour < 6 || hour >= 19) ? ObsMode.night : ObsMode.day;
+}
+
+class ObsModeController extends Notifier<ObsModeState> {
+  @override
+  ObsModeState build() {
+    return ObsModeState(
+      mode: modeForHour(ref.read(nowProvider).hour),
+      source: ObsModeSource.auto,
+    );
+  }
+
+  void setManual(ObsMode mode) {
+    state = ObsModeState(mode: mode, source: ObsModeSource.manual);
+  }
+
+  void resetToAuto() {
+    state = ObsModeState(
+      mode: modeForHour(ref.read(nowProvider).hour),
+      source: ObsModeSource.auto,
+    );
+  }
+}
+
 /// Currently selected observation mode (day/night), driving which mock
 /// content the discovery screen surfaces.
-final obsModeProvider = StateProvider<ObsMode>((ref) => ObsMode.day);
+final obsModeProvider = NotifierProvider<ObsModeController, ObsModeState>(
+  ObsModeController.new,
+);
 
 final suitabilityApiProvider = Provider<SuitabilityApi>((ref) {
   return HttpSuitabilityApi(defaultApiBaseUrl);

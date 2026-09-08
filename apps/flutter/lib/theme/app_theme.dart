@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  static ThemeData dark() {
+  static ColorScheme darkColorScheme() {
     const background = Color(0xFF08122D);
     const surfaceContainerLowest = Color(0xFF030C28);
     const surfaceContainerLow = Color(0xFF111A36);
@@ -22,7 +22,7 @@ class AppTheme {
     // `ColorScheme.background` is deprecated and falls back to `surface`
     // when unset, so setting `surface` alone satisfies the background token
     // without triggering a deprecation warning.
-    final colorScheme = ColorScheme.dark().copyWith(
+    return ColorScheme.dark().copyWith(
       surface: background,
       surfaceContainerLowest: surfaceContainerLowest,
       surfaceContainerLow: surfaceContainerLow,
@@ -39,6 +39,16 @@ class AppTheme {
       outline: outline,
       error: error,
     );
+  }
+
+  static ThemeData dark() {
+    final colorScheme = darkColorScheme();
+    final background = colorScheme.surface;
+    final surfaceContainer = colorScheme.surfaceContainer;
+    final surfaceContainerHigh = colorScheme.surfaceContainerHigh;
+    final secondary = colorScheme.secondary;
+    final onSecondary = colorScheme.onSecondary;
+    final onSurface = colorScheme.onSurface;
 
     final displayTextTheme = GoogleFonts.spaceGroteskTextTheme();
     final bodyTextTheme = GoogleFonts.interTextTheme();

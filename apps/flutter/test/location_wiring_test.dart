@@ -24,6 +24,7 @@ Future<ProviderContainer> _pumpHome(
       locationServiceProvider.overrideWithValue(
         FakeLocationService(location),
       ),
+      nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
     ],
   );
   addTearDown(container.dispose);

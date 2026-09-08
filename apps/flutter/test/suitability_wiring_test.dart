@@ -26,6 +26,7 @@ Future<ProviderContainer> _pumpHome(
           ),
         ),
       ),
+      nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
     ],
   );
   addTearDown(container.dispose);
@@ -63,10 +64,15 @@ void main() {
     expect(find.text('88'), findsOneWidget);
     expect(find.text('매우 쾌적 (Prime)'), findsOneWidget);
 
-    await tester.tap(find.text('밤의 별을 보러 (천체관측)'));
+    // Collapsed toggle is only hit-testable once the header is actually
+    // collapsed (crossfade IgnorePointer gating) — scroll it into its
+    // interactive state before tapping.
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -150));
     await tester.pump();
+
+    await tester.tap(find.byKey(const Key('modeToggleNightCollapsed')));
     await tester.pump();
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('88'), findsNothing);
     expect(find.text('매우 쾌적 (Prime)'), findsNothing);
@@ -116,7 +122,13 @@ void main() {
       expect(fetchCount, 1);
       expect(find.text('88'), findsOneWidget);
 
-      await tester.tap(find.text('밤의 별을 보러 (천체관측)'));
+      // Collapsed toggle is only hit-testable once the header is actually
+      // collapsed (crossfade IgnorePointer gating) — scroll it into its
+      // interactive state before tapping.
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -150));
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('modeToggleNightCollapsed')));
       await tester.pump();
       await tester.pump();
       await tester.pump();
@@ -124,14 +136,14 @@ void main() {
       expect(fetchCount, 2);
       expect(find.text('92'), findsOneWidget);
 
-      await tester.tap(find.text('낮의 새를 찾아서 (탐조)'));
+      await tester.tap(find.byKey(const Key('modeToggleDayCollapsed')));
       await tester.pump();
 
       expect(fetchCount, 2);
       expect(find.text('88'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
 
-      await tester.tap(find.text('밤의 별을 보러 (천체관측)'));
+      await tester.tap(find.byKey(const Key('modeToggleNightCollapsed')));
       await tester.pump();
 
       expect(fetchCount, 2);
