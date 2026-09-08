@@ -101,6 +101,45 @@ void main() {
     expect(find.text('일부 데이터를 불러오지 못했어요'), findsOneWidget);
   });
 
+  testWidgets(
+    'mode caching: day/night toggle fetches each mode once and revisits hit the cache without a spinner',
+    (tester) async {
+      var fetchCount = 0;
+      await _pumpHome(
+        tester,
+        api: FakeSuitabilityApi(
+          onFetchSuitability: (lat, lng) => fetchCount++,
+        ),
+      );
+      await tester.pump();
+
+      expect(fetchCount, 1);
+      expect(find.text('88'), findsOneWidget);
+
+      await tester.tap(find.text('밤의 별을 보러 (천체관측)'));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(fetchCount, 2);
+      expect(find.text('92'), findsOneWidget);
+
+      await tester.tap(find.text('낮의 새를 찾아서 (탐조)'));
+      await tester.pump();
+
+      expect(fetchCount, 2);
+      expect(find.text('88'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      await tester.tap(find.text('밤의 별을 보러 (천체관측)'));
+      await tester.pump();
+
+      expect(fetchCount, 2);
+      expect(find.text('92'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    },
+  );
+
   group('kind -> icon mapping coverage', () {
     testWidgets(
       'FakeSuitabilityApi telemetry covers sky/humidity/wind/precip/tide, each rendering its mapped icon',

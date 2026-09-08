@@ -43,10 +43,10 @@ final locationProvider =
   LocationNotifier.new,
 );
 
-class DiscoveryNotifier extends AsyncNotifier<DiscoveryOverview> {
+class DiscoveryNotifier extends FamilyAsyncNotifier<DiscoveryOverview, ObsMode> {
   @override
-  Future<DiscoveryOverview> build() async {
-    final mode = ref.watch(obsModeProvider);
+  Future<DiscoveryOverview> build(ObsMode mode) async {
+    ref.keepAlive();
     final api = ref.watch(suitabilityApiProvider);
     final location = await ref.watch(locationProvider.future);
     return api.fetchSuitability(
@@ -58,7 +58,7 @@ class DiscoveryNotifier extends AsyncNotifier<DiscoveryOverview> {
 }
 
 final discoveryProvider =
-    AsyncNotifierProvider<DiscoveryNotifier, DiscoveryOverview>(
+    AsyncNotifierProvider.family<DiscoveryNotifier, DiscoveryOverview, ObsMode>(
   DiscoveryNotifier.new,
 );
 

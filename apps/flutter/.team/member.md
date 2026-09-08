@@ -1205,3 +1205,101 @@ abstract class SuitabilityApi {
   `package:geocoding/geocoding.dart` (line 1), brace/control-flow balance confirmed, non-empty path
   still calls `assemblePlaceName` with the same 3 fields in the same order as before. Pipeline
   validate stage should run `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — `lib/state/discovery_providers.dart` — `DiscoveryNotifier` converted `AsyncNotifier` → `FamilyAsyncNotifier<DiscoveryOverview, ObsMode>` (spec 009, discovery-mode cache)
+
+- Pure provider-definition change, this file only. Old shape:
+  `class DiscoveryNotifier extends AsyncNotifier<DiscoveryOverview> { Future<DiscoveryOverview> build() async { final mode = ref.watch(obsModeProvider); ... } }`
+  `final discoveryProvider = AsyncNotifierProvider<DiscoveryNotifier, DiscoveryOverview>(DiscoveryNotifier.new);`
+  New shape:
+  ```dart
+  class DiscoveryNotifier extends FamilyAsyncNotifier<DiscoveryOverview, ObsMode> {
+    @override
+    Future<DiscoveryOverview> build(ObsMode mode) async {
+      ref.keepAlive();
+      final api = ref.watch(suitabilityApiProvider);
+      final location = await ref.watch(locationProvider.future);
+      return api.fetchSuitability(lat: location.lat, lng: location.lng, mode: mode);
+    }
+  }
+  final discoveryProvider = AsyncNotifierProvider.family<DiscoveryNotifier, DiscoveryOverview, ObsMode>(DiscoveryNotifier.new);
+  ```
+  `mode` now arrives as the `build` parameter instead of via `ref.watch(obsModeProvider)` — that
+  watch line was deleted, so `DiscoveryNotifier` no longer reacts to `obsModeProvider` changes on its
+  own; day and night are now two independently cached notifier instances (`discoveryProvider(ObsMode.day)`
+  / `discoveryProvider(ObsMode.night)`), each surviving even while unwatched thanks to
+  `ref.keepAlive()` as the first line of `build`.
+- **Breaking for all consumers**: `ref.watch(discoveryProvider)` / `ref.read(discoveryProvider.notifier)`
+  no longer compile — every call site must become `ref.watch(discoveryProvider(mode))` /
+  `ref.read(discoveryProvider(mode).notifier)`, passing whichever `ObsMode` it needs (typically
+  `ref.watch(obsModeProvider)` read locally at the call site, since `DiscoveryNotifier` itself no
+  longer watches it). `obsModeProvider`, `locationProvider`, `locationServiceProvider`,
+  `suitabilityApiProvider`, `hotspotsProvider` are byte-for-byte untouched.
+- **Known fallout, out of this task's lane**: `lib/screens/home_discovery_screen.dart` (watches
+  `discoveryProvider` directly) and every test file that references `discoveryProvider`
+  (`test/screens/home_discovery_screen_test.dart`, `test/suitability_wiring_test.dart`,
+  `test/location_wiring_test.dart`) will now fail to compile until updated to
+  `discoveryProvider(currentMode)` per the follow-up tasks noted in the spec.
+- Could not run `flutter analyze`/`flutter test` in this harness (Read/Grep/Glob/Edit/Write only, no
+  Bash access) — statically re-checked `ref.keepAlive()` against the installed `riverpod-2.6.1`
+  source (`lib/src/framework/ref.dart:336`, defined on the base `Ref` interface, valid regardless of
+  autoDispose) and confirmed `FamilyAsyncNotifier`/`AsyncNotifierProvider.family` are part of
+  `flutter_riverpod: ^2.6.1`'s hand-written (non-codegen) API. Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze lib/state/discovery_providers.dart` (expect 0 issues from this
+  file itself) then the full `flutter analyze && flutter test` once the fallout above is fixed by
+  follow-up tasks.
+
+## 2026-09-08 — `lib/screens/home_discovery_screen.dart` — family-provider call-site fix + day/night toggle relocated above the score card (spec 009 follow-up)
+
+- Fixed the compile fallout from `discoveryProvider` becoming `AsyncNotifierProvider.family<..., ObsMode>`
+  (previous entry): moved `final currentMode = ref.watch(obsModeProvider);` before
+  `final overviewAsync = ref.watch(discoveryProvider(currentMode));` (was `ref.watch(discoveryProvider)`
+  with `currentMode` declared after), and the retry button now calls
+  `ref.invalidate(discoveryProvider(currentMode))` (was `ref.invalidate(discoveryProvider)`).
+- Design-mockup change: relocated the day/night pill toggle `Container` (the `GestureDetector` pair
+  setting `obsModeProvider.notifier.state`) from below the suitability score card (between '지금 시선의
+  초점' and 'INTEGRATED RADAR') to directly above it, right after the greeting block's
+  `SizedBox(height: 20)`. Toggle's internal styling/icons/`onTap` handlers untouched — pure widget
+  relocation. '지금 시선의 초점' Row now sits alone (headline + filter hint) directly followed by a single
+  `SizedBox(height: 20)` then 'INTEGRATED RADAR' — no orphaned gap or duplicate `SizedBox`.
+- No provider/model/contract changes; same `discoveryProvider`/`obsModeProvider` from
+  `lib/state/discovery_providers.dart` as before.
+- **Known fallout still open, out of this task's scope**: `test/screens/home_discovery_screen_test.dart`,
+  `test/suitability_wiring_test.dart`, `test/location_wiring_test.dart` still reference bare
+  `discoveryProvider` per the prior entry's note and will not compile until updated to
+  `discoveryProvider(mode)`.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't
+  granted) — statically re-checked the diff: both provider call sites now pass `currentMode`, declaration
+  order fixed so `currentMode` exists before first use, and the toggle block's brace/comma structure is
+  byte-identical to before, just moved. Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test` (expect the known test-fallout failures above
+  until a follow-up task updates those three test files).
+
+## 2026-09-08 — `test/suitability_wiring_test.dart` — new caching test proving day/night toggle fetches each mode once (spec 009 follow-up)
+
+- Re-checked: `test/suitability_wiring_test.dart` and `test/location_wiring_test.dart` do **not**
+  reference `discoveryProvider` by name (only drive the widget tree via `_pumpHome`/`HomeDiscoveryScreen`),
+  so the "known fallout" flagged in the prior two entries did not materialize for either file —
+  `location_wiring_test.dart` needed zero edits, left untouched.
+- Added one `testWidgets` to `suitability_wiring_test.dart` (`'mode caching: day/night toggle fetches
+  each mode once and revisits hit the cache without a spinner'`), placed after the existing `'degraded
+  state'` test and before the `'kind -> icon mapping coverage'` group. Uses the existing `_pumpHome`
+  helper with a fresh `FakeSuitabilityApi(onFetchSuitability: (lat, lng) => fetchCount++)` (local
+  closure-captured `int`, no new helper/class). Sequence: pump once → day loads, `fetchCount == 1`,
+  `'88'` present; tap `'밤의 별을 보러 (천체관측)'` + 3 pumps (matches the existing mode-toggle test's
+  pattern) → `fetchCount == 2`, `'92'` present; tap `'낮의 새를 찾아서 (탐조)'` + 1 pump → cache hit,
+  `fetchCount` **still** 2, `'88'` present again, no `CircularProgressIndicator`; tap night again + 1
+  pump → cache hit, `fetchCount` still 2, `'92'` present, no spinner. Proves `ref.keepAlive()` in
+  `DiscoveryNotifier.build(mode)` (previous entry) actually prevents re-fetching on revisit.
+- **Deviation**: the task prompt said the day-toggle tap target's label text is "the same string used
+  in the very first testWidgets in this file" — but that first test (`'data state: ...'`) never taps
+  or references a toggle label (it only asserts score/label/golden-time/icon text). There is exactly
+  one day-toggle label string in the codebase (`'낮의 새를 찾아서 (탐조)'`, `home_discovery_screen.dart:173`),
+  so used that directly; noting the mismatch here rather than blocking on it.
+- No provider/model/screen files touched — test-only change. Could not run `flutter analyze`/
+  `flutter test` in this harness (Read/Grep/Glob/Edit/Write only, no Bash access) — statically
+  re-checked the new test against `FakeSuitabilityApi`'s `onFetchSuitability` signature
+  (`void Function(double lat, double lng)?`, `lib/api/suitability_api.dart:78`), confirmed
+  `_pumpHome` already calls `addTearDown(container.dispose)` (no manual double-dispose added), and
+  re-read the full file after editing for brace/comma balance. Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test`.

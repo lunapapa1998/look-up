@@ -15,8 +15,8 @@ class HomeDiscoveryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final overviewAsync = ref.watch(discoveryProvider);
     final currentMode = ref.watch(obsModeProvider);
+    final overviewAsync = ref.watch(discoveryProvider(currentMode));
     final hotspots = ref.watch(hotspotsProvider);
     final locationAsync = ref.watch(locationProvider);
     final locationLabel = locationAsync.when(
@@ -135,6 +135,96 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(9999),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => ref.read(obsModeProvider.notifier).state =
+                            ObsMode.day,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: currentMode == ObsMode.day
+                                ? colorScheme.tertiary
+                                : colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(9999),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.flutter_dash,
+                                size: 18,
+                                color: currentMode == ObsMode.day
+                                    ? colorScheme.onTertiary
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  '낮의 새를 찾아서 (탐조)',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: currentMode == ObsMode.day
+                                        ? colorScheme.onTertiary
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => ref.read(obsModeProvider.notifier).state =
+                            ObsMode.night,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: currentMode == ObsMode.night
+                                ? colorScheme.secondary
+                                : colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(9999),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.star,
+                                size: 18,
+                                color: currentMode == ObsMode.night
+                                    ? colorScheme.onSecondary
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  '밤의 별을 보러 (천체관측)',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: currentMode == ObsMode.night
+                                        ? colorScheme.onSecondary
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
               Container(
@@ -404,7 +494,8 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       ElevatedButton(
-                        onPressed: () => ref.invalidate(discoveryProvider),
+                        onPressed: () =>
+                            ref.invalidate(discoveryProvider(currentMode)),
                         child: const Text('다시 시도'),
                       ),
                     ],
@@ -434,96 +525,6 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                     ],
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(9999),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => ref.read(obsModeProvider.notifier).state =
-                            ObsMode.day,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: currentMode == ObsMode.day
-                                ? colorScheme.tertiary
-                                : colorScheme.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(9999),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.flutter_dash,
-                                size: 18,
-                                color: currentMode == ObsMode.day
-                                    ? colorScheme.onTertiary
-                                    : colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  '낮의 새를 찾아서 (탐조)',
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: currentMode == ObsMode.day
-                                        ? colorScheme.onTertiary
-                                        : colorScheme.onSurfaceVariant,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => ref.read(obsModeProvider.notifier).state =
-                            ObsMode.night,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(
-                            color: currentMode == ObsMode.night
-                                ? colorScheme.secondary
-                                : colorScheme.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(9999),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.star,
-                                size: 18,
-                                color: currentMode == ObsMode.night
-                                    ? colorScheme.onSecondary
-                                    : colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  '밤의 별을 보러 (천체관측)',
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: currentMode == ObsMode.night
-                                        ? colorScheme.onSecondary
-                                        : colorScheme.onSurfaceVariant,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 20),
               Text(
