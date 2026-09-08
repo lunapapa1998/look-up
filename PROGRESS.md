@@ -94,6 +94,15 @@
 - **교훈**: 006/005와 동일 — 크로스모델 verify(codex)는 오프라인 결함만, **실기기에서만 드러나는 UI/실배선 결함은 브레인의 시뮬레이터 육안 검증이 잡는다**. GPS/역지오코딩은 실 좌표 주입 없이 위젯테스트만으로는 불충분.
 - **알려진 잔여(UX, 낮은 우선순위)**: 상단 지명 칩이 목업 고정폭이라 긴 지명은 "서울…"로 잘림(오버플로우는 없음). 전체 지명 노출 원하면 칩 폭 확장 or 탭→지역 선택 UI 후속 필요.
 
+## 조석(tide) 레이어 실연동 완성 (2026-09-08) ✅ — 낮 골든타임 실데이터화
+
+- **008 backend** PASS, 커밋 `c8c4474`, attempts=2, codex verify 통과. `specs/008-tide-live-backend.md`. tide provider stub→live(KHOA 조석예보 고저조). `just check` green.
+- **API**: `GET https://apis.data.go.kr/1192136/tideFcstHghLw/GetTideFcstHghLwApiService`(data.go.kr, **기존 `DATA_GO_KR_SERVICE_KEY` 재사용** — 새 키 불필요, KASI와 동일). 파라미터 `obsCode`(필수, 예 DT_0001), `date`류는 무시(항상 오늘). **XML 응답**(json 미지원). item: `obsvtrNm`/`lat`/`lot`/`predcDt`/`predcTdlvVl`(cm)/`extrSe`(**극값 순번 1~4 — 고조/저조 구분 아님! 조위값 대소로 판정**).
+- **손댄 것**: `providers/tide.py` live 재작성(최근접 관측소→API→XML 파싱→낮 만조 골든타임/텔레메트리, 예외 흡수 stub 폴백), 신규 `providers/tide_stations.py`(전국 조석관측소 37개 정적표+haversine 최근접), `config.py` `get_tide_config()`(키 unquote 재사용), 실 캡처 XML 픽스처.
+- **브레인 실검증(uvicorn end-to-end)**: 강화 갯벌 day → tide `status:live`, 낮 골든타임 "12:56-14:56 · **만조 14:56**"(구 stub "14:00-17:30 / 만조 16:15 (스텁)" 대체). 부산 day → "04:29-06:29 · 만조 06:29", 실 API 직접 대조(06:29=108cm 극값)와 정합. **위치별로 관측소·만조 시각 달라짐 확인.**
+- **잔여(로직 튜닝, 낮은 우선순위)**: 낮 만조 선택 기준이 "낮 시간대 첫/특정 고조"라, 부산처럼 정오~오후 고조가 없는 날은 이른 아침(06:29)을 고름 → 그날 최고 고조(저녁 18:49 125cm)와 다름. 탐조 실용성 위해 "주간 관측 가능 시간대 최고 고조" 등으로 튜닝 여지.
+- 계약 §8 형태 불변(tide status stub→live만) → flutter(006/007) 재배선 불필요. **적합도 4레이어 중 3레이어(기상 KMA·천체 KASI·조석 KHOA) live + 빛공해 approx** 달성(생물·수요만 향후).
+
 ## 다음 세션 시작점 (후속 조각)
 
 **후보 B — 핫스팟 랭킹(backend→flutter)**: `hotspotsProvider`(현재 mock)를 물릴 backend 조각. TourAPI(위치기반관광) 장소 레이어 + 적합도 랭킹 엔드포인트(예: `GET /api/hotspots?lat&lng&mode`) 신설 → publish 후 flutter 배선. 팀=`backend`(publisher) → `flutter`(consumer) 순차. GPS(007) 완성으로 실 위치 기반 핫스팟이 자연스러운 다음 수순.
@@ -102,7 +111,7 @@
 
 **후보 D — 위치 UX 마감**: 지명 칩 탭 → 지역 수동 선택/검색, 위치 새로고침 버튼, 긴 지명 전체 표시. 007 잔여 UX. 팀=`flutter`.
 
-**(backend 심화 후속)**: KHOA 조석 실연동(tide provider stub→live, 바다누리 별도 키 발급), 성능(현재 격자 5요청×340KB 다운로드 → 배치/캐싱 최적화), OWM 잔재 정리(`OPENWEATHERMAP_*` env·문서).
+**(backend 심화 후속)**: 낮 만조 선택 로직 튜닝(008 잔여), 성능(현재 KMA 격자 5요청×340KB 다운로드 → 배치/캐싱 최적화 + 조석 관측소 조회 캐싱), OWM 잔재 정리(`OPENWEATHERMAP_*` env·문서). ~~KHOA 조석 실연동~~ → 008에서 완료.
 
 기타 예약분: (b) 인증·멀티유저, (c) 에코 도보 큐레이션(두루누비·위치기반관광 API), (d) SQLite 영속화.
 
