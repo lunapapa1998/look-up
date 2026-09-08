@@ -43,6 +43,24 @@ def get_astronomy_config() -> AstronomyConfig:
     )
 
 
+@dataclass(frozen=True)
+class TideConfig:
+    base_url: str
+    service_key: str
+
+
+def get_tide_config() -> TideConfig:
+    decoded_key = os.getenv("DATA_GO_KR_SERVICE_KEY_DECODED", "")
+    service_key = decoded_key if decoded_key else unquote(os.getenv("DATA_GO_KR_SERVICE_KEY", ""))
+    return TideConfig(
+        base_url=os.getenv(
+            "TIDE_API_BASE_URL",
+            "https://apis.data.go.kr/1192136/tideFcstHghLw/GetTideFcstHghLwApiService",
+        ),
+        service_key=service_key,
+    )
+
+
 def validate_coordinates(lat: float, lng: float) -> None:
     if not -90 <= lat <= 90:
         raise ValueError(f"lat out of range: {lat!r}")

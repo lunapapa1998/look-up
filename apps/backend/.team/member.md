@@ -296,12 +296,12 @@ Query params (all required):
     { "key": "environment", "weight": 0.40, "subScore": 90, "status": "live" },
     { "key": "astronomy", "weight": 0.20, "subScore": 85, "status": "live" },
     { "key": "lightPollution", "weight": 0.15, "subScore": 80, "status": "approx" },
-    { "key": "tide", "weight": 0.25, "subScore": 88, "status": "stub" }
+    { "key": "tide", "weight": 0.25, "subScore": 88, "status": "live" }
   ]
 }
 ```
 
-- `layers[].status` enum: `live` | `approx` | `stub` | `unavailable`. `tide` is currently always `stub` (KHOA not yet integrated). `lightPollution` is currently always `approx` (VIIRS not yet integrated — deterministic lat/lng heuristic).
+- `layers[].status` enum: `live` | `approx` | `stub` | `unavailable`. `tide` is live when the KHOA API call succeeds, and falls back to a deterministic stub on any config/network/parse failure (see Section 16). `lightPollution` is currently always `approx` (VIIRS not yet integrated — deterministic lat/lng heuristic).
 - `degraded: true` whenever any layer's `status == "unavailable"` — this happens when a live provider (`environment`/`astronomy`) fails or throws; the endpoint still returns **200**, never 5xx. The failing layer's weight is excluded and the rest are renormalized (see `scoring.fuse`, Section 6).
 - `telemetry`/`goldenHours` ordering follows layer order `environment → astronomy → lightPollution → tide`; either array can be empty for a given mode/layer combination (e.g. `astronomy` emits no `goldenHours` in day mode).
 - `sqmValue`/`skyClass` are always sourced from the `lightPollution` layer's evidence; if that layer is ever `unavailable`, they safely default to `0.0`/`"알 수 없음"`.
@@ -358,3 +358,27 @@ test_endpoint.py 텔레메트리 계약을 sky/humidity/wind/precip로 갱신
 - `.env.example` 전면 교체: `OPENWEATHERMAP_*` 완전 제거, `WEATHER_PROVIDER=kma`/`KMA_APIHUB_BASE_URL`/`KMA_APIHUB_KEY` 추가, `DATA_GO_KR_SERVICE_KEY`(Encoding, 자동 unquote)/`DATA_GO_KR_SERVICE_KEY_DECODED`(있으면 우선) 주석 명시.
 - `member.md` Section 8의 `GET /api/suitability` 200 응답 예시 `telemetry` 배열을 `sky`/`humidity`/`wind`/`precip`/`tide` 5종으로 교체(Section 8 안에는 별도의 'telemetry[].kind enum' 문장이나 잔존 'visibility'/'cloud' 언급이 없어 추가 수정 불필요 — 해당 표현은 Section 7b/10/12의 과거 이력 서술에만 남아 있으며 이번 작업 범위 밖).
 - Verify: Bash 미가용, 3개 파일을 스펙 요구사항과 줄 단위로 대조해 정적 재검증 완료. `cd apps/backend && uv run pytest -q`(기본, 네트워크 0) 및 `RUN_LIVE_TESTS=1 uv run pytest -m live -q`(실키 필요) 실행해서 확인 필요.
+
+## 14. Tide 레이어 stub→live 재작성 — Phase 1 (순수 코어, 네트워크 없음)
+
+- 신규 `app/suitability/providers/tide_stations.py`: `TideStation(code, name, lat, lng)` frozen dataclass, 스펙 그대로의 37개 KHOA 관측소를 담은 `STATIONS: tuple[TideStation, ...]`, `nearest_station(lat, lng) -> TideStation`(haversine, 표준 `math`만 사용).
+- `config.py`에 `TideConfig(base_url, service_key)`와 `get_tide_config()` 추가 — `get_astronomy_config()`와 동일 패턴(`DATA_GO_KR_SERVICE_KEY_DECODED` 우선, 없으면 `DATA_GO_KR_SERVICE_KEY`를 `unquote`). `base_url` 기본값은 `TIDE_API_BASE_URL` env, 없으면 `https://apis.data.go.kr/1192136/tideFcstHghLw/GetTideFcstHghLwApiService`. 기존 `get_weather_config`/`get_astronomy_config`/`validate_coordinates`는 무변경.
+- `providers/tide.py`에 순수 함수 2개 **추가**만 함(기존 `TideProvider.fetch()`와 stub 동작은 완전히 무변경 — 아직 이 provider는 `status="stub"`를 반환): 모듈 함수 `_parse_xml_items(xml_text) -> list[dict]`(표준 `xml.etree.ElementTree`, `resultCode != '00'`이면 `ValueError`, items 없으면 `ValueError`), 신규 메서드 `TideProvider.parse(items, mode, now) -> LayerReading`(고조/저조를 이웃 비교로 분류, day 모드는 낮 시간대(06:00≤hour<18:00) 첫 고조를 golden_hours로, night 모드는 golden_hours=[] 고정, telemetry는 now 이후 첫 극값(없으면 마지막) 기준).
+- 신규 픽스처 `tests/suitability/fixtures/khoa_tide_sample.xml`(스펙에 주어진 인천 4개 극값 XML 그대로) + 신규 `tests/suitability/test_tide_provider.py`(day golden_hours/timeRange/description/sub_score=85, night golden_hours=[]/sub_score=70, telemetry 2케이스, `nearest_station` DT_0001 매칭 검증).
+- **아직 `fetch()`에 연결 안 됨** — 이번 phase는 순수 파싱/분류 코어만. `TideProvider`는 여전히 하드코딩 stub을 반환하므로 `test_live.py`의 `tide는 항상 stub` 단언과 기존 전체 테스트는 영향 없음.
+- Verify: `cd apps/backend && uv run pytest tests/suitability/test_tide_provider.py -q` 및 `uv run pytest -q` — 이 런은 Bash 도구 자체가 role에 허용되지 않아(승인 대기) 실행 불가. 픽스처 4개 값을 손으로 `_classify_extremes`/`parse()` 로직에 트레이스해 정적 검증 완료(02:26=고조/08:59=저조/14:46=고조/20:58=저조 → day golden `12:46-14:46`, now=01:00→`만조 02:26`, now=23:00→`간조 20:58`). 실제 그린 여부는 위 명령 실행으로 최종 확인 필요.
+
+## 15. Tide 레이어 stub→live 재작성 — Phase 2 (`fetch()`를 live 네트워크 연동으로 교체)
+
+- `providers/tide.py`만 수정. `TideProvider.__init__(self, client: httpx.Client | None = None)` 추가(astronomy.py/weather.py와 동일 패턴, 테스트용 fake client 주입 가능 — `TideProvider()` 무인자 생성도 여전히 동작하므로 `service.py`는 무변경).
+- 기존 하드코딩 stub 리턴 로직을 `_stub_reading(self, mode: str, reason: str) -> LayerReading`으로 그대로 이동(텍스트/값 토씨 하나 안 바꿈: `timeRange='14:00 - 17:30'`, `telemetry='만조 16:15 (스텁 데이터)'`, `sub_score=_SUB_SCORE(70)`, `status='stub'`). `evidence.reason`만 호출부 인자로 교체 가능.
+- 신규 `fetch(lat, lng, mode)`: `get_tide_config()` 조회 → `service_key`/`base_url` 중 하나라도 비면 즉시 `_stub_reading(mode, 'TIDE config missing: ...')`. 그 외 전체를 `try/except Exception as exc: # noqa: BLE001`로 감싸 어떤 예외든 `_stub_reading(mode, f'KHOA tide request failed: {exc}')`로 폴백(astronomy.py `fetch()`와 동일 패턴). `try` 안에서 `nearest_station(lat, lng)`으로 관측소 조회 → `client.get(config.base_url, params={'serviceKey', 'obsCode'})` → `raise_for_status()` → `_parse_xml_items(response.text)` → `now = datetime.now(_KST).replace(tzinfo=None)`(신규 모듈 상수 `_KST = timezone(timedelta(hours=9))`, weather.py와 동일 이유 — `predcDt`가 KST naive 문자열) → `self.parse(items, mode, now)`. `self._client` 미주입 시 `httpx.Client(timeout=5.0)`를 새로 만들고 `finally`에서 close.
+- `parse()`/`_parse_xml_items()`/Phase 1 모듈 상수는 전부 무변경. 기존 오프라인 테스트 5개(`TideProvider().parse(...)` 직접 호출)는 `fetch()` 변경과 무관하게 영향 없음.
+- Verify: `cd apps/backend && uv run pytest tests/suitability/test_tide_provider.py -q` 및 `uv run pytest -q` — 이 런도 Bash가 전부 승인 대기로 막혀(git diff조차 불가) 실행 못함. 신규 `fetch()` 로직을 astronomy.py의 이미 검증된 패턴과 줄 단위로 대조해 정적 검증 완료. 실제 그린 여부는 위 명령 실행으로 최종 확인 필요.
+
+## 16. Tide 레이어 stub→live 재작성 — Phase 3 (라이브 스모크 + 계약 갱신, 최종 완료)
+
+- `tests/suitability/test_live.py`: `TideProvider` import 추가, 강화대교 부근 좌표 상수 `_GANGHWA_LAT`/`_GANGHWA_LNG` 추가, `test_tide_provider_live_fetch()` 신규 추가(`status in ("live", "stub")`만 허용 — tide는 폴백이 항상 stub이라 `unavailable`은 없음). `test_suitability_service_live_end_to_end()`의 마지막 단언을 `tide == "stub"` → `tide in ("live", "stub")`로 수정(이제 실제 라이브 성공 가능).
+- `.env.example` 끝에 `TIDE_API_BASE_URL` 섹션 추가(선택 항목, 기본값이 이미 `config.py`에 있음을 주석으로 명시, 새 서비스 키 불필요 — 기존 `DATA_GO_KR_SERVICE_KEY`(_DECODED) 재사용).
+- 본 문서(Section 8 응답 예시의 `tide` 상태를 `live`로, `layers[].status` enum 설명 중 tide 부분을 갱신)만 변경 — tide.py/tide_stations.py/config.py 등 코드 파일은 이번 phase에서 무변경.
+- Verify: `cd apps/backend && uv run pytest -q`(기본, 네트워크 0) 및 `RUN_LIVE_TESTS=1 uv run pytest -m live -q`(실키 필요, 신규 tide 라이브 테스트 포함) 실행해서 확인 필요 — 이 런은 Bash 미가용이라 정적 검증만 수행함(신규 테스트 로직을 `TideProvider.fetch()`/`LayerReading` 시그니처와 대조).

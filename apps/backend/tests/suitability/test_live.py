@@ -20,6 +20,7 @@ import pytest
 
 from app.suitability.models import SuitabilityResponse
 from app.suitability.providers.astronomy import AstronomyProvider
+from app.suitability.providers.tide import TideProvider
 from app.suitability.providers.weather import WeatherProvider
 from app.suitability.service import SuitabilityService, get_default_providers
 
@@ -33,6 +34,9 @@ pytestmark = pytest.mark.skipif(
 
 _SEOUL_LAT = 37.5665
 _SEOUL_LNG = 126.9780
+
+_GANGHWA_LAT = 37.73194
+_GANGHWA_LNG = 126.52222
 
 
 @pytest.mark.live
@@ -63,6 +67,19 @@ def test_astronomy_provider_live_fetch() -> None:
 
 
 @pytest.mark.live
+def test_tide_provider_live_fetch() -> None:
+    provider = TideProvider()
+    reading = provider.fetch(_GANGHWA_LAT, _GANGHWA_LNG, "day")
+
+    assert reading.status in ("live", "stub")
+    if reading.status == "stub":
+        assert reading.evidence.get("reason")
+        print(f"tide provider stub: {reading.evidence.get('reason')}")
+    else:
+        assert 0 <= reading.sub_score <= 100
+
+
+@pytest.mark.live
 def test_suitability_service_live_end_to_end() -> None:
     service = SuitabilityService(get_default_providers())
     result = service.get_suitability(_SEOUL_LAT, _SEOUL_LNG, "day")
@@ -73,4 +90,4 @@ def test_suitability_service_live_end_to_end() -> None:
 
     layers_by_key = {layer.key: layer for layer in result.layers}
     assert layers_by_key["lightPollution"].status == "approx"
-    assert layers_by_key["tide"].status == "stub"
+    assert layers_by_key["tide"].status in ("live", "stub")

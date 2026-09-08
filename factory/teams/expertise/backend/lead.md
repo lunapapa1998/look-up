@@ -5,3 +5,4 @@
 
 - seed: For single-file append tasks, explicitly tell the worker to preserve all existing content unchanged.
 - 2026-09-07: When a member reports it cannot run Bash (no execution permission) but claims a fix works, the lead must run `just check` itself before checking off — static review from the member is not sufficient verification of test-passing claims.
+- 2026-09-08: When a cross-model verifier FAILs specific line ranges with concrete before/after behavior expectations (e.g. "picks first, spec wants max"), quoting those exact expectations plus the precise code restructuring (which lines move inside try, what exception to raise) in the member task prompt lets a single delegation fix all findings correctly on the first attempt — no need to split into multiple rounds.
