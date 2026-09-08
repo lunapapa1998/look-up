@@ -86,13 +86,21 @@
 - **브레인 실배선 검증(실 backend + .env 실키 직접 호출)**: uvicorn 기동 → `GET /api/suitability` day/night 실호출. day score=75·night score=63·degraded=false(KMA+KASI live), 응답 필드명(`score`/`label`/`sqmValue`/`skyClass`/`degraded`/`goldenHours[]`/`telemetry[]{kind,label,value}`)·타입(int/float→num.toDouble/bool)·telemetry kind 5종(`sky`/`humidity`/`wind`/`precip`/`tide`)이 flutter `DiscoveryOverview.fromJson`·kind 매핑과 전부 정합 확인. 계약 소비 배선 완결.
 - 교훈: 순수 consumer 조각은 backend 무변경 + flutter 레인 갇힘이라 팀 권한 이슈 없이 깔끔히 PASS(005의 팀 권한 꼬리와 대조).
 
+## GPS 사용자 위치 연동 완성 (2026-09-08) ✅ — 실 위치 기반 적합도
+
+- **007 flutter** PASS(빌드 2회: #1 `bd17e35` 배선, #2 `730ffce` UI 마감 Amendment). `specs/007-gps-location-flutter.md`. 고정 상수 좌표 → 실 GPS 위치 기반 적합도 조회 + 역지오코딩 지명 라벨. `just check` green.
+- **손댄 것**: 신규 `lib/services/location_service.dart`(`ObservationLocation` 모델 + `LocationService` 추상 + `GeolocatorLocationService`(모든 실패 경로 폴백 흡수, raise 금지) + `FakeLocationService`; `assemblePlaceName` 순수 함수=중복 제거+최대 2요소), `pubspec.yaml`(`geolocator`/`geocoding` 추가), `ios/Runner/Info.plist`(`NSLocationWhenInUseUsageDescription`), `discovery_providers.dart`(`locationServiceProvider`+`locationProvider` AsyncNotifier, `DiscoveryNotifier`가 `locationProvider.future` 좌표로 조회), `home_discovery_screen.dart`(상단 라벨 동적화, 지명 `Flexible`+`maxLines:1`+`ellipsis`). 신규 `test/location_wiring_test.dart`. 폴백 좌표=기존 강화 상수 재사용.
+- **브레인 실검증(iOS 시뮬레이터, `xcrun simctl location booted set` 좌표 주입 + `privacy grant location-always`)**: 서울시청 37.5665/126.9780 주입 → 점수 75→**79**·SQM 18.52→**19.54**·습도 85%→**50%**·풍속 2.0W→**1.0 E**로 좌표 기반 재조회 확인 + 지명 역지오코딩 표시. **빌드 #1은 오프라인 위젯테스트가 못 잡는 UI 마감 결함 2건을 브레인 실검증이 확정**(스펙 007 Amendments): (A) 지명이 목업 짧은 라벨보다 길어 헤더 오버플로우("RIGHT OVERFLOWED BY 51"), (B) 한국 역지오코딩에서 `administrativeArea`==`locality`("서울특별시" 중복) → "서울특별시·서울특별시·태평로1가". 빌드 #2로 (A) Flexible+ellipsis, (B) assemblePlaceName 중복제거+2요소 축약 → 재검증 시 오버플로우 로그 0건·중복 제거 확인.
+- **교훈**: 006/005와 동일 — 크로스모델 verify(codex)는 오프라인 결함만, **실기기에서만 드러나는 UI/실배선 결함은 브레인의 시뮬레이터 육안 검증이 잡는다**. GPS/역지오코딩은 실 좌표 주입 없이 위젯테스트만으로는 불충분.
+- **알려진 잔여(UX, 낮은 우선순위)**: 상단 지명 칩이 목업 고정폭이라 긴 지명은 "서울…"로 잘림(오버플로우는 없음). 전체 지명 노출 원하면 칩 폭 확장 or 탭→지역 선택 UI 후속 필요.
+
 ## 다음 세션 시작점 (후속 조각)
 
-**후보 A — GPS 위치 연동**: 현재 좌표는 `config.dart` 고정 상수(강화 갯벌). `geolocator` 등으로 실 위치 → `discoveryProvider` 쿼리에 주입. 위치 권한 UX + 폴백(권한 거부 시 고정 상수) 필요. 팀=`flutter`.
-
-**후보 B — 핫스팟 랭킹(backend→flutter)**: `hotspotsProvider`(현재 mock)를 물릴 backend 조각. TourAPI(위치기반관광) 장소 레이어 + 적합도 랭킹 엔드포인트(예: `GET /api/hotspots?lat&lng&mode`) 신설 → publish 후 flutter 배선. 팀=`backend`(publisher) → `flutter`(consumer) 순차.
+**후보 B — 핫스팟 랭킹(backend→flutter)**: `hotspotsProvider`(현재 mock)를 물릴 backend 조각. TourAPI(위치기반관광) 장소 레이어 + 적합도 랭킹 엔드포인트(예: `GET /api/hotspots?lat&lng&mode`) 신설 → publish 후 flutter 배선. 팀=`backend`(publisher) → `flutter`(consumer) 순차. GPS(007) 완성으로 실 위치 기반 핫스팟이 자연스러운 다음 수순.
 
 **후보 C — 레이어 breakdown UI**: 계약 `layers[]`(key/weight/subScore/status)를 홈 또는 상세에 시각화(레이어별 기여도·live/approx/stub 배지). 006에서 파싱은 안 하고 통과 — 필요 시 모델에 `layers` 추가부터. 팀=`flutter`.
+
+**후보 D — 위치 UX 마감**: 지명 칩 탭 → 지역 수동 선택/검색, 위치 새로고침 버튼, 긴 지명 전체 표시. 007 잔여 UX. 팀=`flutter`.
 
 **(backend 심화 후속)**: KHOA 조석 실연동(tide provider stub→live, 바다누리 별도 키 발급), 성능(현재 격자 5요청×340KB 다운로드 → 배치/캐싱 최적화), OWM 잔재 정리(`OPENWEATHERMAP_*` env·문서).
 
