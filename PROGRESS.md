@@ -81,7 +81,17 @@
 
 ## 다음 세션 시작점 (후속 조각)
 
-**다음 조각 후보**: **(UI) flutter consumer 배선** — `discovery_providers.dart` mock을 `GET /api/suitability` 실계약으로 전환(AsyncNotifierProvider), 신규 telemetry `kind`(sky/humidity/wind/precip)→IconData 매핑. backend 계약이 이제 live라 자연스러운 다음 조각. / **(backend 심화)** KHOA 조석 실연동(tide provider stub→live, 별도 키 발급), 핫스팟 랭킹(TourAPI 장소 레이어), 성능(격자 5요청×340KB → 배치/캐싱).
+**다음 조각 확정 후보: (UI) flutter consumer 배선** — 005 backend 계약(now live)을 홈 화면에 실제로 물리는 조각. 팀=`flutter`(consumer), risk medium 예상. 콜드 스타트용 구체 정보:
+
+- **소비할 계약**: `GET /api/suitability?lat&lng&mode`(mode=`day`|`night`). 스키마 정본 = `apps/backend/.team/member.md` §8. 응답: `score`(0~100 int)·`label`·`sqmValue`·`skyClass`·`degraded`(bool)·`goldenHours[]`(mode/label/timeRange/description)·`telemetry[]`(kind/label/value)·`layers[]`(key/weight/subScore/status).
+- **손댈 flutter 파일**:
+  - `lib/state/discovery_providers.dart` — 하드코딩 `discoveryProvider`(mock)를 `GET /api/suitability` 호출하는 `AsyncNotifierProvider`(또는 FutureProvider)로 전환. `obsModeProvider`(day/night)·좌표를 쿼리에 전달. 기존 001/002 패턴의 HTTP/Fake 클라이언트 분리 재사용.
+  - `lib/models/discovery.dart` — `TelemetryReading.icon`(IconData 하드코딩) → 응답 `kind` 문자열 기반 매핑 함수로 전환. **kind 값**: `sky`·`humidity`·`wind`·`precip`·`tide`(⚠ 구 mock의 `visibility`·`cloud`는 없어짐). SuitabilityIndex 필드(score/label/sqmValue/skyClass)는 계약과 이미 정합.
+  - `lib/screens/home_discovery_screen.dart` — provider가 async가 되므로 loading/error/degraded 상태 UI 처리(003에서 확립한 고정 한글 에러 문구 패턴 준수).
+- **backend 실행 필요**: `cd apps/backend && uv run uvicorn app.main:app --reload` (기본 8000). flutter의 API base URL 설정 확인. **`.env`에 실 키 필요**(gitignore, 이미 로컬 존재) + `WEATHER_PROVIDER=kma`. 키 없으면 계약은 200이되 레이어가 degrade(그래도 화면 배선 검증엔 충분).
+- **핫스팟**: `hotspotsProvider`(mock)는 이번 범위 밖 — 핫스팟 랭킹 backend 조각(TourAPI) 이후 별도 배선.
+
+**(backend 심화 후속)**: KHOA 조석 실연동(tide provider stub→live, 바다누리 별도 키 발급), 핫스팟 랭킹(TourAPI 장소 레이어), 성능(현재 격자 5요청×340KB 다운로드 → 배치/캐싱 최적화), OWM 잔재 정리(`OPENWEATHERMAP_*` env·문서).
 
 기타 예약분: (b) 인증·멀티유저, (c) 에코 도보 큐레이션(두루누비·위치기반관광 API), (d) SQLite 영속화.
 
