@@ -53,7 +53,9 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                           .clamp(0.0, 1.0)
                           .toDouble();
 
-                return Stack(
+                return SafeArea(
+                  bottom: false,
+                  child: Stack(
                   fit: StackFit.expand,
                   children: [
                     IgnorePointer(
@@ -180,6 +182,7 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                       ),
                     ),
                   ],
+                  ),
                 );
               },
             ),
