@@ -103,7 +103,18 @@
 - **잔여(로직 튜닝, 낮은 우선순위)**: 낮 만조 선택 기준이 "낮 시간대 첫/특정 고조"라, 부산처럼 정오~오후 고조가 없는 날은 이른 아침(06:29)을 고름 → 그날 최고 고조(저녁 18:49 125cm)와 다름. 탐조 실용성 위해 "주간 관측 가능 시간대 최고 고조" 등으로 튜닝 여지.
 - 계약 §8 형태 불변(tide status stub→live만) → flutter(006/007) 재배선 불필요. **적합도 4레이어 중 3레이어(기상 KMA·천체 KASI·조석 KHOA) live + 빛공해 approx** 달성(생물·수요만 향후).
 
+## 토글 캐싱 + 낮/밤 모드 헤더 재설계 (2026-09-09) ✅ — 디자인 리드 도입
+
+- **009 flutter** PASS(`3bea65d`, attempts=1). 낮↔밤 토글 시 매번 재조회+로딩바 뜨던 문제 → `discoveryProvider`를 `AsyncNotifierProvider.family(ObsMode)` + `ref.keepAlive()`로 전환. mode별 캐시 유지, 토글은 즉시 전환(재호출·로딩 없음), 위치 변경 시만 무효화. `suitability_wiring_test`에 "토글 시 mode별 1회만 호출" 캐싱 검증 추가.
+- **디자인/UX 리드 신설** `.claude/agents/design-lead.md`(`e71f10b`/별도 커밋). 20년+ 경력 UX 디렉터 페르소나 — **목업 맹종 아닌 UX 원리·HIG/Material 준수 기반 비판적 개입**, 산출물=판단/설계/비평(코드 X, 구현손은 flutter 팀). UI/UX 조각의 앞단(설계)+뒷단(검수)에 개입. **워크플로우 확립: UI 조각은 design-lead 자문 선행 → 스펙화 → 발사 전 design-lead 스펙 검수 → flutter 구현 → 실기기 비평.** 실제로 010 스펙 검수에서 "세그먼트 제거 라인 사실오류(적합도 카드 삭제 위험)"를 발사 전 차단함(검수 가치 입증).
+- **010 flutter** PASS(빌드 3회: 골격 `d868d82`(attempts=2, verify가 접근성 테스트 보강 요구) → 브레인 실검증 status bar 겹침 발견 → SafeArea 수정 `e71f10b`(attempts=1)). `specs/010-mode-header-skeleton-flutter.md`. **낮/밤 스위치 재설계 골격**: 세그먼트 pill 폐기 → 상단 **모드 헤더**(해☼낮/달☾밤 토글 + AUTO/MANUAL 배지), `SingleChildScrollView`→`CustomScrollView`+`SliverAppBar(pinned)` **collapsing pinned header**(스크롤 시 얇은 토글 바만 고정), `obsModeProvider`→`{mode, source}` 확장, **로컬 시각 기반 자동 초기판정**(source=auto), 수동 전환 시 영구 유지(source=manual, MANUAL 배지 탭→자동복귀 + 첫 전환 1회 힌트). 인사말/텔레메트리 라벨 본문 이동. `nowProvider`(테스트 결정성). 골격 전환은 150ms crossfade 통일.
+- **오너 확정 UX 정책**: 낮/밤은 자주 전환하는 장면전환급 스위치(배경/색 테마 전환은 011 확정 요구). 자동/수동 = 최초 시각 자동, 수동 시 **영구 유지**(자동복귀 없음, 배지 탭이 유일 탈출구).
+- **브레인 실검증**: 펼침 상단 status bar 겹침 → SafeArea 수정으로 해결 확인. 접힘(collapse) 상태는 시뮬레이터 자동 스크롤 불가로 육안 확인 보류(같은 SafeArea 처리라 해결 추정).
+- **교훈**: 오프라인 위젯테스트는 접근성·status bar 겹침을 못 잡음 → 브레인 시뮬레이터 육안검증 필수(007/010 반복 확인). UX 결정은 목업 준수가 아니라 원리/트레이드오프로 — design-lead가 그 역할.
+
 ## 다음 세션 시작점 (후속 조각)
+
+**후보 A(유력) — 011 낮/밤 장면 전환 연출(flutter)**: 010 골격 위에 비주얼/모션. 해/달 **morph 토글** + 낮/밤 전환 시 **배경 crossfade(600ms easeInOutCubic)·accent 색 lerp·콘텐츠 stagger·haptic**, 자동 전환은 조용히(800ms)·수동은 강하게, `reduce-motion` 250ms 폴백. design-lead 자문 원문(장면 전환 연출 스펙)이 그라운드. 오너 "최종앱 필수" 확정 요구. **발사 전 design-lead 검수 워크플로우 적용.**
 
 **후보 B — 핫스팟 랭킹(backend→flutter)**: `hotspotsProvider`(현재 mock)를 물릴 backend 조각. TourAPI(위치기반관광) 장소 레이어 + 적합도 랭킹 엔드포인트(예: `GET /api/hotspots?lat&lng&mode`) 신설 → publish 후 flutter 배선. 팀=`backend`(publisher) → `flutter`(consumer) 순차. GPS(007) 완성으로 실 위치 기반 핫스팟이 자연스러운 다음 수순.
 
