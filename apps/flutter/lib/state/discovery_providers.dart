@@ -40,11 +40,13 @@ final discoveryProvider = Provider<DiscoveryOverview>((ref) {
     goldenHours: [
       GoldenHour(
         mode: ObsMode.day,
+        label: '낮 · 탐조 골든타임',
         timeRange: '14:00 - 17:30',
         description: '만조 2시간 전 갯벌 유입 피크',
       ),
       GoldenHour(
         mode: ObsMode.night,
+        label: '밤 · 천체 골든타임',
         timeRange: '21:40 - 01:20',
         description: '월령 12% 삭 근처 · 운량 0%',
       ),

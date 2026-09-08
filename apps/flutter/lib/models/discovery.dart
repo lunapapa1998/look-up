@@ -21,11 +21,13 @@ class SuitabilityIndex {
 
 class GoldenHour {
   final ObsMode mode;
+  final String label;
   final String timeRange;
   final String description;
 
   const GoldenHour({
     required this.mode,
+    required this.label,
     required this.timeRange,
     required this.description,
   });

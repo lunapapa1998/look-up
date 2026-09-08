@@ -19,8 +19,9 @@ class HomeDiscoveryScreen extends ConsumerWidget {
     final hotspots = ref.watch(hotspotsProvider);
 
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Padding(
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
@@ -145,11 +146,15 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                               ),
                               Row(
                                 children: [
-                                  Text(
-                                    overview.suitabilityIndex.label,
-                                    style: textTheme.titleMedium?.copyWith(
-                                      color: colorScheme.secondary,
-                                      fontWeight: FontWeight.bold,
+                                  Flexible(
+                                    child: Text(
+                                      overview.suitabilityIndex.label,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: textTheme.titleMedium?.copyWith(
+                                        color: colorScheme.secondary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 4),
@@ -163,31 +168,41 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.wb_twilight,
-                                  color: colorScheme.tertiary,
-                                  size: 16,
-                                ),
-                                Text(
-                                  'SQM ${overview.suitabilityIndex.sqmValue}',
-                                  style: textTheme.labelMedium?.copyWith(
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.wb_twilight,
                                     color: colorScheme.tertiary,
+                                    size: 16,
                                   ),
-                                ),
-                              ],
-                            ),
-                            Text(
-                              overview.suitabilityIndex.skyClass,
-                              style: textTheme.bodySmall?.copyWith(
-                                color: colorScheme.outline,
+                                  Flexible(
+                                    child: Text(
+                                      'SQM ${overview.suitabilityIndex.sqmValue}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: textTheme.labelMedium?.copyWith(
+                                        color: colorScheme.tertiary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                              Text(
+                                overview.suitabilityIndex.skyClass,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.outline,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -213,6 +228,29 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: accent,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        gh.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: textTheme.labelSmall?.copyWith(
+                                          color: accent,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 Icon(
                                   isDay ? Icons.forest : Icons.dark_mode,
                                   color: accent,
@@ -421,8 +459,14 @@ class HomeDiscoveryScreen extends ConsumerWidget {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Text('실시간 생태 · 성운 핫스팟', style: textTheme.headlineMedium),
-                  const Spacer(),
+                  Expanded(
+                    child: Text(
+                      '실시간 생태 · 성운 핫스팟',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.headlineMedium,
+                    ),
+                  ),
                   TextButton(
                     onPressed: onViewMapPressed,
                     child: Text(
@@ -700,6 +744,7 @@ class HomeDiscoveryScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
