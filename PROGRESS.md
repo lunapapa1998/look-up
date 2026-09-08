@@ -79,19 +79,22 @@
 - **교훈**: 추정 스키마는 실패한다 → 외부 API는 라이브 캡처 선행. 크로스모델 verify(codex)는 오프라인 결함만, **실연동 결함은 브레인의 `just suitability-live`가 잡는다**. 부검: 스펙 005 Amendments.
 - 계약 변경: telemetry `kind` `visibility`→`sky`/`humidity`/`precip`. flutter consumer 배선 시 kind→IconData 매핑 갱신 필요.
 
+## flutter consumer 배선 완성 (2026-09-08) ✅ — 홈 화면 실 API 연동
+
+- **006 flutter** PASS, 커밋 `c5fc4a7`, attempts=2, 크로스모델 verify(codex) 통과. `specs/006-suitability-consumer-flutter.md`. 하드코딩 mock `discoveryProvider`(동기 `Provider`)를 `GET /api/suitability?lat&lng&mode`를 호출하는 `AsyncNotifierProvider<DiscoveryNotifier, DiscoveryOverview>`로 전환. `just flutter-check` green(26 tests, 신규 `suitability_wiring_test` 5케이스 포함).
+- **손댄 것**: 신규 `lib/api/suitability_api.dart`(`SuitabilityApi` 추상 + `HttpSuitabilityApi` + `FakeSuitabilityApi`, 001/002 패턴 미러), `lib/models/discovery.dart`(`fromJson` 팩토리 4종 + `TelemetryReading.icon`→`kind`(String) 교체 + `ObsMode.toQueryValue`/`obsModeFromApiValue`), `lib/config.dart`(`defaultObservationLat/Lng` 고정 상수, GPS 전까지 강화 갯벌 37.5921/126.3984), `lib/state/discovery_providers.dart`(`DiscoveryNotifier`가 `obsModeProvider` watch → mode 변경 시 재조회), `lib/screens/home_discovery_screen.dart`(`AsyncValue.when` data/loading/error 3분기 + degraded 배너 + kind→IconData 매핑). `hotspotsProvider`는 무변경(mock 유지).
+- **브레인 실배선 검증(실 backend + .env 실키 직접 호출)**: uvicorn 기동 → `GET /api/suitability` day/night 실호출. day score=75·night score=63·degraded=false(KMA+KASI live), 응답 필드명(`score`/`label`/`sqmValue`/`skyClass`/`degraded`/`goldenHours[]`/`telemetry[]{kind,label,value}`)·타입(int/float→num.toDouble/bool)·telemetry kind 5종(`sky`/`humidity`/`wind`/`precip`/`tide`)이 flutter `DiscoveryOverview.fromJson`·kind 매핑과 전부 정합 확인. 계약 소비 배선 완결.
+- 교훈: 순수 consumer 조각은 backend 무변경 + flutter 레인 갇힘이라 팀 권한 이슈 없이 깔끔히 PASS(005의 팀 권한 꼬리와 대조).
+
 ## 다음 세션 시작점 (후속 조각)
 
-**다음 조각 확정 후보: (UI) flutter consumer 배선** — 005 backend 계약(now live)을 홈 화면에 실제로 물리는 조각. 팀=`flutter`(consumer), risk medium 예상. 콜드 스타트용 구체 정보:
+**후보 A — GPS 위치 연동**: 현재 좌표는 `config.dart` 고정 상수(강화 갯벌). `geolocator` 등으로 실 위치 → `discoveryProvider` 쿼리에 주입. 위치 권한 UX + 폴백(권한 거부 시 고정 상수) 필요. 팀=`flutter`.
 
-- **소비할 계약**: `GET /api/suitability?lat&lng&mode`(mode=`day`|`night`). 스키마 정본 = `apps/backend/.team/member.md` §8. 응답: `score`(0~100 int)·`label`·`sqmValue`·`skyClass`·`degraded`(bool)·`goldenHours[]`(mode/label/timeRange/description)·`telemetry[]`(kind/label/value)·`layers[]`(key/weight/subScore/status).
-- **손댈 flutter 파일**:
-  - `lib/state/discovery_providers.dart` — 하드코딩 `discoveryProvider`(mock)를 `GET /api/suitability` 호출하는 `AsyncNotifierProvider`(또는 FutureProvider)로 전환. `obsModeProvider`(day/night)·좌표를 쿼리에 전달. 기존 001/002 패턴의 HTTP/Fake 클라이언트 분리 재사용.
-  - `lib/models/discovery.dart` — `TelemetryReading.icon`(IconData 하드코딩) → 응답 `kind` 문자열 기반 매핑 함수로 전환. **kind 값**: `sky`·`humidity`·`wind`·`precip`·`tide`(⚠ 구 mock의 `visibility`·`cloud`는 없어짐). SuitabilityIndex 필드(score/label/sqmValue/skyClass)는 계약과 이미 정합.
-  - `lib/screens/home_discovery_screen.dart` — provider가 async가 되므로 loading/error/degraded 상태 UI 처리(003에서 확립한 고정 한글 에러 문구 패턴 준수).
-- **backend 실행 필요**: `cd apps/backend && uv run uvicorn app.main:app --reload` (기본 8000). flutter의 API base URL 설정 확인. **`.env`에 실 키 필요**(gitignore, 이미 로컬 존재) + `WEATHER_PROVIDER=kma`. 키 없으면 계약은 200이되 레이어가 degrade(그래도 화면 배선 검증엔 충분).
-- **핫스팟**: `hotspotsProvider`(mock)는 이번 범위 밖 — 핫스팟 랭킹 backend 조각(TourAPI) 이후 별도 배선.
+**후보 B — 핫스팟 랭킹(backend→flutter)**: `hotspotsProvider`(현재 mock)를 물릴 backend 조각. TourAPI(위치기반관광) 장소 레이어 + 적합도 랭킹 엔드포인트(예: `GET /api/hotspots?lat&lng&mode`) 신설 → publish 후 flutter 배선. 팀=`backend`(publisher) → `flutter`(consumer) 순차.
 
-**(backend 심화 후속)**: KHOA 조석 실연동(tide provider stub→live, 바다누리 별도 키 발급), 핫스팟 랭킹(TourAPI 장소 레이어), 성능(현재 격자 5요청×340KB 다운로드 → 배치/캐싱 최적화), OWM 잔재 정리(`OPENWEATHERMAP_*` env·문서).
+**후보 C — 레이어 breakdown UI**: 계약 `layers[]`(key/weight/subScore/status)를 홈 또는 상세에 시각화(레이어별 기여도·live/approx/stub 배지). 006에서 파싱은 안 하고 통과 — 필요 시 모델에 `layers` 추가부터. 팀=`flutter`.
+
+**(backend 심화 후속)**: KHOA 조석 실연동(tide provider stub→live, 바다누리 별도 키 발급), 성능(현재 격자 5요청×340KB 다운로드 → 배치/캐싱 최적화), OWM 잔재 정리(`OPENWEATHERMAP_*` env·문서).
 
 기타 예약분: (b) 인증·멀티유저, (c) 에코 도보 큐레이션(두루누비·위치기반관광 API), (d) SQLite 영속화.
 
