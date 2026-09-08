@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from urllib.parse import unquote
+
+from dotenv import find_dotenv, load_dotenv
+
+load_dotenv(find_dotenv())
+
+
+@dataclass(frozen=True)
+class WeatherConfig:
+    provider: str
+    kma_base_url: str
+    kma_api_key: str
+
+
+def get_weather_config() -> WeatherConfig:
+    return WeatherConfig(
+        provider=os.getenv("WEATHER_PROVIDER", "kma"),
+        kma_base_url=os.getenv(
+            "KMA_APIHUB_BASE_URL", "https://apihub.kma.go.kr/api/typ01/cgi-bin/url"
+        ),
+        kma_api_key=os.getenv("KMA_APIHUB_KEY", ""),
+    )
+
+
+@dataclass(frozen=True)
+class AstronomyConfig:
+    riseset_base_url: str
+    lunph_base_url: str
+    service_key: str
+
+
+def get_astronomy_config() -> AstronomyConfig:
+    decoded_key = os.getenv("DATA_GO_KR_SERVICE_KEY_DECODED", "")
+    service_key = decoded_key if decoded_key else unquote(os.getenv("DATA_GO_KR_SERVICE_KEY", ""))
+    return AstronomyConfig(
+        riseset_base_url=os.getenv("KASI_RISESET_BASE_URL", ""),
+        lunph_base_url=os.getenv("KASI_LUNPH_BASE_URL", ""),
+        service_key=service_key,
+    )
+
+
+def validate_coordinates(lat: float, lng: float) -> None:
+    if not -90 <= lat <= 90:
+        raise ValueError(f"lat out of range: {lat!r}")
+    if not -180 <= lng <= 180:
+        raise ValueError(f"lng out of range: {lng!r}")

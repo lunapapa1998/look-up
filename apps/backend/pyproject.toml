@@ -7,6 +7,7 @@ dependencies = [
     "uvicorn[standard]",
     "httpx",
     "pydantic",
+    "python-dotenv",
 ]
 
 [dependency-groups]
@@ -20,3 +21,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+[tool.pytest.ini_options]
+markers = [
+    "live: hits real external APIs over the network, requires API keys in the repo-root .env -- excluded from the default test run, opt in via an environment variable described in the test file itself",
+]

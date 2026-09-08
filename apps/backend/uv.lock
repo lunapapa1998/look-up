@@ -41,6 +41,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -54,6 +55,7 @@ requires-dist = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pydantic" },
+    { name = "python-dotenv" },
     { name = "uvicorn", extras = ["standard"] },
 ]
 

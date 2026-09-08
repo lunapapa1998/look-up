@@ -15,18 +15,20 @@
 | KASI 출몰시각정보 | data.go.kr | `KASI_RISESET_BASE_URL` | 해·달 출몰/박명 |
 | KASI 월령정보 | data.go.kr | `KASI_LUNPH_BASE_URL` | 달 위상/삭망 |
 | OpenWeatherMap (임시) | openweathermap.org | `OPENWEATHERMAP_API_KEY` | 기상청 대체용 임시. 최종 교체 예정 |
+| 기상청 API 허브 (동네예보 격자) | apihub.kma.go.kr | `KMA_APIHUB_KEY`, `KMA_APIHUB_BASE_URL` | 실황/초단기/단기 + 좌표변환. data.go.kr과 별개 자체키 |
 
 ## ⏳ 추가 발급/활용신청 필요
 
 ### 1. data.go.kr — 활용신청만 하면 됨 (키는 기존 공용키 재사용, 새 발급 불필요)
-- [ ] **기상청 단기예보 (VilageFcstInfoService_2.0)** — OpenWeatherMap을 최종 교체할 국내 공공 소스. 활용신청 후 `WEATHER_PROVIDER=kma`로 전환.
+- [x] ~~기상청 단기예보 (VilageFcstInfoService_2.0)~~ — **불필요**. 기상청 API 허브(격자)로 대체 채택(위 완료 표 참조). 통합 시 `WEATHER_PROVIDER=kma`로 전환.
 - [ ] **생태관광정보 서비스** — Layer 1 도래지/관측 덱 좌표.
 - [ ] **관광빅데이터 정보서비스** — Layer 5 비성수기 방문 패턴.
 
 ### 2. 별도 사이트 — 각각 신규 키 발급 필요 (data.go.kr 키와 별개)
 - [ ] **바다누리 해양정보 (조석예보/조위)** — khoa.go.kr/oceangrid. Layer 4 만조 골든타임. 자체 인증키.
 - [ ] **eBird API 2.0** — ebird.org/api/keygen (무료, 영문). Layer 2 글로벌 관측 기록.
-- [ ] **기상청 API 허브 (위성영상)** — apihub.kma.go.kr. Layer 4 위성영상. *(선택, MVP 필수 아님)*
+- [x] **기상청 API 허브 (동네예보 격자)** — apihub.kma.go.kr. 자체키 발급 완료(`.env`). 실황/초단기/단기/좌표변환.
+- [ ] **기상청 API 허브 (위성영상)** — apihub.kma.go.kr. Layer 4 위성영상. 같은 허브 키 재사용 가능. *(선택, MVP 필수 아님)*
 
 ### 3. 오픈 API 아님 — 데이터셋 신청/기관 협의 (후속)
 - [ ] **KOBIS / 국립생태원 조류 데이터** — kbr.go.kr, ecobank.nie.re.kr. Layer 2·5. 실시간 API 아닌 데이터셋 성격.

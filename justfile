@@ -20,6 +20,11 @@ default:
 backend-check:
     cd apps/backend && uv run pytest -q
 
+# suitability engine live smoke: hits real OWM/KASI APIs (needs repo-root .env keys + network).
+# Excluded from `check`/`backend-check` (marker-gated) so the pipeline stays deterministic/offline.
+suitability-live:
+    cd apps/backend && RUN_LIVE_TESTS=1 uv run pytest -m live -q -s
+
 # flutter lane: static analysis + widget/unit tests.
 flutter-check:
     cd apps/flutter && flutter analyze && flutter test

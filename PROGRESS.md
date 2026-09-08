@@ -59,11 +59,31 @@
 - **크로스모델 검증(codex)이 또 실제 결함 2건을 잡음**(validation:true였으나 verify FAIL): (1) JetBrains Mono가 TextTheme에 실제 매핑 안 됨(배지 카운트 무스타일), (2) 에러 상태가 raw 예외(영문) 노출 → 고정 한글 문구로 교체. 스펙 003 Amendments에 기록. MVP1 부검(3건) 패턴과 일관 — 크로스모델 verify의 가치 재확인.
 - species 색 매핑: 새(bird)=골드 tertiary(낮) / 별(star)=틸 secondary(밤).
 
+## 목업 비교 분석 + 기상청 API 허브 채택 (2026-09-08)
+
+- **목업 2종 비판 비교** — `docs/ui-mockups`(Stitch 원본) vs `docs/ui-mockups-2-claude-design`(Claude 디자인). 결론: 세트1은 데이터 신뢰(텔레메트리 밀도)·지도(실제 지도+GPX+핀+바텀시트)가 강점이나 **데스크톱 와이드라 PRD의 390px 모바일 미충족** + 이미지 의존. 세트2는 **390px 모바일 정본**·듀얼모드/적색필터 표현·접근성이 강점이나 **지도 화면이 동심원 다이어그램으로 빈약**.
+- **통합 목업 방향(구두 스펙, 미저장)** — 세트2를 폼팩터/디자인 정본으로, 세트1의 ①지도 화면 ②모노스페이스 텔레메트리 ③환경데이터 상세(점진적 공개) ④개인화 카피를 이식. 적색필터 전역 승격·이미지 폴백·상태(로딩/빈/에러) 정의. (사용자가 문서화 원하면 `specs/004-...` 이전 번호 주의 — 004는 적합도 엔진 예약됨)
+- **비교 페이지 산출:** [`docs/comparison-set1-vs-set2.html`](docs/comparison-set1-vs-set2.html) — 두 세트를 화면별로 나란히 iframe 크롭한 정적 비교 뷰(홈 낮/밤·지도·기록·배지 5행). 로컬서버 또는 직접 열기.
+- **기상청 경로 변경·채택:** data.go.kr 단기예보(공용키) 대신 **기상청 API 허브(`apihub.kma.go.kr`) 동네예보 격자자료** 채택. 자체 인증키 `KMA_APIHUB_KEY`(별도) 발급·`.env` 저장 완료. 엔드포인트 4종 전부 실측 검증 통과(실황 실데이터 확인).
+  - 오퍼레이션: `nph-dfs_odam_grd`(실황) / `nph-dfs_vsrt_grd`(초단기예보) / `nph-dfs_shrt_grd`(단기예보) / `nph-dfs_xy_lonlat`(격자↔위경도 양방향).
+  - **설계 유의:** ① 격자 API는 **전국 격자 전체 반환** → 위경도→격자(nx,ny) 변환 후 해당 셀만 추출(+캐싱) 필요. ② 좌표변환 API 제공으로 램버트 변환 직접 구현 불필요. ③ **시정(25km+)·대기시상은 여전히 공백** — 별도 근사(위성영상/ASOS) 필요. ④ 통합 코드 부재로 아직 `WEATHER_PROVIDER=openweathermap` 유지, KMA 어댑터 완성 시 `kma`로 스위치.
+  - data.go.kr 단기예보 활용신청은 **불필요**로 정리(`docs/api-keys-status.md` 갱신).
+
+## 적합도 점수 엔진 완성 (2026-09-08) ✅ — 공모전 핵심 조각
+
+- **005 backend** 실질 완성. `specs/005-suitability-engine-backend.md`. `GET /api/suitability?lat&lng&mode` → 0~100 융합 점수 + 골든타임 + 텔레메트리 + 레이어별 breakdown. 계약 publish: `apps/backend/.team/member.md` §8.
+- **3레이어 실연동 확인(브레인이 실 API 직접 호출)**: 기상 = **기상청 API 허브(KMA) 초단기예보 격자** live, 천체 = **KASI 출몰/월령** live, 빛공해 = VIIRS approx. 조석·생물·수요 = `status:"stub"` 정직 표기. 실패 시 graceful degrade(재정규화+`degraded:true`).
+- **빌드 2회 모두 verdict FAIL이었으나 스펙 결함 아님** — 팀(backend-engineer)에 Bash/네트워크 권한이 없어 (a)라이브 캡처·(b)justfile 리시피·(c)실연동 디버깅을 구조적으로 못함. 오프라인 파이프라인은 매번 green(68 passed)이었고, **실 API로만 드러나는 결함**을 브레인이 실연동 검증으로 전부 확정·수정:
+  - data.go.kr 서비스키 **이중 인코딩**(unquote/DECODED 키 필요), KASI 파서 추정 전면 오류(오퍼레이션 경로·`_type≠dataType`·필드 `aste`≠`astronomicalTwilightEnd`·공백 패딩·lunph는 solYear/Month/Day).
+  - 사용자 지시로 **기상 OWM→기상청(KMA) 전환**. KMA 격자 좌표/인덱싱 파싱 버그(콤마 미제거, "1라인=1행" 오가정 → 실측 flatten `(ny-1)*149+(nx-1)`), 실황(odam)엔 SKY 없음 → 초단기예보(vsrt)로 전환. **시정 카드는 KMA 지표(SKY·REH·WSD·PTY)로 교체**(KMA 격자에 visibility 없음).
+- **교훈**: 추정 스키마는 실패한다 → 외부 API는 라이브 캡처 선행. 크로스모델 verify(codex)는 오프라인 결함만, **실연동 결함은 브레인의 `just suitability-live`가 잡는다**. 부검: 스펙 005 Amendments.
+- 계약 변경: telemetry `kind` `visibility`→`sky`/`humidity`/`precip`. flutter consumer 배선 시 kind→IconData 매핑 갱신 필요.
+
 ## 다음 세션 시작점 (후속 조각)
 
-**다음 조각 확정: (a) 적합도 점수 엔진** (공모전 핵심 차별성, backend 계약 publisher). 사용자와 2026-09-08 세션에서 003 다음 작업으로 확정. 근거: API 키 발급 진행 중(data.go.kr 공용키 + OWM 임시), 홈/발견 화면의 적합도 카드(목업 01/02)가 이 계약의 소비처. PRD 3장(5-레이어 → 0~100)을 스펙 근거로 `specs/004-suitability-engine-backend.md` 작성 예정. **주의**: OWM은 visibility 10km 캡이라 "시정 25km+" 판정 불가 → 최종 기상청 단기예보 교체 필요(스펙에 provider 스위치 여지 명시).
+**다음 조각 후보**: **(UI) flutter consumer 배선** — `discovery_providers.dart` mock을 `GET /api/suitability` 실계약으로 전환(AsyncNotifierProvider), 신규 telemetry `kind`(sky/humidity/wind/precip)→IconData 매핑. backend 계약이 이제 live라 자연스러운 다음 조각. / **(backend 심화)** KHOA 조석 실연동(tide provider stub→live, 별도 키 발급), 핫스팟 랭킹(TourAPI 장소 레이어), 성능(격자 5요청×340KB → 배치/캐싱).
 
-기타 예약분: (b) 인증·멀티유저, (c) 에코 도보 큐레이션(두루누비·위치기반관광 API), (d) SQLite 영속화. UI 후속: 하단 탭 IA·홈/발견 셸(적합도 엔진 계약 확정 후).
+기타 예약분: (b) 인증·멀티유저, (c) 에코 도보 큐레이션(두루누비·위치기반관광 API), (d) SQLite 영속화.
 
 ### 미해결 유지보수 (낮은 우선순위)
 - **`just factory-sync` 검토** — 로컬 core가 factory-template보다 뒤처졌을 수 있음(팀 이름 해석 등). 다음 세션에서 `--dry-run`으로 드리프트 확인 후 판단.
