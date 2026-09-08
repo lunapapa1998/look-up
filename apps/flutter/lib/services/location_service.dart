@@ -24,6 +24,25 @@ abstract class LocationService {
   Future<ObservationLocation> currentLocation();
 }
 
+/// Assembles a short display place name from raw placemark fields
+/// (administrativeArea, locality, subLocality, in that order), dropping
+/// null/empty entries, deduping case/whitespace-insensitive duplicates
+/// (keeping the first occurrence), and capping the result at 2 elements.
+String? assemblePlaceName(List<String?> rawParts) {
+  final seen = <String>{};
+  final deduped = <String>[];
+  for (final part in rawParts) {
+    if (part == null || part.isEmpty) continue;
+    final key = part.trim().toLowerCase();
+    if (key.isEmpty || seen.contains(key)) continue;
+    seen.add(key);
+    deduped.add(part);
+  }
+  final capped = deduped.take(2).toList();
+  if (capped.isEmpty) return null;
+  return capped.join('·');
+}
+
 /// [LocationService] backed by `geolocator`/`geocoding`. Never throws — any
 /// failure (service disabled, permission denied, timeout, geocoding error)
 /// resolves to the fixed fallback coordinates from `config.dart`.
@@ -62,26 +81,25 @@ class GeolocatorLocationService implements LocationService {
       return _fallback;
     }
 
-    String? placeName;
+    final List<Placemark> placemarks;
     try {
-      final placemarks = await Geocoding().placemarkFromCoordinates(
+      placemarks = await Geocoding().placemarkFromCoordinates(
         position.latitude,
         position.longitude,
       );
-      if (placemarks.isNotEmpty) {
-        final placemark = placemarks.first;
-        final parts = [
-          placemark.administrativeArea,
-          placemark.locality,
-          placemark.subLocality,
-        ].where((part) => part != null && part.isNotEmpty).cast<String>();
-        if (parts.isNotEmpty) {
-          placeName = parts.join('·');
-        }
-      }
     } catch (_) {
       return _fallback;
     }
+    if (placemarks.isEmpty) {
+      return _fallback;
+    }
+
+    final placemark = placemarks.first;
+    final placeName = assemblePlaceName([
+      placemark.administrativeArea,
+      placemark.locality,
+      placemark.subLocality,
+    ]);
 
     return ObservationLocation(
       lat: position.latitude,

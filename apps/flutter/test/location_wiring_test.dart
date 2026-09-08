@@ -106,4 +106,25 @@ void main() {
 
     expect(find.text('위치 확인 중'), findsOneWidget);
   });
+
+  group('assemblePlaceName', () {
+    test('exact duplicate values collapse to one plus max 2 elements kept', () {
+      final result = assemblePlaceName(['서울특별시', '서울특별시', '태평로1가']);
+      expect(result, '서울특별시·태평로1가');
+    });
+
+    test('case and whitespace insensitive duplicates collapse too', () {
+      final result = assemblePlaceName([' Seoul ', 'seoul', '태평로1가']);
+      expect(result, ' Seoul ·태평로1가');
+    });
+
+    test('all null or empty returns null', () {
+      expect(assemblePlaceName([null, '', null]), isNull);
+    });
+
+    test('three distinct values keeps only first 2 joined by the middle dot', () {
+      final result = assemblePlaceName(['서울특별시', '중구', '태평로1가']);
+      expect(result, '서울특별시·중구');
+    });
+  });
 }

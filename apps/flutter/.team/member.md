@@ -1160,3 +1160,48 @@ abstract class SuitabilityApi {
   before `shouldThrow`, and the two edited tests' closures/assertions align with the `ObservationLocation`
   literals already in each test. Pipeline validate stage should run
   `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — bugfix: duplicate place-name segments (`서울특별시·서울특별시·태평로1가`) in `GeolocatorLocationService.currentLocation()`
+
+- `lib/services/location_service.dart`: extracted the inline `parts`/`join('·')` reverse-geocoding
+  assembly into a new top-level pure function `String? assemblePlaceName(List<String?> rawParts)`
+  (placed right after the `LocationService` abstract class, before `GeolocatorLocationService`).
+  Drops null/empty entries, then dedupes case-insensitive + whitespace-trimmed duplicates (keeps
+  first occurrence, in admin→locality→subLocality order), caps the deduped list at 2 elements, joins
+  with `·`, returns `null` if nothing survives. Fixes the real-device bug where Seoul coordinates'
+  `administrativeArea`/`locality` are both `'서울특별시'`, producing an overlong duplicated label instead
+  of a clean short one.
+- `currentLocation()`'s geocoding success block now calls
+  `assemblePlaceName([placemark.administrativeArea, placemark.locality, placemark.subLocality])`
+  instead of the old inline `.where(...).cast<String>().join('·')` logic. `_fallback` constant and the
+  try/catch structure around it are untouched — `assemblePlaceName` returning `null` still flows into
+  the existing null-`placeName` `ObservationLocation`, no fallback-behavior change.
+- `test/location_wiring_test.dart`: added a new `group('assemblePlaceName', ...)` with 4 `test()`
+  cases (exact-duplicate collapse + 2-element cap, case/whitespace-insensitive duplicate collapse,
+  all-null/empty → `null`, three distinct values capped to first 2) — no widget pump, calls the
+  function directly (already reachable via the existing `location_service.dart` import). The 3
+  existing `testWidgets` in this file are untouched.
+- Could not run `flutter analyze`/`flutter test` in this harness (no Bash access) — statically
+  re-checked the diff: `assemblePlaceName` signature/logic match the spec exactly, call site passes
+  the 3 fields in the required order, no other method/the `_fallback` constant/try-catch structure
+  touched. Pipeline validate stage should run `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — bugfix: empty `placemarks` result no longer leaks real GPS coords in `GeolocatorLocationService.currentLocation()`
+
+- `lib/services/location_service.dart:84-107`: restructured the reverse-geocoding block. The
+  `placemarkFromCoordinates(...)` call result is now stored in a `final List<Placemark> placemarks;`
+  (still wrapped in the existing `try { ... } catch (_) { return _fallback; }`), followed by an
+  explicit `if (placemarks.isEmpty) { return _fallback; }` right after the try/catch. Only when
+  `placemarks` is non-empty does the method proceed to `placemarks.first` → `assemblePlaceName(...)`
+  → build and return the real `ObservationLocation(lat: position.latitude, lng: position.longitude,
+  placeName: placeName, isFallback: false)`. Previously an empty (but non-throwing) `placemarks`
+  result fell through with `placeName: null` and still returned real GPS coords with
+  `isFallback: false`, contradicting the class doc comment ("any failure ... resolves to the fixed
+  fallback"). Empty-result-as-failure is now handled identically to a thrown geocoding exception.
+- Nothing else touched: permission handling, `Position` fetch, `assemblePlaceName`,
+  `FakeLocationService`, `_fallback` constant all unchanged.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  wasn't granted) — statically re-checked the diff: `Placemark` type already imported via
+  `package:geocoding/geocoding.dart` (line 1), brace/control-flow balance confirmed, non-empty path
+  still calls `assemblePlaceName` with the same 3 fields in the same order as before. Pipeline
+  validate stage should run `cd apps/flutter && flutter analyze && flutter test`.

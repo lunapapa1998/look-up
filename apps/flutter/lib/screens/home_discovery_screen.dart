@@ -53,29 +53,31 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                     ],
                   ),
                   const Spacer(),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.explore, size: 16),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            locationLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                  Flexible(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.explore, size: 16),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              locationLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        const Icon(Icons.keyboard_arrow_down, size: 16),
-                      ],
+                          const Icon(Icons.keyboard_arrow_down, size: 16),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
