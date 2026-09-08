@@ -625,6 +625,76 @@ class HomeDiscoveryScreen extends ConsumerWidget {
   recalling them from memory. Pipeline validate stage should run
   `cd apps/flutter && flutter analyze && flutter test`.
 
+## 2026-09-08 — model layer for `GET /api/suitability` (data models only, providers/widgets untouched)
+
+- `lib/models/discovery.dart`: added `fromJson` factories to `SuitabilityIndex` (score/label/sqmValue/
+  skyClass, no alias), `GoldenHour` (mode via new `obsModeFromApiValue(String)` top-level parser,
+  label/timeRange/description), and moved `DiscoveryOverview` here from `discovery_providers.dart`
+  (now also `fromJson`, plus a new `degraded` (`bool`) field). Added `ObsModeQueryValue` extension
+  with `ObsMode.toQueryValue()` (`'day'`/`'night'`) for building the query string later.
+  **Breaking**: `TelemetryReading.icon` (`IconData`) removed, replaced with `kind` (`String`) +
+  `fromJson`; `Hotspot`/`HotspotMeta` untouched (still use `IconData`, out of scope).
+- `lib/state/discovery_providers.dart`: only the `DiscoveryOverview` class definition (and its doc
+  comment) was deleted — it's now imported from `../models/discovery.dart`. Providers themselves
+  untouched, so `discoveryProvider`'s mock `TelemetryReading(..., icon: Icons.waves)` calls are now
+  a **known, expected compile error** (`icon` param no longer exists) — leave for the next task that
+  converts these providers to async/API-backed.
+- `lib/config.dart`: added `defaultObservationLat = 37.5921` / `defaultObservationLng = 126.3984`
+  (fixed 강화 갯벌 coordinates, pending real GPS integration).
+- Built against `apps/backend/.team/member.md` Section 8 (`GET /api/suitability`) — response is flat
+  (score/label/sqmValue/skyClass at top level, not nested), `telemetry[].kind` values are
+  `sky`/`humidity`/`wind`/`precip`/`tide`, `goldenHours[].mode`/query `mode` param are `"day"`/`"night"`.
+- **Known fallout beyond the two files above** (not fixed here, out of this task's lane):
+  `lib/screens/home_discovery_screen.dart:302` and `:706` also reference `.icon` on
+  `TelemetryReading`/`HotspotMeta` — line 302 (`overview.telemetry[i].icon`) will now fail to compile
+  too; line 706 is `HotspotMeta.icon` (still valid, untouched type). The next task wiring this screen
+  to live data needs to replace line 302's `Icon(overview.telemetry[i].icon, ...)` with something
+  keyed off the new `kind` string.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't
+  granted) — statically re-checked every field/type against `apps/backend/.team/member.md` Section 8's
+  JSON example and re-read the full diff for brace/comma balance. Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze && flutter test` (expect the two known-fallout compile errors
+  above until the provider/widget follow-up task lands).
+
+## 2026-09-08 — `lib/api/suitability_api.dart` — new `SuitabilityApi` client (mirrors `ecolog_api.dart`'s abstract+Http+Fake pattern)
+
+```dart
+class SuitabilityApiException implements Exception {
+  final int statusCode; final String message; // thrown on any non-2xx response
+}
+
+abstract class SuitabilityApi {
+  Future<DiscoveryOverview> fetchSuitability({required double lat, required double lng, required ObsMode mode});
+}
+```
+
+- `HttpSuitabilityApi(String baseUrl, {http.Client? client})` — `baseUrl`/`client` fields (same ctor
+  shape as `HttpEcologApi`). `fetchSuitability` calls `GET {baseUrl}/api/suitability?lat=<lat.toString()>&lng=<lng.toString()>&mode=<mode.toQueryValue()>`
+  (built via `Uri.replace(queryParameters:)`, no manual string concat), `_checkStatus(response, 200)`
+  copied verbatim from `ecolog_api.dart` (throws `SuitabilityApiException` with the JSON `detail`
+  field or raw body as `message`), then `DiscoveryOverview.fromJson(json.decode(response.body) as Map<String, dynamic>)`.
+- `FakeSuitabilityApi({bool degraded = false, bool shouldThrow = false})` — both named, default
+  `false`. No HTTP. `fetchSuitability` (still genuinely `async`/`Future`): if `shouldThrow`, throws
+  `SuitabilityApiException(500, 'fake failure')`; otherwise returns a deterministic
+  `DiscoveryOverview` keyed off the `mode` param — day: `SuitabilityIndex(score: 88, label: '매우
+  쾌적 (Prime)', sqmValue: 21.6, skyClass: 'Class 2 최적 다크스카이')`; night: `SuitabilityIndex(score:
+  92, label: '천체관측 최적 (Prime)', sqmValue: 21.9, skyClass: 'Class 1 최고 다크스카이')`.
+  `goldenHours` is always both entries (day `14:00 - 17:30` / night `21:40 - 01:20`, copied from
+  `discovery_providers.dart`'s existing mock strings), regardless of `mode`. `telemetry` is always
+  exactly 5 `TelemetryReading`s covering `kind` `sky`/`humidity`/`wind`/`precip`/`tide` (different
+  `value` strings per mode). `degraded` echoes the constructor's `degraded` param unchanged.
+- Built directly against `lib/models/discovery.dart`'s existing `DiscoveryOverview.fromJson`,
+  `SuitabilityIndex`/`GoldenHour`/`TelemetryReading` constructors, and `ObsMode.toQueryValue()`
+  extension — no field-name translation, no new model changes.
+- New file only; nothing else touched, no new pubspec dependency (`http` already present).
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that
+  wasn't granted) — statically re-checked every constructor/field name against
+  `lib/models/discovery.dart` and the `_checkStatus`/ctor pattern against `lib/api/ecolog_api.dart`.
+  Pipeline validate stage should run `cd apps/flutter && flutter analyze lib/api/suitability_api.dart`
+  (isolated) then the full `flutter analyze && flutter test` once the known-fallout compile errors
+  in `discovery_providers.dart`/`home_discovery_screen.dart` (noted in the 2026-09-08 model-layer
+  entry above) are fixed by the next task.
+
 ## 2026-09-08 — verifier fix pass: theme-token literals, telemetry separators, placeholder comments
 
 - `lib/screens/home_discovery_screen.dart`: replaced 4 hardcoded color literals with `colorScheme`
@@ -645,3 +715,172 @@ class HomeDiscoveryScreen extends ConsumerWidget {
   harness (Bash requires approval that wasn't granted) — statically re-checked both files in full
   for brace/comma balance and confirmed no leftover `Colors.*` literals via grep. Pipeline validate
   stage should run `cd apps/flutter && flutter analyze && flutter test`.
+
+## 2026-09-08 — `discoveryProvider` switched from hardcoded `Provider` to live `AsyncNotifierProvider`
+
+- `lib/state/discovery_providers.dart`: added `suitabilityApiProvider = Provider<SuitabilityApi>((ref) => HttpSuitabilityApi(defaultApiBaseUrl))`;
+  deleted the hardcoded `discoveryProvider = Provider<DiscoveryOverview>(...)` block and replaced it with:
+  ```dart
+  class DiscoveryNotifier extends AsyncNotifier<DiscoveryOverview> {
+    @override
+    Future<DiscoveryOverview> build() async {
+      final mode = ref.watch(obsModeProvider);
+      final api = ref.watch(suitabilityApiProvider);
+      return api.fetchSuitability(lat: defaultObservationLat, lng: defaultObservationLng, mode: mode);
+    }
+  }
+  final discoveryProvider = AsyncNotifierProvider<DiscoveryNotifier, DiscoveryOverview>(DiscoveryNotifier.new);
+  ```
+  `discoveryProvider` is now `AsyncNotifierProvider<DiscoveryNotifier, DiscoveryOverview>` — `ref.watch(discoveryProvider)`
+  returns `AsyncValue<DiscoveryOverview>`, not a bare `DiscoveryOverview`. It re-fetches automatically whenever
+  `obsModeProvider` changes (via `ref.watch` inside `build()`). `obsModeProvider`/`hotspotsProvider` untouched —
+  same `StateProvider<ObsMode>` / `Provider<List<Hotspot>>` as before.
+- Built against `lib/api/suitability_api.dart`'s existing `SuitabilityApi`/`HttpSuitabilityApi` contract
+  (`Future<DiscoveryOverview> fetchSuitability({required double lat, required double lng, required ObsMode mode})`)
+  and `lib/config.dart`'s `defaultApiBaseUrl`/`defaultObservationLat`/`defaultObservationLng` — no new files, no pubspec changes.
+- **Known fallout, out of this task's lane**: `lib/screens/home_discovery_screen.dart:17` does
+  `final overview = ref.watch(discoveryProvider);` then reads `overview.suitabilityIndex`/`.goldenHours`/`.telemetry`
+  directly — this now fails to compile since `overview` is `AsyncValue<DiscoveryOverview>`, not `DiscoveryOverview`.
+  This is on top of the pre-existing `.icon`/`TelemetryReading.kind` fallout already noted in the 2026-09-08
+  model-layer entry above. The next widget task needs `overview.when(data: ..., loading: ..., error: ...)`
+  (or `.value`) to unwrap it, plus the `kind`-based icon fix.
+- `test/screens/home_discovery_screen_test.dart` (noted earlier in this file) builds its own
+  `ProviderContainer` without overriding `discoveryProvider`/`suitabilityApiProvider`, so it will now try a real
+  `HttpSuitabilityApi` HTTP call against `localhost:8000` instead of reading the old mock — will fail/hang
+  without a test override. Next task should override `suitabilityApiProvider` with `FakeSuitabilityApi` (already
+  defined in `lib/api/suitability_api.dart`) in that test's `ProviderContainer`.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't granted;
+  this role's tool set is Read/Grep/Glob/Edit/Write only, no Bash) — statically re-checked the diff (imports,
+  class/provider syntax, brace balance) and traced every other reference to `discoveryProvider` in the repo via
+  grep. Pipeline validate stage should run `cd apps/flutter && flutter analyze && flutter test`
+  (expect the `home_discovery_screen.dart`/its test to fail until the next widget-wiring task lands).
+
+## 2026-09-08 — `lib/screens/home_discovery_screen.dart` — render `AsyncValue<DiscoveryOverview>` (loading/error/data) + `kind`→icon mapping
+
+- Line 17: `final overview = ref.watch(discoveryProvider);` → `final overviewAsync = ref.watch(discoveryProvider);`
+  (unwrapped type is now `AsyncValue<DiscoveryOverview>`, per the previous entry's known fallout).
+  `currentMode`/`hotspots` watches untouched.
+- Added new private top-level function `IconData _iconForTelemetryKind(String kind)` at the bottom of
+  the file (below the class): switches on `kind` (`'sky'`→`Icons.wb_sunny`, `'humidity'`→
+  `Icons.water_drop`, `'wind'`→`Icons.air`, `'precip'`→`Icons.grain`, `'tide'`→`Icons.waves`,
+  **`default`→`Icons.help_outline`**). Telemetry row's `Icon(overview.telemetry[i].icon, ...)` →
+  `Icon(_iconForTelemetryKind(overview.telemetry[i].kind), ...)`.
+- The suitability-card `Container`'s `child` is now `overviewAsync.when(data:, loading:, error:)`:
+  - `data: (overview)` — unchanged ScoreGauge/golden-hour/telemetry `Column` content (just the icon
+    fix above), plus a new degraded-only warning banner **prepended above the ScoreGauge row**: only
+    rendered `if (overview.degraded)` (else `const SizedBox.shrink()`), fixed Korean copy exactly
+    **`'일부 데이터를 불러오지 못했어요'`**, `Container` (8/12 padding, `colorScheme.errorContainer` bg, 8px
+    radius) with `Icons.warning_amber_rounded` + `Text` both in `colorScheme.onErrorContainer`,
+    12px bottom margin before the score row.
+  - `loading: ()` — `SizedBox(height: 160, child: Center(child: CircularProgressIndicator()))`, no
+    other content.
+  - `error: (err, st)` — fixed Korean copy exactly **`'적합도 정보를 불러오지 못했어요'`** (raw
+    `err`/exception message is never interpolated into the UI), then a retry
+    `ElevatedButton(onPressed: () => ref.invalidate(discoveryProvider), child: Text('다시 시도'))`
+    (retry button label exactly **`'다시 시도'`**).
+- Header/greeting/mode-switcher/hotspot-cards sections untouched — none of them read `overview`.
+- **Known fallout, out of this task's lane**: `test/screens/home_discovery_screen_test.dart` still
+  builds its `ProviderContainer` without overriding `suitabilityApiProvider`, so it will attempt a
+  real `HttpSuitabilityApi` HTTP call instead of using `FakeSuitabilityApi` — needs
+  `suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi(...))` per test, plus updated
+  assertions for the loading/error/degraded states this task added (exact strings to reuse are
+  quoted above: warning banner `'일부 데이터를 불러오지 못했어요'`, error text `'적합도 정보를 불러오지
+  못했어요'`, retry button `'다시 시도'`, icon fallback function name `_iconForTelemetryKind`).
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't
+  granted; this role's tool set is Read/Grep/Glob/Edit/Write only, no Bash) — statically re-checked
+  the diff (imports already present: `flutter/material.dart` for `Icons`/`IconData`/
+  `CircularProgressIndicator`/`ElevatedButton`; `AsyncValue.when` signature `data`/`loading`/`error`
+  matches `flutter_riverpod`'s API used elsewhere in this repo, e.g. `diary_list_screen.dart`) and
+  traced every `overview.*` reference inside the `data:` branch to confirm none escaped outside the
+  `when(...)`. Pipeline validate stage should run `cd apps/flutter && flutter analyze && flutter test`
+  (expect `home_discovery_screen_test.dart` to fail/hang until the fallout above is fixed).
+
+## 2026-09-08 — `test/screens/home_discovery_screen_test.dart` — fixed the async-`discoveryProvider` fallout noted above
+
+- Fixes exactly the fallout flagged in the previous two entries: `discoveryProvider` is now
+  `AsyncNotifierProvider<DiscoveryNotifier, DiscoveryOverview>` (real `HttpSuitabilityApi` call by
+  default), so the test's `ProviderContainer` needed an override plus a `pump()` to await the async
+  `build()`.
+- Added `import 'package:lookup/api/suitability_api.dart';`. All three `ProviderContainer(...)`
+  constructions now pass `overrides: [suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi())]`
+  (`suitabilityApiProvider` imported from `discovery_providers.dart`, already imported in the file).
+- Added one `await tester.pump();` right after each `await tester.pumpWidget(...)` in all three tests,
+  so the `AsyncNotifier.build()` Future (no real delay in `FakeSuitabilityApi`, resolves on the next
+  microtask) completes before assertions run. Test 3 (tap → mode switch) needed a second `pump()`
+  after the tap's `pump()`: the tap flips `obsModeProvider`, which `discoveryProvider.build()` watches,
+  triggering a re-fetch that needs its own frame to resolve.
+- Same 3 `testWidgets`, same assertions, no new test cases added (per task scope) — `find.text('88')`/
+  `'매우 쾌적 (Prime)'`/`'14:00 - 17:30'`/`'21:40 - 01:20'` (test 1), both hotspot titles (test 2,
+  `hotspotsProvider` still sync mock, untouched), `obsModeProvider` day→night after tap (test 3).
+  Values verified against `FakeSuitabilityApi`'s day-mode branch in `lib/api/suitability_api.dart`
+  (score 88/label/golden-hours are mode-independent constants) rather than assumed from memory.
+- Could not run `flutter test` in this harness (Bash requires approval that wasn't granted; this
+  role's tool set is Read/Grep/Glob/Edit/Write only, no Bash) — statically re-checked every literal/
+  override against `lib/api/suitability_api.dart` and `lib/state/discovery_providers.dart`, and
+  reasoned through the microtask timing (`FakeSuitabilityApi.fetchSuitability` has no `Future.delayed`,
+  so a single `pump()` flushes it). Pipeline validate stage should run
+  `cd apps/flutter && flutter test test/screens/home_discovery_screen_test.dart`.
+
+## 2026-09-08 — `test/suitability_wiring_test.dart` — new dedicated test file, 5 wiring states + kind→icon coverage
+
+- New file only, nothing else touched. Private helper `_pumpHome(tester, {required SuitabilityApi api})`
+  builds a `ProviderContainer(overrides: [suitabilityApiProvider.overrideWithValue(api)])`, pumps
+  `UncontrolledProviderScope(container:, child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})))`
+  (same pattern as `home_discovery_screen_test.dart`), returns the container.
+- 5 independent `testWidgets` + 1 `group` test for icon coverage:
+  1. **data**: `FakeSuitabilityApi()` + one `pump()` → asserts `'88'`/`'매우 쾌적 (Prime)'`/
+     `'14:00 - 17:30'`/`'21:40 - 01:20'` render, plus `find.byIcon(Icons.wb_sunny)` (sky telemetry icon).
+  2. **mode toggle**: starts day (`'88'`/`'매우 쾌적 (Prime)'`), taps `'밤의 별을 보러 (천체관측)'`, 3×
+     `pump()` (one extra beyond the existing 2-pump pattern, as safety margin since this harness
+     couldn't execute the suite to confirm exact settle timing), asserts day text is gone
+     (`findsNothing`) and night values `'92'`/`'천체관측 최적 (Prime)'` render. Confirmed no text
+     collision: `ScoreGauge` renders the score as a standalone `Text('$score')`
+     (`lib/widgets/score_gauge.dart:33`), distinct from the hotspot card's `'적합도 92점'` string, so
+     `find.text('92')` only matches the score gauge.
+  3. **loading**: `_pumpHome` only (no extra `pump()` after the implicit pumpWidget pump) → asserts
+     `find.byType(CircularProgressIndicator)` before the fake fetch's microtask resolves.
+  4. **error**: `FakeSuitabilityApi(shouldThrow: true)` + `pump()` → asserts fixed copy
+     `'적합도 정보를 불러오지 못했어요'` and `'다시 시도'` button render, and raw exception strings
+     (`'fake failure'`, `'SuitabilityApiException'`) do **not** appear anywhere
+     (`find.textContaining(...)`, `findsNothing`).
+  5. **degraded**: `FakeSuitabilityApi(degraded: true)` + `pump()` → asserts banner
+     `'일부 데이터를 불러오지 못했어요'` renders.
+  6. **kind→icon coverage** (`group`): day-mode `FakeSuitabilityApi()` + `pump()` → asserts all 5
+     mapped icons render exactly once: `Icons.wb_sunny` (sky), `Icons.water_drop` (humidity),
+     `Icons.air` (wind), `Icons.grain` (precip), `Icons.waves` (tide) — confirms
+     `FakeSuitabilityApi`'s telemetry list covers all 5 `kind`s `_iconForTelemetryKind` handles
+     (`lib/screens/home_discovery_screen.dart:811-826`). `_iconForTelemetryKind` itself is a private
+     top-level function so it's verified indirectly through rendered icons, not called directly, per
+     task instructions.
+- All literals (score/label/golden-hour times, Korean copy, icon mappings) copied verbatim from
+  `lib/api/suitability_api.dart` (`FakeSuitabilityApi`), `lib/screens/home_discovery_screen.dart`
+  (banner/error/retry copy, `_iconForTelemetryKind` switch), and `lib/state/discovery_providers.dart`
+  (`suitabilityApiProvider`) — read directly from source, not recalled from memory.
+- Could not run `flutter test` in this harness — this role's tool set is Read/Grep/Glob/Edit/Write
+  only (no Bash access; every `Bash` call in this session returned "requires approval" with no way
+  to grant it). Statically re-verified every string/type/signature against the 4 source files above.
+  Pipeline validate stage (or the user) should run:
+  `cd apps/flutter && flutter test test/suitability_wiring_test.dart`
+
+## 2026-09-08 — `test/suitability_wiring_test.dart:6` — fixed `unused_import` analyzer warning
+
+- Removed `import 'package:lookup/models/discovery.dart';` — no symbol from that file (e.g.
+  `ObsMode`, `DiscoveryOverview`) is referenced by name anywhere in this test file; they're only
+  exercised indirectly through `HomeDiscoveryScreen`'s rendering. One line deleted, nothing else
+  touched. Could not run `flutter analyze` in this harness (Bash requires approval that wasn't
+  granted) — grepped the file for `discovery.dart`/`DiscoveryOverview`/`ObsMode` and confirmed no
+  remaining references. Pipeline validate stage should run
+  `cd apps/flutter && flutter analyze test/suitability_wiring_test.dart`.
+
+## 2026-09-08 — `lib/screens/home_discovery_screen.dart` — fixed `RangeError` when `goldenHours` has fewer than 2 entries
+
+- Golden-hours `Row` previously did `List.generate(2, (i) { final gh = overview.goldenHours[i];
+  ... })` — hardcoded exactly 2 entries, so it threw a `RangeError` whenever the real backend
+  returned fewer than 2 `goldenHours`. Per `apps/backend/.team/member.md` section 8, the array can
+  be empty or have just 1 entry depending on `mode` (astronomy emits no golden hours in day mode;
+  only tide emits day golden hours).
+- Changed to `List.generate(overview.goldenHours.length, (i) { ... })`, keeping the existing margin
+  logic (`left: i == 0 ? 0 : 8`, `right: i == overview.goldenHours.length - 1 ? 0 : 8`) unchanged —
+  it already derived from the list length rather than the hardcoded `2`, so it now safely renders
+  0, 1, or more golden-hour entries.
+- No other lines touched in this section; no model/provider/API changes.

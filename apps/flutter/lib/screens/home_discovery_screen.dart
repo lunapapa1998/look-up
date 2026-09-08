@@ -14,7 +14,7 @@ class HomeDiscoveryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final overview = ref.watch(discoveryProvider);
+    final overviewAsync = ref.watch(discoveryProvider);
     final currentMode = ref.watch(obsModeProvider);
     final hotspots = ref.watch(hotspotsProvider);
 
@@ -128,210 +128,272 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                   color: colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        ScoreGauge(score: overview.suitabilityIndex.score),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '오늘의 통합 관찰 적합도',
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      overview.suitabilityIndex.label,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: textTheme.titleMedium?.copyWith(
-                                        color: colorScheme.secondary,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.verified,
-                                    color: colorScheme.secondary,
-                                    size: 18,
-                                  ),
-                                ],
-                              ),
-                            ],
+                child: overviewAsync.when(
+                  data: (overview) => Column(
+                    children: [
+                      if (overview.degraded)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
                           ),
-                        ),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                          decoration: BoxDecoration(
+                            color: colorScheme.errorContainer,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.wb_twilight,
-                                    color: colorScheme.tertiary,
-                                    size: 16,
-                                  ),
-                                  Flexible(
-                                    child: Text(
-                                      'SQM ${overview.suitabilityIndex.sqmValue}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: textTheme.labelMedium?.copyWith(
-                                        color: colorScheme.tertiary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                size: 16,
+                                color: colorScheme.onErrorContainer,
                               ),
-                              Text(
-                                overview.suitabilityIndex.skyClass,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.end,
-                                style: textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.outline,
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  '일부 데이터를 불러오지 못했어요',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onErrorContainer,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: List.generate(2, (i) {
-                        final gh = overview.goldenHours[i];
-                        final isDay = gh.mode == ObsMode.day;
-                        final accent = isDay
-                            ? colorScheme.tertiary
-                            : colorScheme.secondary;
-                        return Expanded(
-                          child: Container(
-                            margin: EdgeInsets.only(
-                              right: i == 0 ? 8 : 0,
-                              left: i == 1 ? 8 : 0,
-                            ),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                        )
+                      else
+                        const SizedBox.shrink(),
+                      Row(
+                        children: [
+                          ScoreGauge(score: overview.suitabilityIndex.score),
+                          const SizedBox(width: 16),
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Text(
+                                  '오늘의 통합 관찰 적합도',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
                                 Row(
                                   children: [
-                                    Container(
-                                      width: 6,
-                                      height: 6,
-                                      decoration: BoxDecoration(
-                                        color: accent,
-                                        shape: BoxShape.circle,
+                                    Flexible(
+                                      child: Text(
+                                        overview.suitabilityIndex.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: textTheme.titleMedium?.copyWith(
+                                          color: colorScheme.secondary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.verified,
+                                      color: colorScheme.secondary,
+                                      size: 18,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.wb_twilight,
+                                      color: colorScheme.tertiary,
+                                      size: 16,
+                                    ),
                                     Flexible(
                                       child: Text(
-                                        gh.label,
+                                        'SQM ${overview.suitabilityIndex.sqmValue}',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: textTheme.labelSmall?.copyWith(
-                                          color: accent,
+                                        style: textTheme.labelMedium?.copyWith(
+                                          color: colorScheme.tertiary,
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                Icon(
-                                  isDay ? Icons.forest : Icons.dark_mode,
-                                  color: accent,
-                                ),
                                 Text(
-                                  gh.timeRange,
-                                  style: textTheme.labelMedium?.copyWith(
-                                    color: accent,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  gh.description,
+                                  overview.suitabilityIndex.skyClass,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.end,
                                   style: textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
+                                    color: colorScheme.outline,
                                   ),
-                                  maxLines: 2,
                                 ),
                               ],
                             ),
                           ),
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 16),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (
-                            var i = 0;
-                            i < overview.telemetry.length;
-                            i++
-                          ) ...[
-                            if (i > 0)
-                              Container(
-                                width: 1,
-                                height: 24,
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                color: colorScheme.outlineVariant,
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: List.generate(overview.goldenHours.length, (
+                          i,
+                        ) {
+                          final gh = overview.goldenHours[i];
+                          final isDay = gh.mode == ObsMode.day;
+                          final accent = isDay
+                              ? colorScheme.tertiary
+                              : colorScheme.secondary;
+                          return Expanded(
+                            child: Container(
+                              margin: EdgeInsets.only(
+                                left: i == 0 ? 0 : 8,
+                                right: i == overview.goldenHours.length - 1
+                                    ? 0
+                                    : 8,
                               ),
-                            Padding(
-                              padding: const EdgeInsets.only(right: 20),
-                              child: Row(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: colorScheme.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    overview.telemetry[i].icon,
-                                    size: 16,
-                                    color: colorScheme.outline,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                  Row(
                                     children: [
-                                      Text(
-                                        overview.telemetry[i].label,
-                                        style: textTheme.bodySmall?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: accent,
+                                          shape: BoxShape.circle,
                                         ),
                                       ),
-                                      Text(
-                                        overview.telemetry[i].value,
-                                        style: textTheme.labelMedium
-                                            ?.copyWith(
-                                              color: colorScheme.onSurface,
-                                              fontWeight: FontWeight.bold,
-                                            ),
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          gh.label,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: textTheme.labelSmall
+                                              ?.copyWith(color: accent),
+                                        ),
                                       ),
                                     ],
+                                  ),
+                                  Icon(
+                                    isDay ? Icons.forest : Icons.dark_mode,
+                                    color: accent,
+                                  ),
+                                  Text(
+                                    gh.timeRange,
+                                    style: textTheme.labelMedium?.copyWith(
+                                      color: accent,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    gh.description,
+                                    style: textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                    maxLines: 2,
                                   ),
                                 ],
                               ),
                             ),
-                          ],
-                        ],
+                          );
+                        }),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (
+                              var i = 0;
+                              i < overview.telemetry.length;
+                              i++
+                            ) ...[
+                              if (i > 0)
+                                Container(
+                                  width: 1,
+                                  height: 24,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  color: colorScheme.outlineVariant,
+                                ),
+                              Padding(
+                                padding: const EdgeInsets.only(right: 20),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      _iconForTelemetryKind(
+                                        overview.telemetry[i].kind,
+                                      ),
+                                      size: 16,
+                                      color: colorScheme.outline,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          overview.telemetry[i].label,
+                                          style: textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                        ),
+                                        Text(
+                                          overview.telemetry[i].value,
+                                          style: textTheme.labelMedium
+                                              ?.copyWith(
+                                                color: colorScheme.onSurface,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  loading: () => const SizedBox(
+                    height: 160,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (err, st) => Column(
+                    children: [
+                      Text(
+                        '적합도 정보를 불러오지 못했어요',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () => ref.invalidate(discoveryProvider),
+                        child: const Text('다시 시도'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -747,5 +809,22 @@ class HomeDiscoveryScreen extends ConsumerWidget {
       ),
       ),
     );
+  }
+}
+
+IconData _iconForTelemetryKind(String kind) {
+  switch (kind) {
+    case 'sky':
+      return Icons.wb_sunny;
+    case 'humidity':
+      return Icons.water_drop;
+    case 'wind':
+      return Icons.air;
+    case 'precip':
+      return Icons.grain;
+    case 'tide':
+      return Icons.waves;
+    default:
+      return Icons.help_outline;
   }
 }

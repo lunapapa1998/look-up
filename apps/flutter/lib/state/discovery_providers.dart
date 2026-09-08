@@ -1,64 +1,40 @@
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../api/suitability_api.dart';
+import '../config.dart';
 import '../models/discovery.dart';
 
-/// Seam for the future fitness/suitability engine backend API.
+/// Wiring for the suitability engine backend API.
 ///
-/// Every provider in this file currently returns hardcoded mock data. Once
-/// the suitability engine ships, these providers are the intended
-/// integration point to swap in real API-backed data (e.g. via
-/// `AsyncNotifierProvider` or `overrideWithProvider`) without touching the
-/// widgets that consume them.
+/// [discoveryProvider] fetches live data via [SuitabilityApi]; [hotspotsProvider]
+/// still returns hardcoded mock data pending its own backend contract.
 
 /// Currently selected observation mode (day/night), driving which mock
 /// content the discovery screen surfaces.
 final obsModeProvider = StateProvider<ObsMode>((ref) => ObsMode.day);
 
-/// Bundles the suitability index, golden hours, and telemetry readings
-/// shown on the discovery screen.
-class DiscoveryOverview {
-  final SuitabilityIndex suitabilityIndex;
-  final List<GoldenHour> goldenHours;
-  final List<TelemetryReading> telemetry;
+final suitabilityApiProvider = Provider<SuitabilityApi>((ref) {
+  return HttpSuitabilityApi(defaultApiBaseUrl);
+});
 
-  const DiscoveryOverview({
-    required this.suitabilityIndex,
-    required this.goldenHours,
-    required this.telemetry,
-  });
+class DiscoveryNotifier extends AsyncNotifier<DiscoveryOverview> {
+  @override
+  Future<DiscoveryOverview> build() async {
+    final mode = ref.watch(obsModeProvider);
+    final api = ref.watch(suitabilityApiProvider);
+    return api.fetchSuitability(
+      lat: defaultObservationLat,
+      lng: defaultObservationLng,
+      mode: mode,
+    );
+  }
 }
 
-final discoveryProvider = Provider<DiscoveryOverview>((ref) {
-  return const DiscoveryOverview(
-    suitabilityIndex: SuitabilityIndex(
-      score: 88,
-      label: '매우 쾌적 (Prime)',
-      sqmValue: 21.6,
-      skyClass: 'Class 2 최적 다크스카이',
-    ),
-    goldenHours: [
-      GoldenHour(
-        mode: ObsMode.day,
-        label: '낮 · 탐조 골든타임',
-        timeRange: '14:00 - 17:30',
-        description: '만조 2시간 전 갯벌 유입 피크',
-      ),
-      GoldenHour(
-        mode: ObsMode.night,
-        label: '밤 · 천체 골든타임',
-        timeRange: '21:40 - 01:20',
-        description: '월령 12% 삭 근처 · 운량 0%',
-      ),
-    ],
-    telemetry: [
-      TelemetryReading(label: '조위 상태', value: '만조 16:15', icon: Icons.waves),
-      TelemetryReading(label: '대기 시정', value: '25 km', icon: Icons.visibility),
-      TelemetryReading(label: '풍속·풍향', value: '2.1 m/s (NW)', icon: Icons.air),
-      TelemetryReading(label: '운량', value: '0% (맑음)', icon: Icons.cloud_queue),
-    ],
-  );
-});
+final discoveryProvider =
+    AsyncNotifierProvider<DiscoveryNotifier, DiscoveryOverview>(
+  DiscoveryNotifier.new,
+);
 
 final hotspotsProvider = Provider<List<Hotspot>>((ref) {
   return const [

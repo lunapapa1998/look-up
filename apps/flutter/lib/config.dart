@@ -4,3 +4,7 @@
 /// Override per-platform as needed — e.g. an Android emulator must use
 /// `10.0.2.2` instead of `localhost` to reach the host machine.
 const String defaultApiBaseUrl = 'http://localhost:8000';
+
+// GPS 연동 전까지 사용하는 고정 관측 좌표(강화 갯벌)
+const double defaultObservationLat = 37.5921;
+const double defaultObservationLng = 126.3984;
