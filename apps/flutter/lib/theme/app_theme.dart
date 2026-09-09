@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/discovery.dart' show ObsMode;
+
 class AppTheme {
-  static ColorScheme darkColorScheme() {
+  static ColorScheme nightColorScheme() {
     const background = Color(0xFF08122D);
     const surfaceContainerLowest = Color(0xFF030C28);
     const surfaceContainerLow = Color(0xFF111A36);
@@ -41,8 +43,47 @@ class AppTheme {
     );
   }
 
-  static ThemeData dark() {
-    final colorScheme = darkColorScheme();
+  static ColorScheme dayColorScheme() {
+    const surface = Color(0xFFF4F8FF);
+    const surfaceContainerLowest = Color(0xFFFFFFFF);
+    const surfaceContainerLow = Color(0xFFEDF2FC);
+    const surfaceContainer = Color(0xFFE4EAF7);
+    const surfaceContainerHigh = Color(0xFFD7DEF0);
+    const surfaceContainerHighest = Color(0xFFC9D3E8);
+    // Darkened from the initially proposed 0xFF0F8F76 to clear WCAG AA
+    // 4.5:1 against white onSecondary text (the starting value only
+    // reached ~4.0:1).
+    const secondary = Color(0xFF0A7864);
+    const onSecondary = Color(0xFFFFFFFF);
+    const tertiary = Color(0xFF8A5700);
+    const onTertiary = Color(0xFFFFFFFF);
+    const primary = Color(0xFF33417A);
+    const onSurface = Color(0xFF14213D);
+    const onSurfaceVariant = Color(0xFF4A5568);
+    const outline = Color(0xFF6B7488);
+
+    return ColorScheme.light().copyWith(
+      surface: surface,
+      surfaceContainerLowest: surfaceContainerLowest,
+      surfaceContainerLow: surfaceContainerLow,
+      surfaceContainer: surfaceContainer,
+      surfaceContainerHigh: surfaceContainerHigh,
+      surfaceContainerHighest: surfaceContainerHighest,
+      secondary: secondary,
+      onSecondary: onSecondary,
+      tertiary: tertiary,
+      onTertiary: onTertiary,
+      primary: primary,
+      onSurface: onSurface,
+      onSurfaceVariant: onSurfaceVariant,
+      outline: outline,
+    );
+  }
+
+  static ThemeData themeFor(ObsMode mode) {
+    final colorScheme = mode == ObsMode.night
+        ? nightColorScheme()
+        : dayColorScheme();
     final background = colorScheme.surface;
     final surfaceContainer = colorScheme.surfaceContainer;
     final surfaceContainerHigh = colorScheme.surfaceContainerHigh;

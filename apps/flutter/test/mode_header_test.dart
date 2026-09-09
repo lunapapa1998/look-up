@@ -267,7 +267,7 @@ void main() {
   });
 
   test('mode toggle and badge text meet WCAG AA contrast (4.5:1)', () {
-    final colorScheme = AppTheme.darkColorScheme();
+    final colorScheme = AppTheme.nightColorScheme();
 
     // Active expanded toggle: primary text on surfaceContainerHighest fill.
     expect(
@@ -341,4 +341,59 @@ void main() {
       modeForHour(DateTime(2026, 9, 9, 10, 0).hour),
     );
   });
+
+  testWidgets(
+    'reduced motion: toggle tap settles the glyph morph in a single pump',
+    (tester) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: _harness(
+            initialState: const ObsModeState(
+              mode: ObsMode.day,
+              source: ObsModeSource.auto,
+            ),
+            onModeChanged: (_) {},
+            onResetToAuto: () {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('modeToggleNightExpanded')));
+      await tester.pump();
+
+      final nightOpacity = tester.widget<Opacity>(
+        find.descendant(
+          of: find.byKey(const Key('modeToggleNightExpanded')),
+          matching: find.byType(Opacity),
+        ),
+      );
+      final dayOpacity = tester.widget<Opacity>(
+        find.descendant(
+          of: find.byKey(const Key('modeToggleDayExpanded')),
+          matching: find.byType(Opacity),
+        ),
+      );
+      expect(nightOpacity.opacity, closeTo(1.0, 0.001));
+      expect(dayOpacity.opacity, closeTo(0.82, 0.001));
+
+      final nightTransforms = tester.widgetList<Transform>(
+        find.descendant(
+          of: find.byKey(const Key('modeToggleNightExpanded')),
+          matching: find.byType(Transform),
+        ),
+      );
+      final dayTransforms = tester.widgetList<Transform>(
+        find.descendant(
+          of: find.byKey(const Key('modeToggleDayExpanded')),
+          matching: find.byType(Transform),
+        ),
+      );
+      for (final transform in [...nightTransforms, ...dayTransforms]) {
+        expect(transform.transform, Matrix4.identity());
+      }
+
+      expect(tester.binding.transientCallbackCount, 0);
+    },
+  );
 }

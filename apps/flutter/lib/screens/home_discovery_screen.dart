@@ -7,13 +7,46 @@ import '../state/discovery_providers.dart';
 import '../widgets/mode_header.dart';
 import '../widgets/score_gauge.dart';
 
-class HomeDiscoveryScreen extends ConsumerWidget {
+class HomeDiscoveryScreen extends ConsumerStatefulWidget {
   const HomeDiscoveryScreen({super.key, required this.onViewMapPressed});
 
   final VoidCallback onViewMapPressed;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeDiscoveryScreen> createState() =>
+      _HomeDiscoveryScreenState();
+}
+
+/// Owns the manual-transition content stagger: [_staggerController] is a
+/// 420ms container animation carved into four 200ms sub-intervals (one per
+/// content group, via [_StaggerReveal]) at +80/120/160/200ms offsets. Only
+/// manual mode switches replay it from 0; auto switches and reduce-motion
+/// leave it settled at 1.0 so content never blanks out mid-transition. See
+/// `specs/011-scene-transition-flutter.md` §4 for the timing source of truth.
+class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
+    with TickerProviderStateMixin {
+  static const _staggerTotalDuration = Duration(milliseconds: 420);
+
+  late final AnimationController _staggerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _staggerController = AnimationController(
+      vsync: this,
+      duration: _staggerTotalDuration,
+      value: 1.0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _staggerController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final modeState = ref.watch(obsModeProvider);
@@ -29,6 +62,19 @@ class HomeDiscoveryScreen extends ConsumerWidget {
     final modeTransitionDuration = MediaQuery.of(context).disableAnimations
         ? Duration.zero
         : const Duration(milliseconds: 150);
+
+    ref.listen<ObsModeState>(obsModeProvider, (previous, next) {
+      final modeChanged = previous == null || previous.mode != next.mode;
+      if (!modeChanged) return;
+      final reduceMotion = MediaQuery.of(context).disableAnimations;
+      if (next.source == ObsModeSource.manual && !reduceMotion) {
+        _staggerController.forward(from: 0);
+      } else {
+        // Auto-sourced changes and reduce-motion settle instantly: content
+        // must show the new values with no fade/slide.
+        _staggerController.value = 1.0;
+      }
+    });
 
     return Scaffold(
       body: CustomScrollView(
@@ -248,308 +294,320 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                   child: KeyedSubtree(
                     key: ValueKey(currentMode),
                     child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: overviewAsync.when(
-                        data: (overview) => Column(
-                          children: [
-                            if (overview.degraded)
-                              Container(
-                                width: double.infinity,
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: overviewAsync.when(
+                    data: (overview) => Column(
+                      children: [
+                        if (overview.degraded)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.errorContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 16,
+                                  color: colorScheme.onErrorContainer,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.errorContainer,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.warning_amber_rounded,
-                                      size: 16,
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    '일부 데이터를 불러오지 못했어요',
+                                    style: textTheme.bodySmall?.copyWith(
                                       color: colorScheme.onErrorContainer,
                                     ),
-                                    const SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        '일부 데이터를 불러오지 못했어요',
-                                        style: textTheme.bodySmall?.copyWith(
-                                          color: colorScheme.onErrorContainer,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            else
-                              const SizedBox.shrink(),
-                            Row(
-                              children: [
-                                ScoreGauge(
-                                  score: overview.suitabilityIndex.score,
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '오늘의 통합 관찰 적합도',
-                                        style: textTheme.bodySmall?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                      Row(
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              overview.suitabilityIndex.label,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: textTheme.titleMedium
-                                                  ?.copyWith(
-                                                    color:
-                                                        colorScheme.secondary,
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                  ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Icon(
-                                            Icons.verified,
-                                            color: colorScheme.secondary,
-                                            size: 18,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Flexible(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.end,
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.wb_twilight,
-                                            color: colorScheme.tertiary,
-                                            size: 16,
-                                          ),
-                                          Flexible(
-                                            child: Text(
-                                              'SQM ${overview.suitabilityIndex.sqmValue}',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: textTheme.labelMedium
-                                                  ?.copyWith(
-                                                    color:
-                                                        colorScheme.tertiary,
-                                                  ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      Text(
-                                        overview.suitabilityIndex.skyClass,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        textAlign: TextAlign.end,
-                                        style: textTheme.bodySmall?.copyWith(
-                                          color: colorScheme.outline,
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: List.generate(
-                                overview.goldenHours.length,
-                                (i) {
-                                  final gh = overview.goldenHours[i];
-                                  final isDay = gh.mode == ObsMode.day;
-                                  final accent = isDay
-                                      ? colorScheme.tertiary
-                                      : colorScheme.secondary;
-                                  return Expanded(
-                                    child: Container(
-                                      margin: EdgeInsets.only(
-                                        left: i == 0 ? 0 : 8,
-                                        right:
-                                            i == overview.goldenHours.length -
-                                                    1
-                                                ? 0
-                                                : 8,
-                                      ),
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            colorScheme.surfaceContainerHigh,
-                                        borderRadius: BorderRadius.circular(
-                                          10,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Container(
-                                                width: 6,
-                                                height: 6,
-                                                decoration: BoxDecoration(
-                                                  color: accent,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Flexible(
-                                                child: Text(
-                                                  gh.label,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: textTheme.labelSmall
-                                                      ?.copyWith(
-                                                        color: accent,
-                                                      ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          Icon(
-                                            isDay
-                                                ? Icons.forest
-                                                : Icons.dark_mode,
-                                            color: accent,
-                                          ),
-                                          Text(
-                                            gh.timeRange,
-                                            style: textTheme.labelMedium
-                                                ?.copyWith(
-                                                  color: accent,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                          ),
-                                          Text(
-                                            gh.description,
-                                            style: textTheme.bodySmall
-                                                ?.copyWith(
-                                                  color: colorScheme
-                                                      .onSurfaceVariant,
-                                                ),
-                                            maxLines: 2,
-                                          ),
-                                        ],
+                          )
+                        else
+                          const SizedBox.shrink(),
+                        _StaggerReveal(
+                          controller: _staggerController,
+                          startMs: 80,
+                          child: Row(
+                            children: [
+                              ScoreGauge(
+                                score: overview.suitabilityIndex.score,
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '오늘의 통합 관찰 적합도',
+                                      style: textTheme.bodySmall?.copyWith(
+                                        color: colorScheme.onSurfaceVariant,
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  for (
-                                    var i = 0;
-                                    i < overview.telemetry.length;
-                                    i++
-                                  ) ...[
-                                    if (i > 0)
-                                      Container(
-                                        width: 1,
-                                        height: 24,
-                                        margin: const EdgeInsets.symmetric(
-                                          horizontal: 4,
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            overview.suitabilityIndex.label,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: textTheme.titleMedium
+                                                ?.copyWith(
+                                                  color:
+                                                      colorScheme.secondary,
+                                                  fontWeight:
+                                                      FontWeight.bold,
+                                                ),
+                                          ),
                                         ),
-                                        color: colorScheme.outlineVariant,
-                                      ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        right: 20,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            _iconForTelemetryKind(
-                                              overview.telemetry[i].kind,
-                                            ),
-                                            size: 16,
-                                            color: colorScheme.outline,
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.verified,
+                                          color: colorScheme.secondary,
+                                          size: 18,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.end,
+                                  children: [
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.wb_twilight,
+                                          color: colorScheme.tertiary,
+                                          size: 16,
+                                        ),
+                                        Flexible(
+                                          child: Text(
+                                            'SQM ${overview.suitabilityIndex.sqmValue}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: textTheme.labelMedium
+                                                ?.copyWith(
+                                                  color:
+                                                      colorScheme.tertiary,
+                                                ),
                                           ),
-                                          const SizedBox(width: 6),
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                overview.telemetry[i].label,
-                                                style: textTheme.bodySmall
-                                                    ?.copyWith(
-                                                      color: colorScheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                              ),
-                                              Text(
-                                                overview.telemetry[i].value,
-                                                style: textTheme.labelMedium
-                                                    ?.copyWith(
-                                                      color: colorScheme
-                                                          .onSurface,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      overview.suitabilityIndex.skyClass,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.end,
+                                      style: textTheme.bodySmall?.copyWith(
+                                        color: colorScheme.outline,
                                       ),
                                     ),
                                   ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _StaggerReveal(
+                          controller: _staggerController,
+                          startMs: 120,
+                          child: Row(
+                            children: List.generate(
+                              overview.goldenHours.length,
+                              (i) {
+                                final gh = overview.goldenHours[i];
+                                final isDay = gh.mode == ObsMode.day;
+                                final accent = isDay
+                                    ? colorScheme.tertiary
+                                    : colorScheme.secondary;
+                                return Expanded(
+                                  child: Container(
+                                    margin: EdgeInsets.only(
+                                      left: i == 0 ? 0 : 8,
+                                      right:
+                                          i == overview.goldenHours.length -
+                                                  1
+                                              ? 0
+                                              : 8,
+                                    ),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          colorScheme.surfaceContainerHigh,
+                                      borderRadius: BorderRadius.circular(
+                                        10,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Container(
+                                              width: 6,
+                                              height: 6,
+                                              decoration: BoxDecoration(
+                                                color: accent,
+                                                shape: BoxShape.circle,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                gh.label,
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                                style: textTheme.labelSmall
+                                                    ?.copyWith(
+                                                      color: accent,
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Icon(
+                                          isDay
+                                              ? Icons.forest
+                                              : Icons.dark_mode,
+                                          color: accent,
+                                        ),
+                                        Text(
+                                          gh.timeRange,
+                                          style: textTheme.labelMedium
+                                              ?.copyWith(
+                                                color: accent,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                        Text(
+                                          gh.description,
+                                          style: textTheme.bodySmall
+                                              ?.copyWith(
+                                                color: colorScheme
+                                                    .onSurfaceVariant,
+                                              ),
+                                          maxLines: 2,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _StaggerReveal(
+                          controller: _staggerController,
+                          startMs: 160,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                for (
+                                  var i = 0;
+                                  i < overview.telemetry.length;
+                                  i++
+                                ) ...[
+                                  if (i > 0)
+                                    Container(
+                                      width: 1,
+                                      height: 24,
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      color: colorScheme.outlineVariant,
+                                    ),
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      right: 20,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          _iconForTelemetryKind(
+                                            overview.telemetry[i].kind,
+                                          ),
+                                          size: 16,
+                                          color: colorScheme.outline,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              overview.telemetry[i].label,
+                                              style: textTheme.bodySmall
+                                                  ?.copyWith(
+                                                    color: colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                            ),
+                                            Text(
+                                              overview.telemetry[i].value,
+                                              style: textTheme.labelMedium
+                                                  ?.copyWith(
+                                                    color: colorScheme
+                                                        .onSurface,
+                                                    fontWeight:
+                                                        FontWeight.bold,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ],
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                        loading: () => const SizedBox(
-                          height: 160,
-                          child: Center(child: CircularProgressIndicator()),
+                      ],
+                    ),
+                    loading: () => const SizedBox(
+                      height: 160,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (err, st) => Column(
+                      children: [
+                        Text(
+                          '적합도 정보를 불러오지 못했어요',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
-                        error: (err, st) => Column(
-                          children: [
-                            Text(
-                              '적합도 정보를 불러오지 못했어요',
-                              style: textTheme.bodyMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            ElevatedButton(
-                              onPressed: () => ref.invalidate(
-                                discoveryProvider(currentMode),
-                              ),
-                              child: const Text('다시 시도'),
-                            ),
-                          ],
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: () => ref.invalidate(
+                            discoveryProvider(currentMode),
+                          ),
+                          child: const Text('다시 시도'),
                         ),
-                      ),
+                      ],
+                    ),
+                  ),
                     ),
                   ),
                 ),
@@ -597,7 +655,7 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                       ),
                     ),
                     TextButton(
-                      onPressed: onViewMapPressed,
+                      onPressed: widget.onViewMapPressed,
                       child: Text(
                         '지도에서 보기 →',
                         style: textTheme.bodySmall?.copyWith(
@@ -608,15 +666,20 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Column(
-                  children: hotspots
-                      .map(
-                        (hotspot) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: AnimatedOpacity(
-                            duration: modeTransitionDuration,
-                            opacity: hotspot.mode == currentMode ? 1.0 : 0.45,
-                            child: Card(
+                _StaggerReveal(
+                  controller: _staggerController,
+                  startMs: 200,
+                  child: Column(
+                    children: hotspots
+                        .map(
+                          (hotspot) => Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: AnimatedOpacity(
+                              duration: modeTransitionDuration,
+                              opacity: hotspot.mode == currentMode
+                                  ? 1.0
+                                  : 0.45,
+                              child: Card(
                               clipBehavior: Clip.antiAlias,
                               color: colorScheme.surfaceContainer,
                               shape: RoundedRectangleBorder(
@@ -875,16 +938,80 @@ class HomeDiscoveryScreen extends ConsumerWidget {
                                 ],
                               ),
                             ),
+                            ),
                           ),
-                        ),
-                      )
-                      .toList(),
+                        )
+                        .toList(),
+                  ),
                 ),
               ]),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Wraps [child] in a 200ms opacity+translateY reveal carved out of
+/// [controller]'s timeline via [Interval], starting at [startMs] into the
+/// controller's total duration. Used for the four staggered content groups
+/// on the manual mode-switch reveal (see
+/// `specs/011-scene-transition-flutter.md` §4). [child] stays mounted at all
+/// times — only its opacity/offset animate — so data is never torn down
+/// mid-transition.
+class _StaggerReveal extends StatefulWidget {
+  const _StaggerReveal({
+    required this.controller,
+    required this.startMs,
+    required this.child,
+  });
+
+  final AnimationController controller;
+  final double startMs;
+  final Widget child;
+
+  static const double _groupDurationMs = 200.0;
+
+  @override
+  State<_StaggerReveal> createState() => _StaggerRevealState();
+}
+
+class _StaggerRevealState extends State<_StaggerReveal> {
+  late final CurvedAnimation _curved;
+
+  @override
+  void initState() {
+    super.initState();
+    final totalMs = widget.controller.duration!.inMilliseconds.toDouble();
+    final begin = widget.startMs / totalMs;
+    final end = (widget.startMs + _StaggerReveal._groupDurationMs) / totalMs;
+    _curved = CurvedAnimation(
+      parent: widget.controller,
+      curve: Interval(begin, end, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _curved.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _curved,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _curved.value,
+          child: Transform.translate(
+            offset: Offset(0, 6 * (1 - _curved.value)),
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
     );
   }
 }

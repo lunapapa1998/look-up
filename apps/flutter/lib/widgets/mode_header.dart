@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../models/discovery.dart';
@@ -58,6 +60,7 @@ class _ModeHeaderState extends State<ModeHeader> {
           label: '낮',
           active: isDayActive,
           collapsed: collapsed,
+          isDaySegment: true,
           semanticsLabel: '낮 모드로 전환합니다',
           onTap: () => widget.onModeChanged(ObsMode.day),
         ),
@@ -70,6 +73,7 @@ class _ModeHeaderState extends State<ModeHeader> {
           label: '밤',
           active: !isDayActive,
           collapsed: collapsed,
+          isDaySegment: false,
           semanticsLabel: '밤 모드로 전환합니다',
           onTap: () => widget.onModeChanged(ObsMode.night),
         ),
@@ -181,13 +185,19 @@ class _ModeHeaderState extends State<ModeHeader> {
 /// Single tappable day/night toggle segment. Active state is signalled with
 /// more than color alone (WCAG 1.4.1): filled background + bold weight when
 /// expanded, accent underline + bold weight when collapsed.
-class _ToggleSegment extends StatelessWidget {
+///
+/// The glyph (icon only, never the label) plays a 240ms sun<->moon morph
+/// composite (opacity + rotation + scale) whenever [active] flips, instead of
+/// an instant style swap. See `specs/011-scene-transition-flutter.md` §1 for
+/// the timing/curve source of truth.
+class _ToggleSegment extends StatefulWidget {
   const _ToggleSegment({
     required super.key,
     required this.icon,
     required this.label,
     required this.active,
     required this.collapsed,
+    required this.isDaySegment,
     required this.semanticsLabel,
     required this.onTap,
   });
@@ -196,12 +206,62 @@ class _ToggleSegment extends StatelessWidget {
   final String label;
   final bool active;
   final bool collapsed;
+  final bool isDaySegment;
   final String semanticsLabel;
   final VoidCallback onTap;
 
   @override
+  State<_ToggleSegment> createState() => _ToggleSegmentState();
+}
+
+class _ToggleSegmentState extends State<_ToggleSegment>
+    with SingleTickerProviderStateMixin {
+  static const _morphDuration = Duration(milliseconds: 240);
+  static const _incomingCurve = Interval(0.4, 1.0, curve: Curves.easeInOutCubic);
+  static const _outgoingCurve = Interval(0.0, 0.5, curve: Curves.easeInOutCubic);
+
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: _morphDuration)
+      ..value = 1.0;
+  }
+
+  @override
+  void didUpdateWidget(covariant _ToggleSegment oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active != oldWidget.active) {
+      if (MediaQuery.of(context).disableAnimations) {
+        _controller.value = 1;
+      } else {
+        _controller.forward(from: 0);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Incoming rotation start angle (radians), constant per segment: this
+  /// segment only ever becomes active when the opposite mode was previously
+  /// active, so the sign never flips at runtime.
+  double get _incomingStartAngle {
+    final degrees = widget.isDaySegment
+        ? (widget.collapsed ? 12.0 : 18.0)
+        : (widget.collapsed ? -12.0 : -18.0);
+    return degrees * math.pi / 180.0;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final active = widget.active;
+    final collapsed = widget.collapsed;
     final fontWeight = active ? FontWeight.bold : FontWeight.normal;
     final foreground = active ? colorScheme.primary : colorScheme.onSurfaceVariant;
 
@@ -209,23 +269,55 @@ class _ToggleSegment extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: collapsed ? 16 : 20, color: foreground),
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final t = _controller.value;
+            double opacity;
+            double rotation;
+            double scale;
+            if (active) {
+              final curved = _incomingCurve.transform(t);
+              opacity = Tween<double>(begin: 0.82, end: 1.0).transform(curved);
+              rotation = Tween<double>(
+                begin: _incomingStartAngle,
+                end: 0.0,
+              ).transform(curved);
+              scale = collapsed
+                  ? Tween<double>(begin: 0.88, end: 1.0).transform(curved)
+                  : 1.0;
+            } else {
+              final curved = _outgoingCurve.transform(t);
+              opacity = Tween<double>(begin: 1.0, end: 0.82).transform(curved);
+              rotation = 0.0;
+              scale = 1.0;
+            }
+            return Opacity(
+              opacity: opacity,
+              child: Transform.rotate(
+                angle: rotation,
+                child: Transform.scale(scale: scale, child: child),
+              ),
+            );
+          },
+          child: Icon(widget.icon, size: collapsed ? 16 : 20, color: foreground),
+        ),
         Text(
-          label,
+          widget.label,
           style: TextStyle(fontWeight: fontWeight, fontSize: collapsed ? 11 : 13, color: foreground),
         ),
       ],
     );
 
     return Semantics(
-      label: semanticsLabel,
+      label: widget.semanticsLabel,
       button: true,
       selected: active,
       container: true,
       excludeSemantics: true,
-      onTap: onTap,
+      onTap: widget.onTap,
       child: GestureDetector(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Container(
           constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
           padding: const EdgeInsets.symmetric(horizontal: 8),
