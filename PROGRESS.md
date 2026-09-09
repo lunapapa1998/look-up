@@ -115,11 +115,21 @@
   - **⚠️ 병렬 발사 사고(교훈)**: 이전 세션 잔여 build가 이미 백그라운드로 돌던 중 브레인이 재발사 → 같은 `apps/flutter` 도메인 2 run 병렬(규칙 4 충돌 위험). 결과는 PASS 수렴·코드 정상이나 **커밋 2개**(`4e6efcc`=구현, `e763928`=lead.md expertise 1줄). **교훈: build 발사 전 `just runs`/실행 프로세스 확인 필수.**
   - **🟡 브레인 시뮬레이터 육안검증 부분 완료(2026-09-09)**: iPhone 17 Pro 시뮬레이터 실행 → **낮(라이트) 팔레트 실렌더 확인**(이 조각 최대 리스크 = 목업에도 없던 신규 라이트 테마가 실제로 뜸: 밝은 회색/화이트 배경·다크 텍스트·틸/골드 accent, 모드 헤더 해=낮 활성 fill+굵기/달=밤/AUTO 배지 정상, 오후 시각 자동판정 source=auto). **밤 토글·전환 모션·밤→낮 눈부심·morph·haptic·reduce-motion은 미검증** — 이 머신에 UI 탭 수단 전무(idb·cliclick 미설치, System Events 자동화 미인가)라 화면 탭 구동 불가 + 위치 권한 다이얼로그가 반복 출현(simctl privacy grant/revoke가 in-flight 프롬프트를 못 닫음). **밤 팔레트는 현재값 동결(003~010에서 이미 검증)이고 전환 타이밍·reduce-motion·연타는 scene_transition_test 6건 green이라 회귀 리스크 낮음**. 잔여=밤→낮 눈부심 완화 "체감"만 오너/실기기 확인 필요.
 
+## 트레일·노포 backend 카탈로그 실연동 완성 (2026-09-10) ✅ — 트레일 탭 데이터 기반
+
+- **012 backend** PASS(`4507086`, 3차 재발사 attempts=1, codex verify 통과). `specs/012-trails-heritage-backend.md`(risk high). 트레일·노포 탭이 물 신규 계약 `GET /api/trails?lat&lng`. `just check` green(95 passed, 7 skipped).
+- **design-lead IA 자문(2회) 선행**: 트레일·노포 = "선(하루 동선/코스)" 탭(관찰 지도="점"). 오너가 붙여준 **지도 중심 목업은 폐기**(관찰지도 90% 중복=IA 붕괴), 레포 04 리스트/리포트 골격 기준·게이미피케이션 제거. 랜딩=코스 카탈로그→상세 push, 노포=코스 종점 waypoint. **스펙 검수 GO 사인오프**(비용 편차=featured만 풀 적합도/리스트는 SQM 수용) + flutter 후속 UX 요건 4개(측정태그 vs 점수게이지 분리, featured 정렬근거 라벨 등)를 스펙에 상속 기록.
+- **오너 결정**: 데이터=실데이터부터(backend 먼저) / 근처=sigun 권역 매칭(courseList에 위경도 필터 없음) / 노포=근처 음식점 리스트만(영업시간 로직 후속) / Figma 불필요.
+- **브레인 라이브 캡처 그라운드 트루스(008 교훈, 스펙 임베드)**: 두루누비 `B551011/Durunubi/courseList`(기존 data.go.kr 키 재사용, brdDiv=DNWW, crsIdx/crsKorNm/sigun/crsDstnc km/crsTotlRqrmHour 분/crsLevel/gpxpath), **gpxpath GPX 파일 첫/끝 trackpoint=시작/종점 좌표**(전국 DNWW 142코스, 시군 매칭 최대 12·강화 2), TourAPI `KorService2/locationBasedList2` contentTypeId=39(title/addr1/dist/mapx/mapy). 픽스처 3종 실캡처 임베드(멤버 네트워크 없음 대비).
+- **손댄 것**: 신규 `app/trails/`(models·durunubi·tourapi·service), `routers/trails.py`+main 등록, `config.get_trails_config()`, `.env.example`(DURUNUBI/TOURAPI base_url), `.team/member.md` 신규 계약 절, tests(파서/서비스/엔드포인트/live 스모크). 랭킹=종점 SQM 내림차순+tie-break(거리→crsIdx), `CANDIDATE_LIMIT=15`(GPX fetch 상한), featured 1개만 풀 낮/밤 적합도(SuitabilityService 재사용).
+- **⚠️ 3발사 이력(교훈)**: 1차 FAIL=Phase 3 멤버 Edit 권한거부(requires-approval) 반복으로 미착수(환경 문제). 2차 FAIL=**codex verify 실결함 1건**(GPX가 top-K slice 전에 매칭 전부 fetch → 스펙 "GPX top-K 제한" 위반). 브레인 판정=**스펙 자기모순**(종점 SQM 랭킹은 GPX 선행 불가피). 규칙5대로 오너 에스컬레이트 → 스펙 정정+`CANDIDATE_LIMIT` 상한 추가 → 3차 PASS. **브레인 end-to-end 실검증(uvicorn, 강화 37.5921/126.3984)**: region=인천 강화군, 2코스, featured=서해랑길 101(SQM 20.15·day67/night64 live·노포3 강화어부네꽃게탕 등), 비-featured=DMZ평화의길 1(SQM16.0·null) — 실데이터·featured-only·tie-break 정상.
+- **잔여(후속 flutter consumer 조각이 상속)**: design-lead UX 요건 4개(nightSky 측정태그 vs suitability 점수게이지 분리·status 가시화, featured 정렬근거 라벨 "밤하늘 가장 어두운", featured만 점수인 게 열등해 보이지 않게, SQM 동일소스 단일진실). 기능 후속: 코스별 풀 적합도(캐싱 선행), 노포 영업시간, 좌표 근접 랭킹, 조석 골든타임 waypoint, GPX 폴리라인 썸네일.
+
 ## 다음 세션 시작점 (후속 조각)
 
-**011 육안검증 통과(2026-09-09)** ✅: 낮 라이트 팔레트 실렌더 확인(브레인 시뮬레이터) + **오너가 시뮬레이터에서 직접 낮↔밤 토글 → "전환 제대로 잘 된다" 확인**(밤→낮 2-스테이지 front-load 눈부심 완화가 화이트 플래시 없이 부드럽게 작동 = design-lead 재설계 유효, 브레인 초안대로였으면 플래시 발생했을 것). 잔여 미세검증(자동 vs 수동 차등·haptic 실기기·reduce-motion·펼침/접힘 정밀)은 필요 시 실기기 QA로 — 이번 조각의 핵심(눈부심)은 통과. 다음 UI 자동검증 원하면 `brew install idb-companion` 또는 `cliclick`(이 머신은 UI 탭 수단 부재).
+**012 트레일 backend PASS(2026-09-10)** ✅: `GET /api/trails` 실데이터 라이브 검증 완료. **다음 = 오너가 원한 "트레일·노포 탭"의 눈에 보이는 부분 = flutter consumer 조각**(팀=`flutter`): 코스 카탈로그 리스트 UI + featured 리치 카드 + 코스 상세(노포 waypoint). `PlaceholderScreen('트레일·노포')` → 실 화면. **design-lead 검수 GO 조건 4개(스펙 012 "후속 flutter consumer UX 요건")를 이 조각이 반드시 상속**. 계약은 `member.md` 신규 절 참조.
 
-**최우선 후보 — 아래 B/C/D 중 오너 선택.** 011 장면 전환 조각은 실질 완료.
+**그 외 후보 — B/C/D 중 오너 선택.**
 
 **후보 B — 핫스팟 랭킹(backend→flutter)**: `hotspotsProvider`(현재 mock)를 물릴 backend 조각. TourAPI(위치기반관광) 장소 레이어 + 적합도 랭킹 엔드포인트(예: `GET /api/hotspots?lat&lng&mode`) 신설 → publish 후 flutter 배선. 팀=`backend`(publisher) → `flutter`(consumer) 순차. GPS(007) 완성으로 실 위치 기반 핫스팟이 자연스러운 다음 수순.
 
