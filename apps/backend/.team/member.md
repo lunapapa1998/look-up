@@ -382,3 +382,95 @@ test_endpoint.py 텔레메트리 계약을 sky/humidity/wind/precip로 갱신
 - `.env.example` 끝에 `TIDE_API_BASE_URL` 섹션 추가(선택 항목, 기본값이 이미 `config.py`에 있음을 주석으로 명시, 새 서비스 키 불필요 — 기존 `DATA_GO_KR_SERVICE_KEY`(_DECODED) 재사용).
 - 본 문서(Section 8 응답 예시의 `tide` 상태를 `live`로, `layers[].status` enum 설명 중 tide 부분을 갱신)만 변경 — tide.py/tide_stations.py/config.py 등 코드 파일은 이번 phase에서 무변경.
 - Verify: `cd apps/backend && uv run pytest -q`(기본, 네트워크 0) 및 `RUN_LIVE_TESTS=1 uv run pytest -m live -q`(실키 필요, 신규 tide 라이브 테스트 포함) 실행해서 확인 필요 — 이 런은 Bash 미가용이라 정적 검증만 수행함(신규 테스트 로직을 `TideProvider.fetch()`/`LayerReading` 시그니처와 대조).
+
+## 17. Trails 기능 — Phase 1 (트레일 파싱 코어, 네트워크 0, 순수 함수만)
+
+- 신규 패키지 `app/trails/`: `models.py`(Pydantic v2, `from __future__ import annotations`) — `Coordinate(lat,lng)`, `NightSky(sqmValue,bortleClass,skyClass,status)`, `HeritageEat(name,addr,distanceM,lat,lng,contentId)`, `CourseSuitability(score,label,status)`, `TrailCourse(crsIdx,name,sigun,distanceKm,durationMin,level,cycle,gpxUrl,start:Coordinate,end:Coordinate,nightSky:NightSky,heritageEats:list[HeritageEat],daySuitability:CourseSuitability|None,nightSuitability:CourseSuitability|None)`, `TrailsResponse(region,degraded,courses)`. 아직 어떤 라우터/서비스도 이 모델들을 사용하지 않음(순수 스키마 정의만).
+- `config.py`에 `TrailsConfig(durunubi_base_url, tourapi_base_url, service_key)` + `get_trails_config()` **추가만** 함(기존 `get_weather_config`/`get_astronomy_config`/`get_tide_config`/`validate_coordinates`는 무변경). service_key 우선순위는 `get_tide_config()`와 완전히 동일한 패턴(`DATA_GO_KR_SERVICE_KEY_DECODED` 우선, 없으면 `DATA_GO_KR_SERVICE_KEY`를 `unquote`). `durunubi_base_url` 기본값 `DURUNUBI_BASE_URL` env / `https://apis.data.go.kr/B551011/Durunubi`, `tourapi_base_url` 기본값 `TOURAPI_BASE_URL` env / `https://apis.data.go.kr/B551011/KorService2`.
+- `app/trails/durunubi.py`: `parse_course_list(payload: dict) -> list[dict]` — `response.header.resultCode != '0000'`면 `ValueError`; `response.body.items.item`이 dict면 1개짜리 리스트로 감싸고, 없거나 빈 값이면 `ValueError`. 각 아이템을 `{crsIdx, name(←crsKorNm), sigun, distanceKm(float←crsDstnc, 기본 0.0), durationMin(int←float(crsTotlRqrmHour), 기본 0), level(int←float(crsLevel), 기본 0), cycle(←crsCycle), gpxUrl(←gpxpath)}`로 변환. 숫자 캐스팅은 전부 `try/except (TypeError, ValueError)`로 방어(빈 문자열/None이면 default). 같은 파일에 `parse_gpx_endpoints(gpx_text: str) -> tuple[dict, dict]` — 정규식 `r'lat="([-0-9.]+)"\s+lon="([-0-9.]+)"'`을 `re.findall`, 매치가 없으면 `ValueError`, 첫 매치가 start 마지막 매치가 end(각각 `{lat, lng}` dict, float).
+- `app/trails/tourapi.py`: `parse_food_list(payload: dict, top_n: int = 3) -> list[dict]` — `response.body.items.item` 단일 dict/list/누락 방어는 durunubi와 동일 패턴이되, 누락/빈 값이면 **빈 리스트**(ValueError 아님). 각 아이템 `{name(←title), addr(←addr1), distanceM(int←float(dist), 기본 0), lat(float←mapy), lng(float←mapx), contentId(←contentid)}`, `distanceM` 오름차순 정렬 후 `[:top_n]` 반환.
+- `app/trails/service.py`: `match_region(place_tokens: list[str], courses: list[dict]) -> list[dict]` — 순수 함수, I/O 없음. 토큰과 `course['sigun']`을 각각 `strip().lower()` + 내부 공백을 단일 스페이스로 정규화(`re.sub(r'\s+', ' ', ...)`) 후, 토큰 중 하나라도 정규화된 sigun의 substring이면 매치. 원래 순서 유지. 이 파일엔 아직 다른 내용 없음(다음 phase에서 라우터/오케스트레이션 추가 예정).
+- 신규 픽스처: `tests/trails/fixtures/durunubi_courselist.json`(코스 2건 — 부산 영도구/인천 강화군), `tests/trails/fixtures/durunubi_course.gpx`(트랙포인트 6개, start=lat 35.0965626320323/lng 129.035967774477, end=lat 35.0874667791044/lng 129.004487268964), `tests/trails/fixtures/tourapi_food.json`(맛집 2건, dist 오름차순 이미 정렬됨 — 꽃게와낙지 1363.6m가 첫 번째).
+- 신규 `tests/trails/test_trails_parsers.py` — 9개 테스트: `parse_course_list` 필드/캐스팅 검증 + resultCode 불량 시 ValueError, `parse_gpx_endpoints` start/end 검증(pytest.approx) + zero-trkpt ValueError, `parse_food_list` top_n=3/top_n=1 검증, `match_region` 강화 토큰 매치 + 무관 지명 빈 리스트.
+- **⚠️ 이 런은 Bash 실행이 전부 "requires approval"로 차단되어(`uv run pytest`, `python3 -c`, `mkdir` 등 read 이외 전 명령 거부) 테스트를 실제로 실행하지 못함.** 모든 픽스처 값을 각 함수 로직에 손으로 트레이스해 정적 검증 완료(distanceKm 14.0/11.0, durationMin 330/210, level 2/1, GPX 첫/마지막 lat·lon, food distanceM int(1363.606..)=1363/int(1974.336..)=1974 오름차순 이미 정렬, match_region '강화' substring 매치·무관 지명 빈 리스트 전부 논리 확인). **다음 엔지니어 또는 오너가 `cd apps/backend && uv run pytest tests/trails/test_trails_parsers.py -q` 및 `uv run pytest -q`(전체 스위트 회귀 없음 확인)를 반드시 실행해서 그린 확인 필요.**
+- 참고: 이번 런에서는 상대경로가 이 워커의 실제 cwd(=repo root `/path/to/lookup`) 기준으로 해석됨 — `app/trails/...`가 아니라 `apps/backend/app/trails/...`로 경로를 써야 Write 툴이 통과했음. Phase 2 이후에도 동일 이슈가 있을 수 있으니 참고.
+
+## 18. Trails 기능 — Phase 2 (클라이언트 fetch + 서비스 조립, 적합도 제외)
+
+- `app/trails/durunubi.py`에 **추가만** 함(Phase 1 함수 무변경): `fetch_courses(client: httpx.Client | None = None, max_rows: int = 1000) -> list[dict]`(§21에서 `brd_div: str = "DNWW"` 파라미터 추가로 수정됨 — 최신 시그니처는 §21 참고) — `get_trails_config()`에서 `durunubi_base_url`/`service_key` 중 하나라도 비면 네트워크 호출 없이 즉시 `[]`. 그 외엔 `GET {durunubi_base_url}/courseList`(`serviceKey`/`MobileOS=ETC`/`MobileApp=lookup`/`_type=json`/`numOfRows`/`pageNo=1`/`brdDiv`) → `raise_for_status()` → `parse_course_list(response.json())`. 네트워크/HTTP/파싱 등 **모든 예외를 흡수**해 `[]` 반환(raise 없음). `client`가 주입되면 그대로 쓰고 안 닫음, `None`이면 내부에서 `httpx.Client(timeout=10.0)` 생성 후 `finally`에서 close. `fetch_gpx_endpoints(gpx_url: str, client=None) -> tuple[dict, dict] | None` — 동일 client 소유권 패턴, GPX 텍스트 GET → `parse_gpx_endpoints`. 트랙포인트 0개(`ValueError`) 포함 **모든 예외를 흡수해 `None`** 반환(raise 없음).
+- `app/trails/tourapi.py`에 **추가만** 함: `fetch_nearby_food(lat, lng, client=None, radius=5000, rows=10, top_n=3) -> list[dict]` — `tourapi_base_url`/`service_key` 중 하나라도 비면 즉시 `[]`. 그 외 `GET {tourapi_base_url}/locationBasedList2`(`mapX=lng`/`mapY=lat`/`radius`/`contentTypeId=39`/`arrange=E`) → `raise_for_status()` → `parse_food_list(payload, top_n=top_n)`. 모든 예외 흡수 → `[]`. client 소유권 패턴은 durunubi와 동일.
+- `app/trails/service.py`에 신규: `DEFAULT_REGION_LABEL = "인천 강화군"`, `DEFAULT_REGION_TOKENS = ["강화"]`(v1 고정 시드 권역 — lat/lng 인자와 무관하게 항상 강화군으로 매칭, 실 역지오코딩은 스코프 밖 후속 phase — spec Notes에 명시된 의도적 단순화), `TOP_K = 5`. `TrailsService(fetch_courses=None, fetch_gpx_endpoints=None, fetch_nearby_food=None, light_pollution_provider=None)` — 생략 시 각각 `durunubi.fetch_courses`/`durunubi.fetch_gpx_endpoints`/`tourapi.fetch_nearby_food`/`LightPollutionProvider()`로 기본 배선. `get_trails(lat, lng) -> dict` (플레인 dict, pydantic 모델 아님 — Phase 3 라우터가 검증):
+  - `region`/`degraded`/`courses` 3개 키. `fetch_courses()`가 빈 리스트거나 `match_region(DEFAULT_REGION_TOKENS, ...)` 결과가 빈 리스트면 `{region: DEFAULT_REGION_LABEL, degraded: True, courses: []}`.
+  - 매칭 결과를 **fetch 전에** `[:TOP_K]`로 먼저 슬라이스(최대 5개까지만 GPX/노포를 fetch) → 후보마다 `fetch_gpx_endpoints(gpxUrl)`가 `None`이면 그 코스만 조용히 스킵(전체 `degraded`엔 영향 없음) → `light_pollution_provider.fetch(end.lat, end.lng, "night")`로 `nightSky{sqmValue,bortleClass,skyClass,status}` 조립, `fetch_nearby_food(end.lat, end.lng)`로 `heritageEats` 조립, `daySuitability`/`nightSuitability`는 이 phase에서 둘 다 `None`(Phase 3에서 featured 코스만 채움).
+  - 정렬 키 `(-nightSky.sqmValue, distanceKm asc, crsIdx asc)` — SQM 내림차순 + 결정적 tie-break(spec Notes 요구사항 그대로).
+  - `get_default_trails_service()`/`get_trails_service()` 추가(`get_suitability_service()`와 동일한 모듈 싱글톤 `Depends` 패턴). **아직 라우터 없음** — Phase 3에서 `app/routers/trails.py` + `main.py` 등록 예정.
+- 신규 `tests/trails/test_trails_service.py` — 5개 테스트, 전부 fake `fetch_courses`/`fetch_gpx_endpoints`/`fetch_nearby_food`(테스트 파일 내 lambda/함수)와 `LayerReading`(실제 `app.suitability.providers.base` dataclass 재사용) 반환하는 fake light-pollution provider로 조립, 네트워크 0: 코스 0건 degrade, 권역 미매칭 degrade, 랭킹+tie-break(SQM 동점 시 거리 오름차순), GPX 실패 코스만 스킵(전체 degrade 아님), TOP_K가 fetch 전에 적용됨(콜카운터로 최대 5회 검증).
+- **⚠️ 이 런도 Bash가 role 권한상 전부 "requires approval"로 막혀 `uv run pytest` 실행 불가.** 5개 신규 테스트를 로직에 손으로 트레이스해 정적 검증 완료(정렬 키 계산·스킵 조건·TOP_K 슬라이스 순서 전부 확인). Phase 1 함수는 시그니처/바디 어느 것도 건드리지 않아 기존 9개 테스트에 영향 없음. **다음 엔지니어 또는 오너가 `cd apps/backend && uv run pytest tests/trails/ -q` 및 `uv run pytest -q`(전체 회귀) 실행해서 그린 확인 필요.**
+
+## 19. Trails 기능 — 랭킹 버그 수정(전체 매칭 후 정렬→상위 5 슬라이스) + 예외처리 + featured 코스 적합도 연동
+
+- **버그 수정**: `TrailsService.get_trails()`가 `matched[:TOP_K]`로 **먼저 5개 슬라이스한 뒤** SQM으로 정렬하던 것을, `matched` 전체에 대해 GPX 엔드포인트·SQM을 조회해 랭킹 풀을 만든 뒤 `(-sqmValue, distanceKm asc, crsIdx asc)`로 정렬하고 **그 다음에** `top = ranked[:TOP_K]`로 슬라이스하도록 순서를 뒤집음. 이전엔 원본 매칭 순서 6번째 이후 코스는 SQM이 아무리 높아도 featured가 될 수 없었음.
+- `fetch_nearby_food`와 `daySuitability`/`nightSuitability` 계산은 여전히 `top`(최대 5개)에 대해서만 수행 — 정렬 전 전체 풀에 대해 노포/적합도까지 조회하진 않음(불필요한 API 호출 방지).
+- **신규 예외 가드 2곳** (이전엔 unguarded): `light_pollution_provider.fetch()` 호출을 `try/except Exception`으로 감싸 실패 시 그 코스를 랭킹 풀에서 조용히 제외(GPX 실패와 동일 취급). `fetch_nearby_food()` 호출을 `try/except Exception`으로 감싸 실패 시 `heritageEats=[]`.
+- **신규 생성자 파라미터** `suitability_service=None` — 생략 시 `app.suitability.service.get_suitability_service()`(모듈 싱글톤)를 사용. `top[0]`(featured/1위 코스)에 한해서만 `get_suitability(end.lat, end.lng, "day")`와 `"night"`을 각각 독립된 `try/except Exception`으로 호출 — 성공 시 `{"score", "label", "status": "live" if not degraded else "approx"}`, 실패 시 해당 필드는 `None`. 1위 외 코스는 이전처럼 `daySuitability`/`nightSuitability` 둘 다 항상 `None`.
+- `test_trails_service.py`: 버그를 그대로 검증하던 `test_top_k_limits_candidates_before_fetching`(GPX fetch 호출 수 ≤5 단언 — 잘못된 기존 동작을 고정하던 테스트)을 `test_ranks_all_matched_courses_before_slicing_to_top_k`로 교체(매칭 6건 모두 GPX fetch 호출됨=6, food fetch ≤5, 원본 순서 6번째였던 최고 SQM 코스가 결과 0번 인덱스로 옴을 검증). 신규 `test_featured_course_gets_suitability`(SimpleNamespace 기반 fake suitability_service 주입, 결과 0번만 day/nightSuitability 채워짐 검증), `test_suitability_and_light_pollution_exceptions_are_absorbed`(light_pollution/suitability 양쪽 다 예외 던지는 fake 주입 — `get_trails()`가 raise 하지 않고, 실패한 코스는 결과에서 제외되고 featured suitability는 None임을 검증). 기존 4개 테스트(`test_degrades_when_course_list_empty`/`test_degrades_when_no_region_match`/`test_ranking_and_tiebreak`/`test_course_skipped_when_gpx_fetch_fails`)는 로직 무변경, 단 오프라인 보장을 위해 항상 예외를 던지는 `_RaisingSuitabilityService`를 `suitability_service=`로 명시 주입.
+- **⚠️ 이 런도 Bash가 role 권한상 read-only 명령(`ls`, `grep`)만 허용되고 `uv run pytest`/`python3 -c`는 전부 "requires approval"로 차단되어 테스트를 실제로 실행하지 못함.** `service.py` 전체와 `test_trails_service.py` 8개 테스트를 로직에 손으로 트레이스해 정적 검증 완료(정렬 전/후 슬라이스 순서, try/except 3곳 배치, `SimpleNamespace(score,label,degraded)` → `{"score","label","status"}` 매핑 등). **다음 엔지니어 또는 오너가 `cd apps/backend && uv run pytest tests/trails/test_trails_service.py -q` 및 `uv run pytest -q`(전체 회귀) 실행해서 그린 확인 필요.**
+
+## 20. Trails 기능 — Phase 3 완료(featured 적합도 + GET /api/trails 엔드포인트 + 라이브 스모크) — 계약 publish
+
+- (a) `app/trails/service.py`는 랭킹 1위(featured) 코스 종점에 한해 주입된 `SuitabilityService.get_suitability(lat,lng,mode)`를 day/night 각각 호출해 `daySuitability`/`nightSuitability`(score/label/status)를 채우고 나머지 코스는 둘 다 `null`이며 개별 실패는 흡수한다(featured에 적합도 없으면 `null`, degrade 아님).
+- (b) 신규 `app/routers/trails.py`는 `app/routers/suitability.py`와 동일 패턴이고 `app/main.py`에 라우터 등록 완료.
+- (c) 신규 `tests/trails/test_trails_endpoint.py`는 fake `TrailsService` 주입 4개 테스트(happy path 전체 필드셋/degraded/lat 누락 422/lat 범위초과 422).
+- (d) `tests/suitability/test_live.py`에 두루누비 courseList/GPX/TourAPI locationBasedList2 라이브 스모크 3건 추가(전부 degrade-tolerant, `RUN_LIVE_TESTS=1` 아니면 스킵).
+- (e) `.env.example`에 `DURUNUBI_BASE_URL`/`TOURAPI_BASE_URL` 문서화(선택 항목, 기본값 코드에 있음, 새 키 불필요).
+
+### GET /api/trails 계약
+
+```
+### `GET /api/trails`
+Query: lat (float, -90..90, required), lng (float, -180..180, required).
+200 응답(TrailsResponse):
+{
+  "region": "인천 강화군",            // 매칭된 권역 라벨
+  "degraded": false,                  // 외부 소스 실패 시 true(courses 빈 배열 가능)
+  "courses": [                        // 최대 5, 종점 밤하늘 SQM 높은 순
+    {
+      "crsIdx": "T_CRS_MNG0000009999",
+      "name": "서해랑길 강화 코스",
+      "sigun": "인천 강화군",
+      "distanceKm": 11.0,             // number
+      "durationMin": 210,             // int (분)
+      "level": 1,                     // int 1..3 (난이도)
+      "cycle": "비순환형",             // string
+      "gpxUrl": "https://www.durunubi.kr/...gpx",
+      "start": { "lat": 37.7, "lng": 126.4 },   // GPX 첫 trackpoint
+      "end":   { "lat": 37.60, "lng": 126.41 }, // GPX 끝 trackpoint (관측 종점)
+      "nightSky": {                   // 종점 밤하늘(정적 approx)
+        "sqmValue": 20.4, "bortleClass": 3,
+        "skyClass": "Class 3 양호한 다크스카이", "status": "approx"
+      },
+      "heritageEats": [               // 종점 근처 음식점 top 3(거리순)
+        { "name": "꽃게와낙지", "addr": "인천광역시 강화군 화도면 ...",
+          "distanceM": 1363, "lat": 37.60, "lng": 126.41, "contentId": "855186" }
+      ],
+      "daySuitability":  { "score": 73, "label": "...", "status": "live" } | null,  // featured만 non-null
+      "nightSuitability":{ "score": 61, "label": "...", "status": "live" } | null
+    }
+  ]
+}
+```
+- featured(랭킹 1위)만 `daySuitability`/`nightSuitability`가 채워지고 나머지는 `null`.
+- 좌표 없음(GPX 실패) 코스는 응답에서 제외될 수 있음.
+
+## 21. Trails — `fetch_courses` 시그니처를 spec대로 수정(brdDiv 하드코딩 제거)
+
+- `app/trails/durunubi.py`의 `fetch_courses`가 spec(§012 39행: `fetch_courses(brd_div="DNWW", max_rows)`)과 달리 `brdDiv`를 params 딕셔너리에 문자열 `"DNWW"`로 하드코딩하고 있던 것을 수정. 시그니처를 `fetch_courses(client: httpx.Client | None = None, brd_div: str = "DNWW", max_rows: int = 1000) -> list[dict]`로 변경(`client`가 여전히 첫 인자), `params["brdDiv"]`를 하드코딩 문자열 대신 `brd_div` 인자값으로 채움. 다른 로직/예외처리/파서는 무변경.
+- `service.py:46`의 `self.fetch_courses()` 호출은 인자 없이 실행되므로 새 `brd_div` 기본값 `"DNWW"`로 기존 동작과 완전히 동일하게 유지됨(수정 불필요, 실제로 무변경).
+- Verify: `cd apps/backend && uv run pytest -q tests/trails/ -q` — 이 런은 role에 `Bash` 도구가 없어 실행 불가. `tests/trails/`의 `test_trails_service.py`는 `fetch_courses`를 DI로 `lambda: [...]` override(실제 함수 미호출), `test_trails_parsers.py`는 `parse_course_list`/`parse_gpx_endpoints` 순수 파서만 직접 테스트 — 두 파일 모두 시그니처 변경의 영향을 받지 않음을 정적 확인. 다음 엔지니어 또는 오너가 위 명령으로 그린 확인 필요.
+
+## 22. Trails — Phase 4: candidate cap으로 GPX fetch 비용 상한(codex verify 지적 반영)
+
+- `app/trails/service.py`에 신규 모듈 상수 `CANDIDATE_LIMIT = 15`를 기존 `TOP_K = 5` 옆에 추가. `TrailsService.get_trails()`에서 `match_region()`이 `matched`를 반환하고 빈 리스트 체크를 통과한 직후, `matched`를 `crsIdx` 오름차순으로 정렬해 첫 `CANDIDATE_LIMIT`(15)개로 잘라낸 뒤에야 GPX-fetch 루프로 진입하도록 변경 — `match_region`이 15건보다 많이 매칭하더라도 GPX fetch/SQM 조회는 항상 결정적으로 선택된 최대 15개 후보로만 상한됨.
+- `GET /api/trails` 응답 계약은 변경 없음(§20 그대로 유효) — 이번 변경은 내부 fetch 비용 상한이며, codex verify가 지적한 무제한 fetch 리스크를 방지하기 위한 것.
+- `tests/trails/test_trails_service.py`에 신규 `test_candidate_limit_bounds_gpx_fetch_count` 추가 — fake 매칭 코스 20개를 만들어 GPX fetch가 20번이 아닌 정확히 15번만 호출됨을 검증. 기존 6개 코스(limit 미만) 테스트는 무변경, 계속 통과.
+- Verify: lead가 `just check`로 풀스위트 그린 확인함 — 96 passed, 7 skipped, 0 failed.

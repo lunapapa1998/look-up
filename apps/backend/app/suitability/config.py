@@ -61,6 +61,27 @@ def get_tide_config() -> TideConfig:
     )
 
 
+@dataclass(frozen=True)
+class TrailsConfig:
+    durunubi_base_url: str
+    tourapi_base_url: str
+    service_key: str
+
+
+def get_trails_config() -> TrailsConfig:
+    decoded_key = os.getenv("DATA_GO_KR_SERVICE_KEY_DECODED", "")
+    service_key = decoded_key if decoded_key else unquote(os.getenv("DATA_GO_KR_SERVICE_KEY", ""))
+    return TrailsConfig(
+        durunubi_base_url=os.getenv(
+            "DURUNUBI_BASE_URL", "https://apis.data.go.kr/B551011/Durunubi"
+        ),
+        tourapi_base_url=os.getenv(
+            "TOURAPI_BASE_URL", "https://apis.data.go.kr/B551011/KorService2"
+        ),
+        service_key=service_key,
+    )
+
+
 def validate_coordinates(lat: float, lng: float) -> None:
     if not -90 <= lat <= 90:
         raise ValueError(f"lat out of range: {lat!r}")
