@@ -117,7 +117,9 @@
 
 ## 다음 세션 시작점 (후속 조각)
 
-**최우선 — 011 육안검증 잔여(밤 모드·모션 체감)**: 낮 라이트 팔레트는 브레인이 시뮬레이터로 실렌더 확인 완료(위 011). **남은 것은 실기기/탭 가능 환경에서 밤 토글 → 밤→낮 2-스테이지 눈부심 완화가 실제로 부드러운지(1차 근사 `CurveTween(easeOutCubic)` 체감 부족 시 2-스테이지 상향), morph 매끄러움, 자동 vs 수동 차등·haptic, reduce-motion, 펼침/접힘.** 이 머신은 UI 탭 수단 부재(idb/cliclick 미설치·AX 자동화 미인가)로 토글 구동 불가 — **다음 세션 준비물: `brew install idb-companion` 또는 `cliclick`, 혹은 오너가 시뮬레이터/실기기에서 직접 낮↔밤 탭**. 문제 시 사후 design-lead 비평 + 후속 조각.
+**011 육안검증 통과(2026-09-09)** ✅: 낮 라이트 팔레트 실렌더 확인(브레인 시뮬레이터) + **오너가 시뮬레이터에서 직접 낮↔밤 토글 → "전환 제대로 잘 된다" 확인**(밤→낮 2-스테이지 front-load 눈부심 완화가 화이트 플래시 없이 부드럽게 작동 = design-lead 재설계 유효, 브레인 초안대로였으면 플래시 발생했을 것). 잔여 미세검증(자동 vs 수동 차등·haptic 실기기·reduce-motion·펼침/접힘 정밀)은 필요 시 실기기 QA로 — 이번 조각의 핵심(눈부심)은 통과. 다음 UI 자동검증 원하면 `brew install idb-companion` 또는 `cliclick`(이 머신은 UI 탭 수단 부재).
+
+**최우선 후보 — 아래 B/C/D 중 오너 선택.** 011 장면 전환 조각은 실질 완료.
 
 **후보 B — 핫스팟 랭킹(backend→flutter)**: `hotspotsProvider`(현재 mock)를 물릴 backend 조각. TourAPI(위치기반관광) 장소 레이어 + 적합도 랭킹 엔드포인트(예: `GET /api/hotspots?lat&lng&mode`) 신설 → publish 후 flutter 배선. 팀=`backend`(publisher) → `flutter`(consumer) 순차. GPS(007) 완성으로 실 위치 기반 핫스팟이 자연스러운 다음 수순.
 
