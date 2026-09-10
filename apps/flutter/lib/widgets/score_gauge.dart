@@ -3,18 +3,25 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class ScoreGauge extends StatelessWidget {
-  const ScoreGauge({super.key, required this.score, this.size = 120});
+  const ScoreGauge({
+    super.key,
+    required this.score,
+    this.size = 120,
+    this.progressColor,
+  });
 
   final int score;
   final double size;
+  final Color? progressColor;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final resolvedProgressColor = progressColor ?? colorScheme.secondary;
     final textStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
       fontSize: 32,
       fontWeight: FontWeight.bold,
-      color: colorScheme.secondary,
+      color: resolvedProgressColor,
     );
 
     return SizedBox.square(
@@ -27,7 +34,7 @@ class ScoreGauge extends StatelessWidget {
             painter: _ScoreGaugePainter(
               score: score,
               trackColor: colorScheme.surfaceContainerHighest,
-              progressColor: colorScheme.secondary,
+              progressColor: resolvedProgressColor,
             ),
           ),
           Text('$score', style: textStyle),

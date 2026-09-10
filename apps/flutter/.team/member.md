@@ -1,5 +1,20 @@
 # flutter handoff note
 
+## `lib/widgets/course_card.dart` — `CourseCard` shared featured/list card (for the catalog landing screen task to consume)
+
+```dart
+class CourseCard extends StatelessWidget {
+  const CourseCard({super.key, required TrailCourse course, required bool featured, required VoidCallback onTap});
+}
+```
+
+- **Shared-core structure**: private `_CourseCardCore` widget renders `course.name`, a single-line meta `Text` (`'{distanceKm.toStringAsFixed(1)}km · {formatDurationMin(durationMin)} · {formatLevel(level)} · {cycle}'`), and `NightSkyTag(nightSky: course.nightSky)` — both `featured` and non-featured branches call this exact same core (no second reduced tree). `featured` only appends extra widgets *after* the core inside the same `Column`: 1px `colorScheme.secondary` border (via `Card`'s `RoundedRectangleBorder.side`), a `Divider`, a `Row` of two `ScoreGauge(size: 72)` (left `progressColor: colorScheme.tertiary` + `daySuitability!.score` + '낮 적합도' label, right `colorScheme.secondary` + `nightSuitability!.score` + '밤 적합도'), then a 1-line heritage preview (`Icons.storefront` + `'{heritageEats.first.name} 등 인근 노포 {N}곳'`, only if `heritageEats` non-empty). Non-featured renders **no** suitability slot at all.
+- Background `colorScheme.surfaceContainer` identical in both variants; only the border + featured extras differ. Whole card (core + extras) is wrapped in exactly one `InkWell` inside one `Card` — single tap target, no nested tappables (heritage line is plain `Text`, not tappable).
+- Force-unwraps `daySuitability!`/`nightSuitability!` only inside the featured-only extras builder, matching the caller contract that featured courses always have them populated.
+- **For the next accessibility task**: extend `_CourseCardCore`/`CourseCard.build`'s `InkWell` for the 44pt min tap target check and add a `Semantics` label for featured cards (e.g. "대표 코스, {name}, 밤하늘 가장 어두움" per spec `specs/013-trails-heritage-flutter.md` §E) — no semantic label exists yet.
+- Built against `TrailCourse`/`CourseSuitability` (`lib/models/trails.dart`), `NightSkyTag` (`lib/widgets/night_sky_tag.dart`, used as-is/unmodified), `ScoreGauge` (`lib/widgets/score_gauge.dart`, uses its existing `progressColor` param), and `formatDurationMin`/`formatLevel` (`lib/utils/trail_format.dart`). No new pubspec dependency.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't available) — statically re-checked every constructor/field against the four consumed files (imports all used, no unused symbols, brace/paren balance re-read). Pipeline validate stage should run `cd apps/flutter && flutter analyze && flutter test`.
+
 ## `lib/widgets/mode_header.dart` — new `ModeHeader` widget (day/night mode header control, for the next two tasks to embed + test)
 
 - New file only, nothing else touched (per task lane: this task did not touch `home_discovery_screen.dart` or any other file). Plain, dependency-free `StatefulWidget` — no `ref.watch`/Riverpod inside; all state comes from constructor params, all side effects go through the two callbacks.
@@ -1603,3 +1618,211 @@ abstract class SuitabilityApi {
 - The paren-balance bug reappeared in this session's working tree (5-line close chain at 939-943, one `),` short across `Padding`→`AnimatedOpacity`→`Card`→`Column`, matching the errors described in this task: `toList` undefined at old-943, `Expected close paren` at old-946). Duplicated the `AnimatedOpacity`-closing `),` line so the chain now has 6 closes matching the 4 open widgets + the arrow-return-value close + the `.map(` call itself, mirroring the identical `hotspot.badges.map(...).toList()` pattern already in this same file at lines 723-746.
 - Files touched: only `lib/screens/home_discovery_screen.dart`, single-line duplication (5 lines → 6), no other edits.
 - Could not run `flutter analyze`/`flutter test` in this harness (`flutter analyze`, `python3 -c ...`, and `git diff` without `--stat` all returned "requires approval"). Statically re-verified instead: whole-file bracket counts via `grep -o | wc -l` now balanced — `(`/`)` 334/334, `[`/`]` 47/47, `{`/`}` 23/23 — and manually re-traced every open/close from `hotspots.map(` (673) through `Padding`(675)/`AnimatedOpacity`(677)/`Card`(682)/`Column`(688) down to the closing chain (939-944), confirming it now matches the sibling badges-map pattern exactly. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test` to get real green confirmation — this file has flipped between missing-paren and extra-paren states across sessions, so a real compiler run is the only fully trustworthy check.
+
+## 2026-09-10 — `lib/models/trails.dart` + `lib/api/trails_api.dart` — new domain model + API client for `GET /api/trails` (backend contract already live, §20/§22 of `apps/backend/.team/member.md`)
+
+- New files only, nothing else touched. Manual JSON style (no code-gen), mirrors `models/discovery.dart`/`api/suitability_api.dart` conventions exactly.
+
+```dart
+// lib/models/trails.dart
+class Coordinate { double lat; double lng; } // + fromJson
+
+class NightSky { double sqmValue; int bortleClass; String skyClass; String status; } // + fromJson (sqmValue cast via num.toDouble())
+
+class HeritageEat { String name; String addr; int distanceM; double lat; double lng; String contentId; } // + fromJson
+
+class CourseSuitability { int score; String label; String status; } // + fromJson
+
+class TrailCourse {
+  String crsIdx; String name; String sigun;
+  double distanceKm; int durationMin; int level; String cycle; String gpxUrl;
+  Coordinate start; Coordinate end; NightSky nightSky;
+  List<HeritageEat> heritageEats;
+  CourseSuitability? daySuitability;   // null unless this is the featured (ranked-1st) course
+  CourseSuitability? nightSuitability; // same
+  // fromJson: daySuitability/nightSuitability parsed null-safely — `json[key] == null ? null : CourseSuitability.fromJson(json[key] as Map<String,dynamic>)`.
+  // In real responses only courses[0] (SQM-highest, pre-sorted by backend) has these non-null; every other course has both null.
+}
+
+class TrailsResponse { String region; bool degraded; List<TrailCourse> courses; } // + fromJson, courses mapped via TrailCourse.fromJson
+```
+
+```dart
+// lib/api/trails_api.dart
+class TrailsApiException implements Exception { int statusCode; String message; } // standalone duplicate of SuitabilityApiException, not shared/imported — keeps this lane self-contained
+
+abstract class TrailsApi {
+  Future<TrailsResponse> fetchTrails({required double lat, required double lng}); // NOTE: no `mode` param — this endpoint is mode-independent, unlike SuitabilityApi
+}
+
+class HttpTrailsApi implements TrailsApi {
+  HttpTrailsApi(String baseUrl, {http.Client? client});
+  // GET '$baseUrl/api/trails'.replace(queryParameters: {'lat': lat.toString(), 'lng': lng.toString()}) — same Uri.parse(...).replace(...) construction as HttpSuitabilityApi, just lat/lng only.
+  // _checkStatus identical behavior to HttpSuitabilityApi's: expects 200, else tries response.body as JSON `detail`, else raw body, then throws TrailsApiException.
+}
+
+class FakeTrailsApi implements TrailsApi {
+  FakeTrailsApi({bool degraded = false, bool shouldThrow = false, void Function(double lat, double lng)? onFetch});
+  // fetchTrails: calls onFetch?.call(lat, lng); throws TrailsApiException(500, 'fake failure') when shouldThrow;
+  // else returns TrailsResponse(region: '인천 강화군', degraded: degraded, courses: [3 TrailCourse]):
+  //   courses[0] FEATURED — crsIdx 'T_CRS_MNG0000009999', name '서해랑길 101코스', nightSky.sqmValue 20.15 (highest),
+  //     daySuitability(score:67, label:'쾌적', status:'live'), nightSuitability(score:64, label:'천체관측 양호', status:'live'), 2 HeritageEat entries.
+  //   courses[1]/[2] non-featured — daySuitability/nightSuitability both null, sqmValue 18.2 / 16.0 (strictly lower), distinct crsIdx/name, 1 HeritageEat entry each.
+  // All coordinates plausible for Ganghwa-gun, Incheon (lat ~37.6-37.8, lng ~126.3-126.5).
+}
+```
+
+- Built against the live backend contract documented in `apps/backend/.team/member.md` §20 (`GET /api/trails`, query `lat`/`lng` required, response shape `region`/`degraded`/`courses[]` with `daySuitability`/`nightSuitability` non-null only on the featured/ranked-1st course) and §22 (candidate-cap change, no response-shape impact).
+- No new pubspec dependency (`http` already present, used identically to `suitability_api.dart`).
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash `flutter analyze` returned "requires approval", consistent with every prior entry in this file) — statically re-verified both new files character-for-character against `models/discovery.dart`/`api/suitability_api.dart`'s exact patterns (const constructors with required named params, `num.toDouble()` casts, `Uri.parse(...).replace(queryParameters:)` construction, `_checkStatus` try/catch shape, implicit-const propagation inside `static const` field initializers as already used for `FakeSuitabilityApi._goldenHours`). Also confirmed the null-safe `daySuitability`/`nightSuitability` parsing branches against the backend contract text quoted above. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test` to get real green confirmation.
+
+## `lib/widgets/score_gauge.dart` — new optional `progressColor` param (default-preserving)
+
+- Added `Color? progressColor` (default `null`) to `ScoreGauge`'s constructor. Inside `build()`, resolves `progressColor ?? colorScheme.secondary` and uses that single resolved color for **both** the central score `Text` and `_ScoreGaugePainter.progressColor` — so the number's color now tracks the arc color for colorblind-safe contrast (number+label conveys the value, not color alone).
+- Default behavior is byte-for-byte unchanged for every existing call site: `home_discovery_screen.dart`'s `ScoreGauge(score: overview.suitabilityIndex.score)` (no `progressColor` passed) still resolves to `colorScheme.secondary`, identical to before this change.
+- `_ScoreGaugePainter` and its `trackColor` logic untouched — only the color value `ScoreGauge` passes into it changed.
+- For the trails feature's dual (day/night) gauges: pass `colorScheme.tertiary` (day) or `colorScheme.secondary` (night) explicitly via the new `progressColor` param.
+- No new pubspec dependency, no other files touched. Grepped `apps/flutter/test/` for `ScoreGauge` usage — no widget tests currently render it directly, so none needed updating.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't available) — statically re-verified: `Color?` is a valid optional named field type, `progressColor ?? colorScheme.secondary` matches the existing null-coalescing idiom used elsewhere in this codebase, and `_ScoreGaugePainter`'s constructor/fields are unchanged so the two callers of it (`progressColor:` argument) still type-check. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/widgets/night_sky_tag.dart` — new `NightSkyTag` widget (measurement tag, NOT a gauge — for `CourseCard`/detail screens to consume)
+
+```dart
+class NightSkyTag extends StatelessWidget {
+  const NightSkyTag({super.key, required NightSky nightSky, bool large = false});
+}
+```
+
+- Renders a `NightSky` (`models/trails.dart`) as a chip/tag: `Icons.nightlight_round` + `colorScheme.tertiary`, monospace `'SQM ${sqmValue.toStringAsFixed(2)}'` (`textTheme.labelSmall`/`labelMedium` per `large`, already JetBrains-Mono-routed by `app_theme.dart` — no new font import), `skyClass` text, and a literal `'(약)'` text suffix appended when `status == 'approx'` (never color-only — accessibility requirement). Container uses `colorScheme.surfaceContainerHigh` + a subtle `colorScheme.outline` border, no arc/circle/progress paint of any kind — deliberately distinct from `ScoreGauge`, does not import or reference it.
+- `large: false` (default) = compact chip sizing (8/4 padding, 14px icon, `labelSmall`) for cards; `large: true` = bigger variant (12/8 padding, 20px icon, `labelMedium`) for the detail screen.
+- Color fallback deferred per task scope: uses `colorScheme.tertiary` straightforwardly; a follow-up task will add a contrast-safe fallback for the day palette.
+- New file only, nothing else touched. No new pubspec dependency.
+
+## `lib/utils/trail_format.dart` — human-readable formatting helpers (top-level functions, not a class)
+
+```dart
+String formatDistanceM(int distanceM);   // 320 -> '320m' (< 1000, no decimal); 1400 -> '1.4km' (>= 1000, one decimal)
+String formatDurationMin(int durationMin); // 210 -> '3시간 30분'; 45 -> '45분' (0 hours omitted); 120 -> '2시간' (0 minutes omitted)
+String formatLevel(int level);           // 1 -> '쉬움'; 2 -> '보통'; 3 -> '어려움'; any other int -> '보통' (fallback)
+```
+
+- Plain top-level functions (no wrapper class), for screen-reader-friendly phrasing of `TrailCourse.distanceM`/`durationMin`/`level`-shaped raw fields, matching the spec's accessibility section.
+- New file only, nothing else touched. No new pubspec dependency.
+
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash `flutter analyze` returned "requires approval", same restriction as every prior entry in this file) — statically re-checked both new files: `NightSkyTag` field names against `models/trails.dart`'s `NightSky(sqmValue, bortleClass, skyClass, status)` (this task only reads `sqmValue`/`skyClass`/`status`, `bortleClass` intentionally unused as the task spec didn't ask for it), `colorScheme.tertiary`/`.surfaceContainerHigh`/`.outline`/`.onSurfaceVariant` and `textTheme.labelSmall`/`.labelMedium` against `theme/app_theme.dart`, and `Color.withValues(alpha:)` against its existing usage in `screens/home_discovery_screen.dart`. Hand-traced all three `trail_format.dart` functions against the example input/output pairs above. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/widgets/heritage_eats_list.dart` — `HeritageEatsList` read-only nearby-restaurant list (for the course-detail screen task to consume)
+
+```dart
+class HeritageEatsList extends StatelessWidget {
+  const HeritageEatsList({super.key, required List<HeritageEat> eats});
+}
+```
+
+- Returns `const SizedBox.shrink()` immediately when `eats.isEmpty` — no empty-state text; the caller (course-detail screen) decides whether to show this section at all based on `eats.isNotEmpty`.
+- Otherwise renders a `Column` of index-iterated `_HeritageEatRow`s (8px `SizedBox` gaps between rows, none after the last). Each row is a `Container` (`colorScheme.surfaceContainer` background, 12px radius, 12px padding, matching `CourseCard`'s row style) with a `Row`: `Icons.storefront` icon (`onSurfaceVariant`), then an `Expanded` `Column` of `name` (`bodyMedium` + `FontWeight.bold`, `maxLines: 1`/`TextOverflow.ellipsis`) and `addr` (`bodySmall` + `onSurfaceVariant`, `maxLines: 1`/`TextOverflow.ellipsis`), then `formatDistanceM(eat.distanceM)` (`labelMedium` + `colorScheme.tertiary` + `FontWeight.w600`) as trailing text — never the raw `distanceM` int.
+- **No tap target of any kind**: no `InkWell`/`GestureDetector`/`onTap` anywhere in the widget tree, no `onTap` constructor param, no navigation. Confirmed read-only per task's critical constraint.
+- Built against `HeritageEat` (`lib/models/trails.dart`, fields `name`/`addr`/`distanceM`/`lat`/`lng`/`contentId` — this widget only reads `name`/`addr`/`distanceM`; `lat`/`lng`/`contentId` unused, no map/detail link in this task's scope) and `formatDistanceM` (`lib/utils/trail_format.dart`). New file only, nothing else touched. No new pubspec dependency.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash requires approval that wasn't available, same restriction as every prior entry) — statically re-checked field names/types against `models/trails.dart` and `utils/trail_format.dart`, re-read the file for brace/paren/comma balance and unused imports. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/screens/trails_catalog_screen.dart` — `TrailsCatalogScreen` landing screen (watches `trailsProvider`, consumes `CourseCard`)
+
+```dart
+class TrailsCatalogScreen extends ConsumerWidget {
+  const TrailsCatalogScreen({super.key});
+}
+```
+
+- `trailsAsync.when(...)` branches into 4 visually distinct states: **loading** — centered `CircularProgressIndicator`. **error** — centered `'트레일 정보를 불러오지 못했어요'` + `ElevatedButton('다시 시도')` calling `ref.invalidate(trailsProvider)` (mirrors `home_discovery_screen.dart`'s error pattern exactly). **data + `degraded==false` + `courses.isEmpty`** — `_EmptyState`: full-bleed `Container(color: colorScheme.surfaceContainer)`, `Icons.explore_off` + `onSurfaceVariant` text `'이 권역에는 아직 등록된 코스가 없어요'`; contains **zero** `errorContainer`/`error`/`onErrorContainer`/`warning_amber_rounded` tokens anywhere in its subtree (separate early-return branch, never composed with `_DegradedBanner`). **data + `degraded==true`** — `_DegradedBanner` (`colorScheme.errorContainer` bg, `Icons.warning_amber_rounded` + text in `onErrorContainer`, byte-identical palette to the home screen's existing degraded banner) plus a `'다시 시도'` `TextButton` calling `ref.invalidate(trailsProvider)` (new vs. the home banner, which has no retry) — courses still render below the banner when non-empty (banner-only when `courses.isEmpty`).
+- Above the featured card: a region pill (`Icon(Icons.location_on)` + `Text(response.region)` in a `surfaceContainerHigh` rounded container) then, on its own line, the sort-rationale caption exactly `'밤하늘이 가장 어두운 순서예요'` (verified: no `'오늘'`/time adverb anywhere near it, per the spec's static-SQM-approximation correction) — both live outside/above `CourseCard`, never inside it or as a card badge.
+- `courses.first` renders as `CourseCard(..., featured: true, onTap: () {})`; `courses.sublist(1)` render as `CourseCard(..., featured: false, onTap: () {})` under a `'이 권역의 다른 코스 · ${remaining.length}개'` label. `onTap` is a trivial no-op placeholder on every card — no detail-screen import, no navigation wired (explicitly deferred to a later task per the spec).
+- Built against `trailsProvider`/`TrailsNotifier` (`lib/state/discovery_providers.dart`, `AsyncNotifierProvider<TrailsNotifier, TrailsResponse>`, retried via `ref.invalidate(trailsProvider)`) and `CourseCard({course, featured, onTap})` (`lib/widgets/course_card.dart`) — both consumed as-is, not modified. New file only; not wired into `app_shell.dart`/`main.dart` navigation (out of scope for this task).
+- No new pubspec dependency.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash `flutter analyze` returned "requires approval", same restriction as every prior entry in this file) — statically re-checked: `trailsProvider`'s `AsyncValue<TrailsResponse>` `.when(loading:, error:, data:)` signature against `discovery_providers.dart:111-124`, `CourseCard`'s required named params against `course_card.dart:14-19`, and `colorScheme.surfaceContainerHigh`/`.errorContainer`/`.onErrorContainer`/`.surfaceContainer`/`.onSurfaceVariant` + `textTheme.labelMedium`/`.titleSmall`/`.bodySmall`/`.bodyMedium` against `theme/app_theme.dart` and existing usages in `home_discovery_screen.dart`. Re-read the file for brace/paren/comma balance and unused imports. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/screens/app_shell.dart` — 트레일·노포 탭 플레이스홀더를 `TrailsCatalogScreen`으로 교체
+
+- Tab index 2 (`_tabs[2]`) swapped from `const PlaceholderScreen(icon: Icons.hiking, title: '트레일·노포')` to `const TrailsCatalogScreen()`; removed the now-stale `// 목업 04 후속 조각 -- 실제 화면 구현 전 임시 플레이스홀더` comment above it; added `import 'trails_catalog_screen.dart';`. Indices 0/1/3/4 and the `NavigationBar` destinations list untouched (byte-for-byte).
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash `flutter analyze` returned "requires approval") — statically re-checked: `TrailsCatalogScreen({super.key})` const no-arg constructor confirmed against `trails_catalog_screen.dart:8-9`; `PlaceholderScreen` import still needed for tabs 1/3; re-read `app_shell_test.dart` (asserts 5 `NavigationDestination`s + diary-tab tap) — unaffected by this swap, same pattern as tab 0's already-live `HomeDiscoveryScreen` (both build via `IndexedStack` on initial pump using an un-overridden HTTP-backed provider, already tolerated by the existing test). **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/screens/course_detail_screen.dart` — new `CourseDetailScreen`, wired as the real push target from catalog card taps
+
+```dart
+class CourseDetailScreen extends StatelessWidget {
+  const CourseDetailScreen({super.key, required TrailCourse course});
+}
+```
+
+- Takes the already-fetched `TrailCourse` directly (no provider/API re-fetch). Body: `SingleChildScrollView` + padded `Column` — name (`headlineSmall`) + `sigun` (`titleSmall`/`onSurfaceVariant`) header, **text only** (confirmed: no map/GPX-polyline image or icon anywhere in the tree); meta line (distance 1-decimal · `formatDurationMin` · `formatLevel` · `cycle`, same shape as `course_card.dart`'s meta row); a `'종점 밤하늘 관측 조건'` section header + `NightSkyTag(nightSky: course.nightSky, large: true)`; a suitability section; a `'관측 후 들르기 좋은 곳'` section header + `HeritageEatsList(eats: course.heritageEats)` (no extra empty check — the widget already no-ops on empty).
+- **Featured/non-featured branch, confirmed correct**: `featured = course.daySuitability != null` gates a `_FeaturedBadge` pill (`'밤하늘 관측 최적 코스'`, `secondaryContainer`/`onSecondaryContainer`) right under the header, shown only when featured. The suitability section (`_SuitabilitySection`) independently checks both `daySuitability`/`nightSuitability` non-null: when both present, renders two `ScoreGauge(size: 96)` side by side (left `progressColor: colorScheme.tertiary` + day score + `'낮 적합도'` label, right `colorScheme.secondary` + night score + `'밤 적합도'` label); when either is null, renders exactly one `bodySmall`/`onSurfaceVariant` caption `'이 코스는 밤하늘 관측 조건을 충족하여 포함되었어요'` — positive inclusion framing, no error color tokens, no gauges.
+- Relies on the `Scaffold`'s default `AppBar` back button — no custom back handling.
+- New file only. No new pubspec dependency. Built against `TrailCourse`/`CourseSuitability` (`lib/models/trails.dart`), `NightSkyTag`/`ScoreGauge`/`HeritageEatsList` (all consumed as-is, unmodified), `formatDurationMin`/`formatLevel` (`lib/utils/trail_format.dart`).
+
+## `lib/screens/trails_catalog_screen.dart` — catalog card taps now push `CourseDetailScreen` (real navigation, no-op placeholders removed)
+
+- Both `CourseCard.onTap` placeholders replaced: the featured card's `onTap` pushes `CourseDetailScreen(course: courses.first)`, each remaining-course card's `onTap` pushes `CourseDetailScreen(course: course)` (the loop variable) — both via `Navigator.of(context).push(MaterialPageRoute(builder: ...))` using the `context` already passed into `_buildCatalogContent`. Added `import 'course_detail_screen.dart';`. Nothing else in this file changed — state handling (`trailsAsync.when`), `_DegradedBanner`, `_EmptyState`, `_ErrorState` are byte-for-byte identical to before.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash `flutter analyze` returned "requires approval", same restriction as every prior entry) — statically re-checked both files: all imports used, `CourseDetailScreen({course:})` required-named-param call sites match the new constructor, added `const _FeaturedBadge()` constructor (not just default) to satisfy `prefer_const_constructors_in_immutables` from `flutter_lints`, re-read both files fully for brace/paren/comma balance and unused symbols. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## Day/night mode accent on the featured dual suitability gauges (`course_card.dart` + `course_detail_screen.dart`)
+
+- Both `CourseCard._buildFeaturedExtras`'s gauge `Row` and `_SuitabilitySection.build`'s gauge `Row` are now wrapped in `Consumer(builder: (context, ref, child) { final currentMode = ref.watch(obsModeProvider).mode; ... })`. Left/right position is unchanged and never swaps — day gauge always left, night gauge always right, regardless of `currentMode`.
+- Visual accent only: when `currentMode == ObsMode.day`, the left (day) `ScoreGauge` is wrapped in a `Container(decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(color: colorScheme.tertiary.withValues(alpha: 0.4), blurRadius: 12, spreadRadius: 2)]))` and its `'낮 적합도'` label gets `fontWeight: FontWeight.bold`; the right (night) gauge/label stay plain. Mirror image for `ObsMode.night` (accent on the right, `colorScheme.secondary` shadow, `'밤 적합도'` bold). No score/arc-color changes, no gauges added/removed, no `AnimationController`/stagger (explicitly out of scope).
+- New imports in both files: `flutter_riverpod/flutter_riverpod.dart`, `../models/discovery.dart` (`ObsMode`), `../state/discovery_providers.dart` (`obsModeProvider`) — no new pubspec dependency (`flutter_riverpod` already present).
+- Built against `apps/flutter/lib/state/discovery_providers.dart:56-58` (`obsModeProvider = NotifierProvider<ObsModeController, ObsModeState>`) and `apps/flutter/lib/models/discovery.dart:6` (`enum ObsMode { day, night }`).
+
+## `live` status text tag on the day/night suitability gauges (`course_card.dart` + `course_detail_screen.dart`)
+
+- Spec `specs/013-trails-heritage-flutter.md` Phase 5 accessibility requirement ("approx/live 색+텍스트 병기") was only implemented for `NightSky.status == 'approx'` (`night_sky_tag.dart`'s `'(약)'` tag). `CourseSuitability.status` (`'live'` in fixture data) had no visual indicator anywhere — added the mirror-image text tag next to each gauge's `'낮/밤 적합도'` label, guarded on `daySuitability.status == 'live'` / `nightSuitability.status == 'live'`. Fixed Korean string `'실시간'`, `textTheme.labelSmall` + `fontSize: 10`, color `colorScheme.tertiary` (day) / `colorScheme.secondary` (night) — matching each gauge's own accent color. `night_sky_tag.dart` untouched (already has its own approx tag).
+- Exact final `Column` children lists after the edit:
+
+  `course_card.dart` `_buildFeaturedExtras` day gauge `Column`:
+  ```dart
+  Column(
+    children: [
+      Container(/* dayAccent glow */ child: ScoreGauge(...)),
+      const SizedBox(height: 4),
+      Text('낮 적합도', style: textTheme.labelSmall?.copyWith(fontWeight: dayAccent ? FontWeight.bold : null)),
+      if (daySuitability.status == 'live')
+        Text('실시간', style: textTheme.labelSmall?.copyWith(color: colorScheme.tertiary, fontSize: 10)),
+    ],
+  ),
+  ```
+  night gauge `Column` (same shape, `nightAccent`/`nightSuitability`/`colorScheme.secondary`).
+
+  `course_detail_screen.dart` `_SuitabilitySection.build` day gauge `Column`: identical shape/values as above (same `daySuitability`/`colorScheme.tertiary`); night gauge `Column`: identical shape as above (`nightSuitability`/`colorScheme.secondary`).
+- No other lines touched in either file — gauge structure/positions/colors/existing text unchanged; `NightSkyTag` untouched.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash `flutter analyze`/`flutter test` both returned "requires approval", no interactive user available to grant it) — statically re-checked: `daySuitability`/`nightSuitability` are already-in-scope local variables in both call sites (`course_card.dart:71-72`, `course_detail_screen.dart:118-119`), `CourseSuitability.status` confirmed as a `String` field (`lib/models/trails.dart:73`), Dart collection-`if` syntax (`if (cond) Text(...),`) re-read for correct trailing commas/brace balance in both files. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test` (58 existing tests expected to remain green — no test file touched).
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash `flutter analyze` returned "requires approval") — statically re-checked both files: imports all used, `Consumer` builder signature correct, `Container.decoration` accepts nullable `Decoration?` so the ternary-to-`null` branch is valid, brace/paren/comma balance re-read end to end. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `test/trails_wiring_test.dart` — new end-to-end catalog+detail wiring test (`TrailsCatalogScreen`, `CourseCard`, `CourseDetailScreen`)
+
+New test file only, nothing else touched. Helper `_pumpTrails` mirrors `suitability_wiring_test.dart`'s `_pumpHome`: `ProviderContainer(overrides: [trailsApiProvider.overrideWithValue(api), locationServiceProvider.overrideWithValue(FakeLocationService(...))])` pumping `UncontrolledProviderScope` + `MaterialApp(home: const TrailsCatalogScreen())` (no `nowProvider` override needed — `obsModeProvider`'s real-clock read only affects gauge accent styling, not any asserted text). 8 `testWidgets`:
+1. Default `FakeTrailsApi()` data: featured card renders `'낮 적합도'`/`'밤 적합도'` (findsOneWidget each — only the featured card has the gauge row) and the heritage preview `'꽃게와낙지 등 인근 노포 2곳'`.
+2. Second (non-featured) course's `NightSkyTag` renders (`'SQM 18.20'`, `'Class 4 도시외곽 다크스카이'`), while `'낮 적합도'` still has exactly one occurrence screen-wide (proves only the featured card gets the gauge slot).
+3. `FakeTrailsApi(degraded: true)`: `_DegradedBanner` text `'일부 데이터를 불러오지 못했어요'` + its `'다시 시도'` `TextButton` both render.
+4. Empty state via a local `_EmptyTrailsApi implements TrailsApi` (returns `TrailsResponse(region: 'test', degraded: false, courses: const [])`, not `FakeTrailsApi`, so the fixture data can't leak in): asserts `_EmptyState`'s text + `Icons.explore_off`, and asserts the degraded banner's text/icon (`Icons.warning_amber_rounded`) are absent — proves the two states never share styling.
+5. Loading: pumps once (no extra `tester.pump()`, matching `suitability_wiring_test.dart`'s loading case) and asserts `CircularProgressIndicator`.
+6. `FakeTrailsApi(shouldThrow: true)`: `_ErrorState` text `'트레일 정보를 불러오지 못했어요'` + `ElevatedButton('다시 시도')`.
+7. Navigation: `tester.tap(find.byType(CourseCard).first)` (featured) → `pumpAndSettle` → scoped `find.descendant(of: find.byType(CourseDetailScreen), matching: ...)` asserts the heritage eat name `'꽃게와낙지'` and both gauge labels render; `tester.pageBack()` back to the catalog, then `tester.tap(find.byType(CourseCard).at(1))` (non-featured) → asserts its detail shows the neutral caption `'이 코스는 밤하늘 관측 조건을 충족하여 포함되었어요'` and **not** `'낮 적합도'`. All detail-screen assertions are scoped via `find.descendant(of: find.byType(CourseDetailScreen), ...)` rather than a bare `find.text(...)`, because `MaterialPageRoute.maintainState` defaults `true` — the catalog screen (and its own `'낮 적합도'`/`'SQM ...'` text) stays mounted, just unpainted, underneath the pushed detail route, so an unscoped finder would see both.
+8. Single-source-of-truth: `'SQM 20.15'` (featured course, `sqmValue: 20.15`) asserted `findsOneWidget` on the catalog screen before the tap, then re-asserted `findsOneWidget` scoped to `find.byType(CourseDetailScreen)` after tapping the featured card and `pumpAndSettle` — same literal string, `NightSkyTag` in both screens formats the same `TrailCourse.nightSky.sqmValue`.
+
+No Bash access in this harness to run `flutter test` myself — statically re-verified every `find.text`/`find.byIcon`/`find.byType` call against the actual widget trees in `trails_catalog_screen.dart`, `course_card.dart`, `night_sky_tag.dart`, and `course_detail_screen.dart` (line-by-line, including the exact interpolated strings). **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/widgets/night_sky_tag.dart` — spec-compliance fix: render missing Bortle value
+
+- Spec (`specs/013-trails-heritage-flutter.md` New Files section) requires SQM · Bortle · skyClass · approx as four distinct tag segments; `bortleClass` (`NightSky.bortleClass`, `lib/models/trails.dart:20`) was already modeled but unused in this widget. Added one `Text('Bortle ${nightSky.bortleClass}', style: monoStyle?.copyWith(color: colorScheme.onSurfaceVariant))` in the `Row`, between the SQM `Text` and the `skyClass` `Text`, preceded by a `SizedBox(width: large ? 8 : 6)` matching the existing gap convention already used before the `skyClass` segment. Colored `onSurfaceVariant` (matching `skyClass`), not the SQM tertiary accent.
+- No other lines touched: contrast-fallback logic, `isApprox` tag, and all other segments unchanged. Doesn't touch any backend contract — `bortleClass` was already parsed by `NightSky.fromJson`.
+- Could not run `flutter analyze`/`flutter test` in this harness (Bash `flutter analyze` returned "requires approval", no interactive user available to grant it) — statically re-checked: `nightSky.bortleClass` is `int` (`lib/models/trails.dart:20`), string interpolation `'Bortle ${...}'` is valid on `int`, `monoStyle?.copyWith(color:)` mirrors the two adjacent `Text` widgets exactly, brace/paren/comma balance re-read end to end. Confirmed the new segment doesn't collide with `test/trails_wiring_test.dart:78`'s `find.text('Class 4 도시외곽 다크스카이')` assertion — that's the separate `skyClass` field/widget, unchanged. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `lib/screens/course_detail_screen.dart` — spec-compliance fixes: featured badge text + metadata card (Phase 4, `specs/013-trails-heritage-flutter.md`)
+
+- Issue A: `_FeaturedBadge`'s text was the wrong static string (previously implied "best-for-stargazing"). Replaced with the exact same sort-rationale sentence `'밤하늘이 가장 어두운 순서예요'` already used as the catalog's sort caption (`trails_catalog_screen.dart:72`) — single source of truth for that sentence now lives as a literal in both files (no shared constant introduced; task scope was string-parity only).
+- Issue B: `_MetaRow` no longer renders one joined `Text` line. It's now a `Card(color: colorScheme.surfaceContainer)` wrapping a `Row` of four `_MetaItem` (new private widget) — each a `Column` with a small `onSurfaceVariant`-colored `labelSmall` label above a `titleSmall` value. Same four data points, same formatting helpers (`course.distanceKm.toStringAsFixed(1)` + `'km'`, `formatDurationMin`, `formatLevel`, `course.cycle`), no data change.
+- Nothing else touched: badge visibility logic (`featured` bool), `_SuitabilitySection`, `HeritageEatsList` call, and all imports unchanged (all were already in use, still are).
+- Could not run `flutter analyze` in this harness (`flutter analyze lib/screens/course_detail_screen.dart` returned "requires approval", not grantable here) — statically re-checked: no new imports needed (`Card`/`Column`/`Padding`/`Row` all come from the already-imported `material.dart`), `_MetaItem` constructor params match call sites, brace/paren/comma balance re-read end to end, confirmed `test/trails_wiring_test.dart` has no assertion on the old joined-`Text` meta-row format or the old badge string (only greps for `'이 코스는 밤하늘 관측 조건을 충족하여 포함되었어요'`, unaffected). **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `test/trails_wiring_test.dart` — added missing border assertion to the featured-card test
+
+- The first `testWidgets` (description: "data state: featured course card renders both suitability gauge labels and a heritage preview line") documented featured-card border coverage but never asserted it. Added, after the existing three `expect`s: `tester.widget<Card>(find.descendant(of: find.byType(CourseCard).first, matching: find.byType(Card)))`, cast `.shape` to `RoundedRectangleBorder`, `expect(shape.side.width, greaterThan(0))`. This matches `course_card.dart:42-44` (`side: featured ? BorderSide(color: colorScheme.secondary, width: 1) : BorderSide.none`), so it only passes for the featured card's `width: 1` border, not a non-featured `BorderSide.none` (width 0).
+- No other test in the file touched; no other assertions in this test changed.
+- Could not run `flutter test` in this harness (Bash requires approval that wasn't available) — statically re-checked: `Card`/`RoundedRectangleBorder` come from the already-imported `package:flutter/material.dart`, `find.descendant`/`find.byType`/`tester.widget<T>` pattern already used elsewhere in this same file (e.g. line 131/152/179). **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.

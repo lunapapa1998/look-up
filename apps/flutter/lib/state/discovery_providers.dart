@@ -2,8 +2,10 @@ import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/suitability_api.dart';
+import '../api/trails_api.dart';
 import '../config.dart';
 import '../models/discovery.dart';
+import '../models/trails.dart';
 import '../services/location_service.dart';
 
 /// Wiring for the suitability engine backend API.
@@ -101,6 +103,25 @@ final discoveryProvider =
     AsyncNotifierProvider.family<DiscoveryNotifier, DiscoveryOverview, ObsMode>(
   DiscoveryNotifier.new,
 );
+
+final trailsApiProvider = Provider<TrailsApi>((ref) {
+  return HttpTrailsApi(defaultApiBaseUrl);
+});
+
+class TrailsNotifier extends AsyncNotifier<TrailsResponse> {
+  @override
+  Future<TrailsResponse> build() async {
+    final api = ref.watch(trailsApiProvider);
+    final location = await ref.watch(locationProvider.future);
+    return api.fetchTrails(
+      lat: location.lat,
+      lng: location.lng,
+    );
+  }
+}
+
+final trailsProvider =
+    AsyncNotifierProvider<TrailsNotifier, TrailsResponse>(TrailsNotifier.new);
 
 final hotspotsProvider = Provider<List<Hotspot>>((ref) {
   return const [
