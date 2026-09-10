@@ -166,11 +166,20 @@
 - **⚠️ 파이프라인 verdict=FAIL = false-negative(4번째)**: codex 검증 **23항목 중 22 PASS**(nullable 파싱·카메라 fit·측정/적합도 구분선·정직문구·상태·위치폴백·오버플로우·접근성 전부 PASS), 유일 FAIL은 "`_build*` 코드베이스 전체 0건" 체크박스 문구의 **스코프 오독**(신규 6파일 0건 확인, 지적된 `mode_header`/`course_card`/`trails_catalog`는 기존 파일=회귀금지로 무변경). 브레인 grep+`just check` 재실행으로 실질 PASS 확정. **크로스모델 가치 발현**: lead가 런 중 실 결함 2건(단일스팟 zero-area bounds 크래시·테스트 State 재사용) 자체 수정. [[factory-verdict-false-negative]]/[[factory-crossmodel-verify-value]].
 - **잔여**: 오너 시뮬/실기기 육안검증(다크타일 렌더·핀 위치·3-스냅 드래그·측정vs적합도 시각분리·오버플로우 — 이 머신 idb/cliclick 없어 지도 탭까지 탭 도달 불가, 013 오버플로우 선례상 필수). 앱은 홈 index0 시작 → 관찰지도 index1은 탭 필요.
 
+## 관찰 지도 Figma parity 확장 완성 (2026-09-10) ✅ — 커밋 520d2d5+27b7cf9 (실질 PASS + 시뮬 육안검증)
+
+- **016 flutter** 구현·`just check` green(flutter 113/113, analyze 무경고). 커밋 `520d2d5`(feat)+`27b7cf9`(오버플로우 fix). `specs/016-observation-map-figma-parity-flutter.md`(risk high). **오너가 "내가 원한 UI=Figma 원안(node 19-1959)"** 확인 → design-lead가 015에서 절제로 잘라낸 요소들을 오너 지시로 되살림(AskUserQuestion 4개 전부 선택).
+- **되살린 것(전부 flutter consumer, backend 무변경)**: ① 온-맵 핀 라벨/배지(측정값만, 미선택=도트/줌임계·선택 시만 라벨=클러터 방지), ② 트레일 선(GPX 폴리라인, opt-in 레이어·기본OFF, 실패 시 trailhead만), ③ 하단 시트 검색+필터칩(측정 기반 정렬=거리/최근관측/SQM순+SQM필터, 적합도 노출 금지), ④ 나침반(정북 시 hide)+좌하단 조석/음력 오버레이(간조 22:52·월령 28.8일). 전체 레이어칩.
+- **후속 분리(엔진/데이터원)**: 3D 틸트(flutter_map 2D→Mapbox/MapLibre 스왑), 조류 히트맵·빛공해 Bortle 색면(backend 격자 raster), 오프라인 캐시. 빛공해는 SQM 핀라벨+필터로 대체 표현.
+- **design-lead 실행검수=조건부 GO**(P1 4+P2 4 반영). 핵심 원리: **오너가 원한 건 Figma 정보밀도·연출이지 목업 문자열("적합도 94점") 픽셀복제가 아님** → 밀도 100% 살리되 적합도는 선택 상세 게이지에만(종분리가 라이브앱에서 Figma 의도를 더 잘 구현).
+- **⚠️ verdict=FAIL=false-negative(5번째)**: codex 15중 13 PASS, 2 FAIL은 브레인 시뮬검증(브레인 몫)+Phase5 stale 숫자(109→113). 크로스모델 가치: lead가 런 중 codex FAIL 1(전체칩) 자체수정. [[factory-verdict-false-negative]].
+- **⭐ 브레인 시뮬 육안검증 완료(오너 지시)**: iPhone 17 Pro 실렌더에서 **오버플로우 2건 발견·수정**(위젯테스트 113 통과했으나 못 잡음 — 013/015 교훈 반복). ① 레이어 칩 Row 가로 70px(칩 5개 폭초과→가로 스크롤), ② 시트 peek 세로 65px(검색바 초과→스크롤 안으로). 커밋 `27b7cf9`. 재검증: 콘솔 오버플로우 0, 조석/음력 오버레이·레이어칩·시트 정상. **온-맵 라벨은 zoom<14라 도트만(P1-1 설계대로)** — 줌인/선택 시 라벨 표시.
+
 ## 다음 세션 시작점 (후속 조각)
 
-**다음 = 오너 육안검증 후 후속 조각 선택.** 관찰 지도(015) 실질 완료 → 후속 UX 부채(지도 탭 모드토글 진입점·positron 낮타일 스왑·클러스터링) 또는 아래 B/C/D 중 오너 선택.
+**다음 = 오너 최종 확인 후 후속 조각.** 관찰 지도 015+016 완료(Figma parity). 후속 UX 부채: 온-맵 라벨 줌인 체감·트레일 선 실렌더 확인(오너), label-collision 클러스터링, 트레일 탭 딥링크, 지도 탭 모드토글 진입점. 대공사 후속: 3D(엔진 스왑)·히트맵/빛공해 색면(backend raster)·오프라인 캐시.
 
-**완료분**: 013 트레일 flutter(`b1de369`/`d8441fe`), 014 관찰지도 backend(`6215339`), **015 관찰지도 flutter(`d7fdc16`, green+실질PASS, 잔여=오너 육안)**. **낮-밤 패키지 탭**=1박2일 예약 커머스로 정의만 기록(구현 후속).
+**완료분**: 013 트레일 flutter, 014 관찰지도 backend(`6215339`), **015 관찰지도 flutter(`d7fdc16`/`277b0a1`)**, **016 Figma parity 확장(`520d2d5`/`27b7cf9`, green+시뮬 육안검증)**. **낮-밤 패키지 탭**=1박2일 예약 커머스로 정의만 기록(구현 후속).
 
 ~~**012 트레일 backend PASS** → 다음=flutter consumer 조각~~ (013으로 완료).
 
