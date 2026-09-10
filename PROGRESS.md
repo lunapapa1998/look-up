@@ -125,9 +125,20 @@
 - **⚠️ 3발사 이력(교훈)**: 1차 FAIL=Phase 3 멤버 Edit 권한거부(requires-approval) 반복으로 미착수(환경 문제). 2차 FAIL=**codex verify 실결함 1건**(GPX가 top-K slice 전에 매칭 전부 fetch → 스펙 "GPX top-K 제한" 위반). 브레인 판정=**스펙 자기모순**(종점 SQM 랭킹은 GPX 선행 불가피). 규칙5대로 오너 에스컬레이트 → 스펙 정정+`CANDIDATE_LIMIT` 상한 추가 → 3차 PASS. **브레인 end-to-end 실검증(uvicorn, 강화 37.5921/126.3984)**: region=인천 강화군, 2코스, featured=서해랑길 101(SQM 20.15·day67/night64 live·노포3 강화어부네꽃게탕 등), 비-featured=DMZ평화의길 1(SQM16.0·null) — 실데이터·featured-only·tie-break 정상.
 - **잔여(후속 flutter consumer 조각이 상속)**: design-lead UX 요건 4개(nightSky 측정태그 vs suitability 점수게이지 분리·status 가시화, featured 정렬근거 라벨 "밤하늘 가장 어두운", featured만 점수인 게 열등해 보이지 않게, SQM 동일소스 단일진실). 기능 후속: 코스별 풀 적합도(캐싱 선행), 노포 영업시간, 좌표 근접 랭킹, 조석 골든타임 waypoint, GPX 폴리라인 썸네일.
 
+## 트레일·노포 flutter consumer 완성 (2026-09-10) ✅ — 트레일 탭 실화면
+
+- **013 flutter** 구현 완료·`just check` green(**66 tests** = 기존 58 + 트레일 8, analyze 무경고, 홈 004~011 회귀 없음). 커밋 `b1de369`. `specs/013-trails-heritage-flutter.md`(risk medium). `PlaceholderScreen('트레일·노포')` → 카탈로그 랜딩 + featured 리치 카드 + 코스 상세(노포 waypoint) 실화면.
+- **design-lead 자문+검수 선행**(워크플로우 준수): 화면 설계 자문 → 스펙화 → 발사 전 스펙 검수(조건부 GO, P1 4건+P2 2건+스코프 좁히기 반영) → 발사. 핵심 규율: **nightSky(측정 태그 톤·게이지 금지·SQM/Bortle/skyClass/approx) ↔ suitability(원형 게이지 톤) 종 분리**, **featured=발췌/리스트=전체 비열등 위계**(공유 서브위젯 구조로 강제), 정렬근거 캡션 단일진실("밤하늘이 가장 어두운 순서예요"), 낮/밤 **accent-only 강조(위치 고정 낮=좌/밤=우, 현재 모드만 glow+bold)**, live→'실시간' 태그, 대비 4.5:1 폴백(tertiary<4.5:1→onSurface).
+- **손댄 것**: 신규 `models/trails.dart`(nullable suitability 안전 파싱), `api/trails_api.dart`(abstract/Http/Fake), `screens/{trails_catalog,course_detail}_screen.dart`, `widgets/{night_sky_tag,course_card,heritage_eats_list}.dart`, `utils/trail_format.dart`, `test/trails_wiring_test.dart`(8케이스). 수정 `app_shell.dart`(index2 교체)/`discovery_providers.dart`(trailsProvider 위치 watch)/`score_gauge.dart`(progressColor 파라미터).
+- **⚠️ 3발사 이력(교훈=파이프라인 false-negative)**: 1·2차 FAIL=**lead claude 세션이 "API Error: Connection closed mid-response"로 조기 사망**(스폰은 됨, `lead.ok:false`). 1차에 코드 대부분 디스크 반영·`just check` green이었으나 테스트/검증 미완. 오너 승인 하 3차 재발사 → lead 완주(`lead.ok:true`), 잔여 완성(테스트 8 + live 태그 + Phase 5) + **codex 크로스검증 4건 수정**(Bortle 렌더/featured 배지 문구 통일/메타 카드 레이아웃/테스트 border assert). **그러나 verdict는 여전히 FAIL** — codex 4건 수정 후 verify2 재검증 미기록으로 verdict가 FAIL로 굳은 **false-negative**. **브레인이 직접 `just check`(green 66) + 4건 수정 코드 리딩으로 실질 PASS 확정 후 커밋.** 교훈: 파이프라인 verdict를 맹신 말고 `lead.ok`/`validation`/`just check`/실코드로 교차 확인(011 계승, 이번은 API 드롭發 false-FAIL 신규 유형).
+- **🟡 브레인 시뮬레이터 육안검증 미완(이 머신 제약)**: iPhone 17 Pro 부팅됨이나 **탭 수단 전무**(idb·cliclick 미설치)라 트레일 탭(index2) 도달·카드 탭→상세 push를 구동 불가(011과 동일 제약). **오너/실기기 육안검증 필요**: 카탈로그 렌더·nightSky 태그 vs 게이지 시각 분리·featured 비열등·상세 push·노포·낮밤 accent. 회귀 리스크는 낮음(66 tests green, 계약 소비만).
+- **잔여(후속 부채)**: GPX 폴리라인 지도 썸네일, 노포 상세 push·지도 핀, 코스별 풀 적합도(featured 외), 노포 영업시간, 좌표 근접 랭킹, 모드 전환 stagger(카탈로그 리스트 구조), 정렬/필터 UI, 즐겨찾기, 위치 칩 tap→권역 재선택.
+
 ## 다음 세션 시작점 (후속 조각)
 
-**012 트레일 backend PASS(2026-09-10)** ✅: `GET /api/trails` 실데이터 라이브 검증 완료. **다음 = 오너가 원한 "트레일·노포 탭"의 눈에 보이는 부분 = flutter consumer 조각**(팀=`flutter`): 코스 카탈로그 리스트 UI + featured 리치 카드 + 코스 상세(노포 waypoint). `PlaceholderScreen('트레일·노포')` → 실 화면. **design-lead 검수 GO 조건 4개(스펙 012 "후속 flutter consumer UX 요건")를 이 조각이 반드시 상속**. 계약은 `member.md` 신규 절 참조.
+**013 트레일 flutter PASS(2026-09-10, 실질)** ✅: 트레일·노포 탭 실화면 완성·green·커밋 `b1de369`. **잔여 = 오너/실기기 육안검증**(이 머신 탭 수단 없음). **다음 후보 B/C/D 중 오너 선택** — 아래 참조. (B=핫스팟 랭킹 backend→flutter, C=레이어 breakdown UI, D=위치 UX 마감.)
+
+~~**012 트레일 backend PASS** → 다음=flutter consumer 조각~~ (013으로 완료).
 
 **그 외 후보 — B/C/D 중 오너 선택.**
 
