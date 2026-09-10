@@ -49,36 +49,35 @@ class NightSkyTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(large ? 12 : 8),
         border: Border.all(color: colorScheme.outline.withValues(alpha: 0.3)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      // Wrap (not Row) so a long skyClass flows to a second line instead of
+      // overflowing the card width — measured tag keeps every field visible.
+      child: Wrap(
+        spacing: large ? 8 : 6,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Icon(
             Icons.nightlight_round,
             size: large ? 20 : 14,
             color: colorScheme.tertiary,
           ),
-          SizedBox(width: large ? 6 : 4),
           Text(
             'SQM ${nightSky.sqmValue.toStringAsFixed(2)}',
             style: monoStyle?.copyWith(color: sqmValueColor),
           ),
-          SizedBox(width: large ? 8 : 6),
           Text(
             'Bortle ${nightSky.bortleClass}',
             style: monoStyle?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
-          SizedBox(width: large ? 8 : 6),
           Text(
             nightSky.skyClass,
             style: monoStyle?.copyWith(color: colorScheme.onSurfaceVariant),
           ),
-          if (isApprox) ...[
-            SizedBox(width: large ? 6 : 4),
+          if (isApprox)
             Text(
               '(약)',
               style: monoStyle?.copyWith(color: colorScheme.onSurfaceVariant),
             ),
-          ],
         ],
       ),
     );
