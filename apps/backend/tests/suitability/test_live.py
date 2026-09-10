@@ -18,6 +18,7 @@ import os
 
 import pytest
 
+from app.observation.service import ObservationMapService
 from app.suitability.models import SuitabilityResponse
 from app.suitability.providers.astronomy import AstronomyProvider
 from app.suitability.providers.tide import TideProvider
@@ -138,3 +139,19 @@ def test_tourapi_nearby_food_live_fetch() -> None:
         assert "name" in foods[0]
         assert "addr" in foods[0]
         assert "distanceM" in foods[0]
+
+
+@pytest.mark.live
+def test_observation_map_service_live_fetch() -> None:
+    service = ObservationMapService()
+    result = service.get_observation_map(_GANGHWA_LAT, _GANGHWA_LNG)
+
+    assert isinstance(result["degraded"], bool)
+    assert isinstance(result["spots"], list)
+
+    star_spots = [spot for spot in result["spots"] if spot["kind"] == "star"]
+    bird_spots = [spot for spot in result["spots"] if spot["kind"] == "bird"]
+    heritage_spots = [spot for spot in result["spots"] if spot["kind"] == "heritage"]
+
+    assert len(star_spots) == 1
+    print(f"observation map live fetch: {len(bird_spots)} bird spot(s), {len(heritage_spots)} heritage spot(s)")

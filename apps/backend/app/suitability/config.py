@@ -82,6 +82,19 @@ def get_trails_config() -> TrailsConfig:
     )
 
 
+@dataclass(frozen=True)
+class ObservationConfig:
+    ebird_token: str
+    ebird_base_url: str
+
+
+def get_observation_config() -> ObservationConfig:
+    return ObservationConfig(
+        ebird_token=os.getenv("EBIRD_API_TOKEN", ""),
+        ebird_base_url=os.getenv("EBIRD_API_BASE_URL", "https://api.ebird.org/v2"),
+    )
+
+
 def validate_coordinates(lat: float, lng: float) -> None:
     if not -90 <= lat <= 90:
         raise ValueError(f"lat out of range: {lat!r}")

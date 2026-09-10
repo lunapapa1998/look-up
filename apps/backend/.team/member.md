@@ -474,3 +474,68 @@ Query: lat (float, -90..90, required), lng (float, -180..180, required).
 - `GET /api/trails` 응답 계약은 변경 없음(§20 그대로 유효) — 이번 변경은 내부 fetch 비용 상한이며, codex verify가 지적한 무제한 fetch 리스크를 방지하기 위한 것.
 - `tests/trails/test_trails_service.py`에 신규 `test_candidate_limit_bounds_gpx_fetch_count` 추가 — fake 매칭 코스 20개를 만들어 GPX fetch가 20번이 아닌 정확히 15번만 호출됨을 검증. 기존 6개 코스(limit 미만) 테스트는 무변경, 계속 통과.
 - Verify: lead가 `just check`로 풀스위트 그린 확인함 — 96 passed, 7 skipped, 0 failed.
+
+## 23. 관찰 지도 기능 — Phase 1 (eBird 파서 코어, 네트워크 0, 순수 함수만)
+
+- 신규 패키지 `app/observation/`: `models.py`(Pydantic v2, `from __future__ import annotations`) — `Coordinate(lat,lng)`, `BirdSpecies(nameKo,nameSci,speciesCode,count,obsDt)`, `BirdObservation(speciesCount,topSpecies,mostRecentObsDt,status="community")`, `NightSky(sqmValue,bortleClass,skyClass,status="approx")`, `HeritageInfo(addr,distanceM,contentId)`, `ObservationSpot(id,kind:Literal["bird","star","heritage"],name,coord,nightSky|None,birds|None,heritage|None)`, `ObservationMapResponse(region,degraded,spots)`. 아직 어떤 라우터/서비스도 이 모델들을 사용하지 않음(순수 스키마 정의만).
+- `app/observation/ebird.py`: `parse_recent_obs(payload: list[dict]) -> list[dict]` — eBird `data/obs/geo/recent` raw 배열 각 아이템을 `{nameKo(←comName), nameSci(←sciName), speciesCode, count(←howMany, optional), obsDt(str 캐스팅), lat/lng(float 캐스팅), locId, locName, obsValid(bool, 기본 True)}`로 정규화. `aggregate_by_location(obs: list[dict]) -> list[dict]` — `locId`별로 그룹핑(첫 등장 순서 유지) 후 `speciesCode`별 최신 관측(obsDt 문자열 비교로 최대값) 1건만 남기고, `count`(None은 최하위) 내림차순 정렬해 상위 5종만 `topSpecies`로 담음. 반환 각 그룹: `{locId,locName,lat,lng,speciesCount,mostRecentObsDt,topSpecies}`.
+- 신규 픽스처 `tests/observation/fixtures/ebird_recent_ganghwa.json`(10 레코드, locId 3종: L1163669 4종/4레코드, L1234567 3종, L2345678 2종) + `tests/observation/test_observation_parsers.py`(5개 테스트 — 정규화 필드 검증, 그룹 순서, 그룹별 speciesCount/topSpecies/mostRecentObsDt 검증).
+- **네트워크 없는 순수 내부 모듈** — 아직 어떤 엔드포인트로도 노출되지 않음. 라우터는 Phase 3에서 `GET /api/observation-map`으로 publish 예정.
+
+## 24. 관찰 지도 기능 — Phase 2 (eBird config + live fetch + 3-소스 조립 서비스, 라우터 아직 없음)
+
+- `app/suitability/config.py`에 `ObservationConfig(ebird_token, ebird_base_url)` + `get_observation_config()` **추가만** 함(기존 5개 config 함수 무변경). `get_trails_config()` 바로 아래 동일 스타일로 배치. `ebird_token`은 `EBIRD_API_TOKEN`(기본 `""`), `ebird_base_url`은 `EBIRD_API_BASE_URL`(기본 `https://api.ebird.org/v2`).
+- `app/observation/ebird.py`에 `fetch_recent_obs(lat, lng, client=None, dist=25, back=14, max_results=100) -> list[dict]` **추가만** 함(Phase 1의 `parse_recent_obs`/`aggregate_by_location`는 바이트 단위로 무변경). `ebird_token`/`ebird_base_url` 중 하나라도 비면 네트워크 호출 없이 즉시 `[]`. 그 외엔 `GET {ebird_base_url}/data/obs/geo/recent`(헤더 `X-eBirdApiToken`, params `lat/lng/dist/back/maxResults/sppLocale=ko`) → `raise_for_status()` → `parse_recent_obs(response.json())`로 **정규화된** 리스트 반환. **모든 예외를 흡수**해 `[]` 반환(raise 없음, durunubi.py `fetch_courses`와 동일한 client-ownership + absorb 패턴). `client` 주입 시 그대로 쓰고 안 닫음, `None`이면 내부에서 `httpx.Client(timeout=10.0)` 생성 후 `finally`에서 close.
+- 신규 `app/observation/service.py`: `DEFAULT_REGION_LABEL = "인천 강화군"`(v1 고정 시드, `app.trails.service`와 별개 정의 — import 안 함), 고정 다크스카이 시드 스팟 상수 `OBS_STAR_ID="star:ganghwa-astro"`/`OBS_STAR_NAME="강화 천문인마을"`/`OBS_STAR_LAT=37.7378`/`OBS_STAR_LNG=126.4708`(강화도 고정 좌표, 실 역지오코딩은 스코프 밖). `ObservationMapService(fetch_recent_obs=None, light_pollution_provider=None, fetch_nearby_food=None)` — 생략 시 각각 `ebird.fetch_recent_obs`/`LightPollutionProvider()`/`app.trails.tourapi.fetch_nearby_food`로 기본 배선(TrailsService와 동일 DI 스타일).
+- `get_observation_map(lat, lng) -> dict`(plain dict) — bird/star/heritage 3개 소스를 **각각 독립된 `try/except Exception`**으로 감싸 부분 실패를 흡수: (1) bird — `self.fetch_recent_obs(lat,lng)`가 falsy면 `[]`, 아니면 `aggregate_by_location(raw)` 결과를 `{id:'bird:{locId}', kind:'bird', coord, birds:{speciesCount,topSpecies,mostRecentObsDt,status:'community'}, nightSky:None, heritage:None}`으로 매핑. (2) star — 고정 좌표로 `light_pollution_provider.fetch(OBS_STAR_LAT,OBS_STAR_LNG,'night')` 호출해 `nightSky{sqmValue,bortleClass,skyClass,status}` 조립, 실패 시 `star_spot=None`(리스트에서 완전히 제외, degraded 사유 아님). (3) heritage — `fetch_nearby_food(lat,lng)` 각 항목을 `{id:'heritage:{contentId}', kind:'heritage', coord, heritage:{addr,distanceM,contentId}}`로 매핑. `spots = bird_spots + ([star_spot] if star_spot else []) + heritage_spots`(이 순서 고정) → `degraded = (len(spots) == 0)`(3개 소스 중 하나라도 살아있으면 `degraded=False` — 부분 성공은 degrade로 취급 안 함) → `{region, degraded, spots}`.
+- `get_default_observation_map_service()`/`_default_observation_map_service`/`get_observation_map_service()` 3종 세트(`app/trails/service.py` 바닥과 동일 패턴, 모듈 싱글톤).
+- 신규 `tests/observation/test_observation_service.py` — 5개 테스트, 전부 fake `fetch_recent_obs`/`light_pollution_provider`/`fetch_nearby_food`(lambda·fake 클래스, `LayerReading`은 `app.suitability.providers.base`에서 실제 dataclass 재사용) 주입, 네트워크 0: happy path(4 spots, kind 순서 bird/star/heritage/heritage), bird 소스 raise 흡수(나머지 3개 유지, degraded=False), star 소스 raise 흡수, heritage 소스 raise 흡수, 3개 전부 실패 시 `{region, degraded:True, spots:[]}` 정확히 일치.
+- **아직 라우터 없음** — Phase 3에서 `app/routers/observation.py` + `GET /api/observation-map` + `main.py` 등록 예정.
+- **⚠️ 이 런은 role에 Bash 도구 자체가 허용되지 않아(모든 명령이 "requires approval") `uv run pytest` 실행 불가.** `service.py`와 `test_observation_service.py` 5개 테스트를 `aggregate_by_location`/`ebird.fetch_recent_obs`/`LightPollutionProvider` 로직에 손으로 트레이스해 정적 검증 완료(happy path의 group 병합·topSpecies 정렬·spots 순서·degraded 계산, 3개 부분실패 케이스 각각의 흡수 지점, 전체실패 시 최종 dict 완전 일치까지 전부 확인). **다음 엔지니어 또는 오너가 `cd apps/backend && uv run pytest tests/observation/ -q` 및 `uv run pytest -q`(전체 회귀) 실행해서 그린 확인 필요.**
+
+## 25. 관찰 지도 기능 — Phase 3 완료(`GET /api/observation-map` 라이브 엔드포인트 + 오프라인 테스트 + eBird env 문서 + 라이브 스모크) — 계약 publish
+
+**신규 라이브 엔드포인트 — flutter/web/ios/rn이 이제 `GET /api/observation-map`을 mock 대신 직접 호출 가능.**
+
+- Phase 1/2 파일(`app/observation/{models.py,ebird.py,service.py}`, `app/suitability/config.py`)은 이번 phase에서 **읽기만** 했고 전혀 수정하지 않음.
+- 신규 `app/routers/observation_map.py` — `app/routers/trails.py`와 완전히 동일한 패턴: `APIRouter(prefix="/api/observation-map")`, 단일 `GET ""` 라우트, `lat`/`lng`를 `Query(..., ge=-90, le=90)`/`Query(..., ge=-180, le=180)`로 선언해 FastAPI 자체가 누락/범위초과 시 422을 반환(별도 검증 헬퍼 없음), `Depends(get_observation_map_service)`로 서비스 주입 후 `service.get_observation_map(lat, lng)` 그대로 반환.
+- `app/main.py`: `from app.routers import badges, observation_map, observations, suitability, trails`로 알파벳 순 import에 `observation_map` 추가(언더스코어 `_`가 ASCII상 `s`보다 앞이라 `observation_map` < `observations` 순서 맞음), `app.include_router(observation_map.router)` 추가. 기존 4개 라우터 등록과 `/api/health` 핸들러는 무변경.
+- 신규 `tests/observation/test_observation_endpoint.py` — `tests/trails/test_trails_endpoint.py`와 동일 스타일: `FakeObservationMapService`(`get_observation_map(lat,lng)` 메서드로 사전 구성된 dict 반환) + `app.dependency_overrides[get_observation_map_service]` + autouse fixture(기본 fake 설치, 테스트 후 override clear). 5개 테스트: happy path(bird/star/heritage 각 1개, 각 spot이 자기 kind의 필드만 채워지고 나머지 2개는 None — 응답의 전체 키 집합을 `set()`으로 정확히 대조: 최상위 region/degraded/spots, spot당 id/kind/name/coord/nightSky/birds/heritage, birds 서브dict speciesCount/topSpecies/mostRecentObsDt/status, topSpecies 엔트리 nameKo/nameSci/speciesCode/count/obsDt, nightSky 서브dict sqmValue/bortleClass/skyClass/status, heritage 서브dict addr/distanceM/contentId), degraded(spots=[] 확인), lat 누락/lat 범위초과/lng 범위초과 422 3종.
+- `.env.example` 끝에 신규 섹션 추가: `EBIRD_API_TOKEN`(플레이스홀더, 토큰 없으면 bird 레이어만 빈 배열로 degrade되고 star/heritage는 정상 동작함을 주석으로 명시), `EBIRD_API_BASE_URL`(선택 항목, 기본값이 이미 `app/suitability/config.py`에 하드코딩되어 있음을 주석으로 명시). 기존 내용은 전혀 건드리지 않음.
+- `tests/suitability/test_live.py`: `from app.observation.service import ObservationMapService` import 추가, 신규 `@pytest.mark.live def test_observation_map_service_live_fetch()` — 실제 서비스를 무인자로 생성해 `_GANGHWA_LAT`/`_GANGHWA_LNG`로 `get_observation_map()` 호출, `degraded`가 bool·`spots`가 list인지만 단언하고 star-kind spot이 **정확히 1개** 존재함을 단언(라이트폴루션 프로바이더는 결정적 로컬 휴리스틱이라 네트워크 불필요 — 항상 성공). bird/heritage spot 개수는 `print()`로만 노출(eBird 토큰·TourAPI 키 미설정/네트워크 불가 시 0건이 정상이라 assert 대상 아님). 기존 import/상수/pytestmark/테스트 함수는 전혀 수정하지 않고 끝에 추가만 함.
+
+### `GET /api/observation-map` 계약
+
+```
+Query: lat (float, -90..90, required), lng (float, -180..180, required) — 누락/범위초과 시 422.
+
+200 응답 (ObservationMapResponse):
+{
+  "region": "인천 강화군",          // v1 고정값, 역지오코딩 없음
+  "degraded": false,                // bird/star/heritage 3개 소스가 전부 0건일 때만 true
+  "spots": [
+    {
+      "id": "bird:L1163669" | "star:ganghwa-astro" | "heritage:12345",
+      "kind": "bird" | "star" | "heritage",
+      "name": "...",
+      "coord": { "lat": 37.70, "lng": 126.45 },
+      "nightSky": { "sqmValue": 21.4, "bortleClass": 3, "skyClass": "Class 3 다크스카이", "status": "approx" } | null,
+      "birds": {
+        "speciesCount": 12,          // 해당 eBird 핫스팟의 고유 종 수
+        "topSpecies": [              // count 내림차순, 최대 5개
+          { "nameKo": "저어새", "nameSci": "Platalea minor", "speciesCode": "eaospo1", "count": 5, "obsDt": "2026-09-01 07:30" }
+        ],
+        "mostRecentObsDt": "2026-09-01 07:30",
+        "status": "community"        // 고정 — eBird는 시민과학 이력 데이터, 실시간 아님
+      } | null,
+      "heritage": { "addr": "인천 강화군 강화읍", "distanceM": 320, "contentId": "12345" } | null
+      // kind에 해당하는 필드 1개만 non-null, 나머지 2개는 항상 null
+    }
+  ]
+}
+```
+
+- `nightSky.status`는 항상 `"approx"`(정적 lat/lng 휴리스틱, 실제 위성 데이터 아님). `birds.status`는 항상 `"community"`(eBird 시민과학 이력 데이터, `live`/실시간 절대 아님 — 컨슈머 UI 문구가 실시간을 암시하면 안 됨).
+- **이 응답에는 suitability/적합도 점수 필드가 의도적으로 없음.** 탭한 스팟의 현재 시점 적합도가 필요하면 그 스팟의 `coord`로 **기존** `GET /api/suitability?lat&lng&mode`(§8)를 별도 호출해야 함 — 이번 스펙에 새 적합도 엔드포인트는 없음.
+- Verify 명령: `cd apps/backend && uv run pytest tests/observation/ -q`, 그리고 `cd apps/backend && uv run pytest -q`(신규 라이브 테스트가 기본 실행에서 `RUN_LIVE_TESTS` 미설정으로 SKIPPED 뜨는지 확인).
+- **⚠️ 이 런도 role에 Bash 도구가 허용되지 않아(모든 명령이 "requires approval") 위 명령을 실제로 실행하지 못함.** `observation_map.py`(trails.py와 줄 단위 대조)·`main.py` import 순서(ASCII `_` < `s`)·`test_observation_endpoint.py` 5개 테스트(FakeService 반환값 → 라우터 → response_model 직렬화 경로를 손으로 트레이스, 각 `set()` 단언이 실제 fake dict 키와 정확히 일치함을 확인)·`.env.example` 포맷(기존 항목과 동일한 "주석 한 줄 + 변수 한 줄" 패턴)·`test_live.py` 추가분(기존 import/상수/pytestmark 무변경, 신규 함수만 끝에 추가)을 전부 정적 재검증 완료. **다음 엔지니어 또는 오너가 위 두 verify 명령을 실행해서 그린 확인(및 라이브 테스트가 SKIPPED로 표시되는지) 필요.**
