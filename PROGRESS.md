@@ -149,9 +149,19 @@
 - **성격**: 홈(오늘 판단)·트레일(코스 랭킹)·지도(공간 탐색)와 **겹치지 않는 유일한 커머스 레이어**(예약·결제·상품). design-lead "중복 위험"은 표면(낮/밤)만 본 것 — 실제 태스크(1박2일 상품 예약)는 고유.
 - **오너 결정**: 정체는 명확 → 탭 존치(빈 목적 없는 탭 아님). **단 지금 구현 안 함** — 실상품·제휴·결제/예약 백엔드 필요한 비즈니스 조각이라 실콘텐츠 준비 후 후속. 지금은 관찰 지도(핵심)가 우선.
 
+## 관찰 지도 backend 계약 완성 (2026-09-10) ✅ — GET /api/observation-map 라이브 검증
+
+- **014 backend** 구현·`backend-check` green(111 passed/8 skipped). 커밋 `6215339`. `specs/014-observation-map-backend.md`(risk high). 신규 `GET /api/observation-map?lat&lng` = 조류(eBird)+별(SQM)+노포 스팟 목록.
+- **eBird 라이브 연동**: 토큰 `.env` 저장(gitignore). `sppLocale=ko` 한국어 종명. `/data/obs/geo/recent` → locId(관측지) 집계로 조류 스팟. **정직 표기**: status=`community`(절대 live 아님)+`obsDt` 필수.
+- **재사용(신규 최소화)**: 별 SQM=`LightPollutionProvider`, 노포=`trails/tourapi`, 스팟 적합도=기존 `GET /api/suitability`(신규 없음). 측정값/적합도 응답 필드 분리(013 계승, `score` 필드 없음).
+- **브레인 uvicorn end-to-end 라이브 검증(강화 37.5921/126.3984)**: HTTP 200, region 인천 강화군, degraded=false, **18 스팟(조류 14 + 별 1 + 노포 3)**. 조류 실데이터=영종도 송산만 갯벌 36종·알락꼬리마도요 280, 여차리 갯벌/물꽝, 초지리 들판 황로 14 등. 별=강화 천문인마을 SQM 16.81 Bortle 8 approx. 노포=꽃게와낙지 1363m 등. `score` 필드 없음 확인.
+- **⚠️ 파이프라인 verdict=FAIL = false-negative**(3번째 사례): `lead.ok:true`·`validation:true`·codex **14 PASS + 1 FAIL(브레인 라이브검증 미수행)** — 유일 FAIL이 스펙 설계상 브레인 몫이라 lead가 규칙5로 에스컬레이션, 브레인이 검증 완료로 해소. verify2 미기록으로 verdict FAIL 굳음. [[factory-verdict-false-negative]] 재확인.
+
 ## 다음 세션 시작점 (후속 조각)
 
-**다음 = 관찰 지도(핵심) — `specs/014-observation-map-backend.md` 계약부터**(팀=backend, eBird 프록시+스팟 by bbox+측정/적합도 분리). 선결: eBird 토큰. 그 후 flutter 지도 consumer(design-lead 검수 거쳐). **013 트레일 flutter 완성·green·육안검증+오버플로우 수정 완료**(커밋 `b1de369`/`d8441fe`).
+**다음 = 관찰 지도 flutter consumer(핵심 UI)** — `GET /api/observation-map`를 소비하는 지도 화면. flutter_map+OSM 다크타일, full-bleed 지도 + **3-스냅 드래그 바텀시트**, 핀 3종(조류/별/노포)+레이어칩+탭→시트, 지역 bbox fit+GPS 1샷, **측정값(핀)/적합도(시트, 기존 /api/suitability 재사용) 종분리**, eBird "최근 관측·N일 전"+신선도 색. design-lead 관찰지도 자문은 이미 완료(PROGRESS "관찰 지도=앱 핵심" 절) → **flutter 스펙 작성 → design-lead 스펙 검수 → 발사**. MVP 절제(면 오버레이·3D·나침반·오프라인·다중지역 후속). 계약은 `member.md §25`.
+
+**완료분**: 013 트레일 flutter(`b1de369`/`d8441fe`, green+육안검증+오버플로우 수정), 014 관찰지도 backend(`6215339`, green+라이브검증). **낮-밤 패키지 탭**=1박2일 예약 커머스로 정의만 기록(구현 후속).
 
 ~~**012 트레일 backend PASS** → 다음=flutter consumer 조각~~ (013으로 완료).
 
