@@ -6,7 +6,10 @@ import 'package:latlong2/latlong.dart';
 import '../config.dart';
 import '../models/discovery.dart';
 import '../models/observation_map.dart';
+import '../models/trails.dart';
 import '../state/discovery_providers.dart';
+import '../utils/observation_spot_filter.dart';
+import '../widgets/observation_map_overlays.dart';
 import '../widgets/observation_marker.dart';
 import '../widgets/observation_spot_sheet.dart';
 
@@ -26,21 +29,48 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   final Set<String> _activeKinds = {'bird', 'star', 'heritage'};
   late final DraggableScrollableController _sheetController =
       DraggableScrollableController();
+  final LayerHitNotifier<TrailTrack> _trailHitNotifier = ValueNotifier(null);
   ObservationSpot? _selectedSpot;
+  String _searchQuery = '';
+  SpotSort _sortBy = SpotSort.distance;
+  bool _sqmFilterActive = false;
 
-  static const _layerKinds = ['bird', 'star', 'heritage'];
+  static const _layerKinds = ['bird', 'star', 'heritage', 'trail'];
   static const _layerLabels = {
     'bird': '조류',
     'star': '별',
     'heritage': '노포',
+    'trail': '탐방로',
   };
   static const _sheetMidSnap = 0.45;
+  static const _trailColor = Color(0xFF5C8A72);
+
+  @override
+  void initState() {
+    super.initState();
+    _trailHitNotifier.addListener(_handleTrailHit);
+  }
 
   @override
   void dispose() {
+    _trailHitNotifier.removeListener(_handleTrailHit);
+    _trailHitNotifier.dispose();
     _mapController.dispose();
     _sheetController.dispose();
     super.dispose();
+  }
+
+  void _handleTrailHit() {
+    final hit = _trailHitNotifier.value;
+    if (hit == null || hit.hitValues.isEmpty) return;
+    _showTrailInfo(hit.hitValues.first.course);
+  }
+
+  void _showTrailInfo(TrailCourse course) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => _TrailInfoDialog(course: course),
+    );
   }
 
   void _selectSpot(ObservationSpot spot) {
@@ -102,6 +132,27 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     ref.read(locationProvider.notifier).refresh();
   }
 
+  void _setSearchQuery(String value) {
+    setState(() => _searchQuery = value);
+  }
+
+  void _setSortBy(SpotSort value) {
+    setState(() => _sortBy = value);
+  }
+
+  void _toggleSqmFilter(bool value) {
+    setState(() => _sqmFilterActive = value);
+  }
+
+  /// Fades the compass/tide-moon overlays out once the sheet is dragged
+  /// meaningfully past its 0.16 resting peek, so they never visually collide
+  /// with the expanding sheet. [_sheetController] only reports a valid
+  /// [DraggableScrollableController.size] once attached to its sheet.
+  double _peekOverlayOpacity() {
+    if (!_sheetController.isAttached) return 1.0;
+    return _sheetController.size > 0.2 ? 0.0 : 1.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -138,7 +189,36 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     final mapAsync = ref.watch(observationMapProvider);
     final spots = mapAsync.valueOrNull?.spots ?? const <ObservationSpot>[];
     final locationAsync = ref.watch(locationProvider);
-    final isFallbackLocation = locationAsync.valueOrNull?.isFallback ?? false;
+    final currentLocation = locationAsync.valueOrNull;
+    final isFallbackLocation = currentLocation?.isFallback ?? false;
+    final origin = currentLocation == null
+        ? null
+        : Coordinate(lat: currentLocation.lat, lng: currentLocation.lng);
+    final filteredSpots = sortObservationSpots(
+      filterObservationSpotsBySqm(
+        filterObservationSpotsByQuery(spots, _searchQuery),
+        active: _sqmFilterActive,
+      ),
+      _sortBy,
+      origin: origin,
+    );
+    // Conditional watch, not unconditional-then-filter: keeps the GPX
+    // fetch lazy so it never fires while the trail chip is off.
+    final trailTracks = _activeKinds.contains('trail')
+        ? ref.watch(observationTrailTracksProvider).valueOrNull ??
+            const <TrailTrack>[]
+        : const <TrailTrack>[];
+
+    final obsMode = ref.watch(obsModeProvider).mode;
+    final discoveryOverview =
+        ref.watch(discoveryProvider(obsMode)).valueOrNull;
+    final tideText = discoveryOverview == null
+        ? null
+        : _telemetryValueFor(discoveryOverview.telemetry, 'tide');
+    final moonText = discoveryOverview == null
+        ? null
+        : _goldenHourDescriptionFor(discoveryOverview.goldenHours, obsMode);
+    final peekHeight = MediaQuery.sizeOf(context).height * 0.16;
 
     return Scaffold(
       key: const Key('obsmap_screen'),
@@ -161,14 +241,64 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                     'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
                 userAgentPackageName: 'com.lookup.app',
               ),
-              MarkerLayer(
-                markers: buildObservationMarkers(
-                  spots: spots,
-                  activeKinds: _activeKinds,
-                  selectedSpotId: _selectedSpot?.id,
-                  onSpotTap: _selectSpot,
-                ),
+              // Rebuilds on every camera change (pan/zoom/rotate) -- the
+              // standard flutter_map pattern for reading live zoom/camera
+              // into marker-building logic -- so the on-map label display
+              // rules (spec 016 P1-1: zoom-gated, collision-suppressed) stay
+              // in sync with what's actually on screen.
+              StreamBuilder<MapEvent>(
+                stream: _mapController.mapEventStream,
+                builder: (context, snapshot) {
+                  final camera = _mapController.camera;
+                  return MarkerLayer(
+                    markers: buildObservationMarkers(
+                      spots: filteredSpots,
+                      activeKinds: _activeKinds,
+                      selectedSpotId: _selectedSpot?.id,
+                      onSpotTap: _selectSpot,
+                      zoom: camera.zoom,
+                      screenOffsetOf: (spot) => camera.latLngToScreenOffset(
+                        LatLng(spot.coord.lat, spot.coord.lng),
+                      ),
+                    ),
+                  );
+                },
               ),
+              if (_activeKinds.contains('trail')) ...[
+                PolylineLayer<TrailTrack>(
+                  hitNotifier: _trailHitNotifier,
+                  polylines: [
+                    for (final track in trailTracks)
+                      if (track.points.isNotEmpty)
+                        Polyline<TrailTrack>(
+                          points: track.points,
+                          strokeWidth: 3,
+                          color: _trailColor,
+                          pattern: StrokePattern.dashed(
+                            segments: const [8, 6],
+                          ),
+                          hitValue: track,
+                        ),
+                  ],
+                ),
+                MarkerLayer(
+                  markers: [
+                    for (final track in trailTracks)
+                      Marker(
+                        point: LatLng(
+                          track.course.start.lat,
+                          track.course.start.lng,
+                        ),
+                        width: 44,
+                        height: 44,
+                        child: _TrailheadMarker(
+                          course: track.course,
+                          onTap: () => _showTrailInfo(track.course),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
               // flutter_map 8.x's AttributionAlignment only supports
               // bottomLeft/bottomRight (RichAttributionWidget otherwise
               // expands to fill the map and self-aligns its content), so
@@ -217,6 +347,30 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                   children: [
                     Row(
                       children: [
+                        Semantics(
+                          label: _activeKinds.length == _layerKinds.length
+                              ? '전체 레이어 끄기'
+                              : '전체 레이어 켜기',
+                          child: SizedBox(
+                            height: 44,
+                            child: Center(
+                              child: FilterChip(
+                                key: const Key('obsmap_chip_all'),
+                                label: const Text('전체'),
+                                selected:
+                                    _activeKinds.length == _layerKinds.length,
+                                onSelected: (selected) => setState(() {
+                                  if (selected) {
+                                    _activeKinds.addAll(_layerKinds);
+                                  } else {
+                                    _activeKinds.clear();
+                                  }
+                                }),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         for (final kind in _layerKinds) ...[
                           Semantics(
                             label: '${_layerLabels[kind]} 레이어 '
@@ -274,14 +428,152 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
               ),
             ),
           ),
+          Positioned(
+            right: 16,
+            bottom: peekHeight + 16,
+            child: AnimatedBuilder(
+              animation: _sheetController,
+              builder: (context, _) {
+                final opacity = _peekOverlayOpacity();
+                return AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: opacity,
+                  child: IgnorePointer(
+                    ignoring: opacity == 0,
+                    child: StreamBuilder<MapEvent>(
+                      stream: _mapController.mapEventStream,
+                      builder: (context, snapshot) {
+                        return CompassButton(
+                          rotationDegrees: _mapController.camera.rotation,
+                          onTap: () => _mapController.rotate(0),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Positioned(
+            left: 16,
+            bottom: peekHeight + 16,
+            child: AnimatedBuilder(
+              animation: _sheetController,
+              builder: (context, _) {
+                final opacity = _peekOverlayOpacity();
+                return AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: opacity,
+                  child: IgnorePointer(
+                    ignoring: opacity == 0,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 210),
+                      child: TideMoonOverlay(
+                        tideText: tideText,
+                        moonText: moonText,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
           ObservationSpotSheet(
-            spots: spots,
+            spots: filteredSpots,
             selectedSpot: _selectedSpot,
             onSelectSpot: _selectSpot,
             sheetController: _sheetController,
+            searchQuery: _searchQuery,
+            onSearchChanged: _setSearchQuery,
+            sortBy: _sortBy,
+            onSortChanged: _setSortBy,
+            sqmFilterActive: _sqmFilterActive,
+            onSqmFilterChanged: _toggleSqmFilter,
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Null-safe [TelemetryReading.value] lookup by [kind] -- returns null
+/// instead of throwing when no matching reading is present.
+String? _telemetryValueFor(List<TelemetryReading> telemetry, String kind) {
+  for (final reading in telemetry) {
+    if (reading.kind == kind) return reading.value;
+  }
+  return null;
+}
+
+/// Null-safe [GoldenHour.description] lookup by [mode] -- returns null
+/// instead of throwing when no matching golden hour entry is present.
+String? _goldenHourDescriptionFor(List<GoldenHour> goldenHours, ObsMode mode) {
+  for (final hour in goldenHours) {
+    if (hour.mode == mode) return hour.description;
+  }
+  return null;
+}
+
+/// Small always-visible pin marking a [TrailCourse.start] point, independent
+/// of whether that course's GPX track fetch succeeded -- the trailhead must
+/// stay visible even when [TrailTrack.points] is empty.
+class _TrailheadMarker extends StatelessWidget {
+  const _TrailheadMarker({required this.course, required this.onTap});
+
+  final TrailCourse course;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '탐방로 시작점, ${course.name}',
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Center(
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: const BoxDecoration(
+                color: _ObservationMapScreenState._trailColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.hiking,
+                size: 13,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Lightweight tap tooltip for a trailhead marker or polyline segment: just
+/// the course name and distance -- full course detail is a future deep-link
+/// to the trails tab, out of scope here.
+class _TrailInfoDialog extends StatelessWidget {
+  const _TrailInfoDialog({required this.course});
+
+  final TrailCourse course;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(course.name),
+      content: Text('${course.distanceKm.toStringAsFixed(1)}km'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('닫기'),
+        ),
+      ],
     );
   }
 }

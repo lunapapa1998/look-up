@@ -179,7 +179,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('조류 12종 관측'), findsOneWidget);
-      expect(find.textContaining('저어새'), findsOneWidget);
+      // findsWidgets, not findsOneWidget: spec 016 Phase 1 gives the now-
+      // selected bird-001 marker its own on-map pill label, which legitimately
+      // repeats the top species name ("저어새") alongside the detail body's
+      // species list -- see observation_map_parity_test.dart for the
+      // dedicated label-content assertion.
+      expect(find.textContaining('저어새'), findsWidgets);
       expect(find.textContaining('검은머리물떼새'), findsOneWidget);
     },
   );
@@ -284,7 +289,10 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.textContaining('SQM 20.15'), findsOneWidget);
+      // findsWidgets, not findsOneWidget: spec 016 Phase 1 gives the now-
+      // zoomed-in star-001 marker its own on-map pill label, which
+      // legitimately repeats "SQM 20.15" alongside the sheet list row.
+      expect(find.textContaining('SQM 20.15'), findsWidgets);
 
       await tester.tap(find.byKey(const Key('obsmap_spot_item_star-001')));
       await tester.pumpAndSettle();

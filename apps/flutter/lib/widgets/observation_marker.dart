@@ -14,24 +14,117 @@ List<ObservationSpot> filterObservationSpots(
   return spots.where((spot) => activeKinds.contains(spot.kind)).toList();
 }
 
+/// Measurement-only on-map label text for [spot] (spec 016 P1: name plus a
+/// kind-specific measurement summary -- bird species, SQM, or just the name
+/// for heritage -- never a suitability score). Mirrors
+/// `_measurementSummary` in observation_spot_sheet.dart but folds in the
+/// spot name for the single-line on-map pill.
+String spotLabelText(ObservationSpot spot) {
+  switch (spot.kind) {
+    case 'bird':
+      final birds = spot.birds!;
+      if (birds.topSpecies.isNotEmpty) {
+        final top = birds.topSpecies.first;
+        final count = top.count;
+        return count != null
+            ? '${spot.name} · ${top.nameKo} $count'
+            : '${spot.name} · ${top.nameKo}';
+      }
+      return '${spot.name} · ${birds.speciesCount}종';
+    case 'star':
+      return '${spot.name} · SQM ${spot.nightSky!.sqmValue.toStringAsFixed(2)}';
+    case 'heritage':
+    default:
+      return spot.name;
+  }
+}
+
+/// Pure collision-suppression for on-map spot labels (spec 016 P1-1).
+///
+/// - [selectedSpotId], if present among [spots], always gets a label.
+/// - Below [zoomThreshold] no other spot ever gets a label (zoom is the
+///   sole gate for the "maybe" case).
+/// - At/above [zoomThreshold], the remaining spots are walked in stable id
+///   order and greedily suppressed (dot-only) if their projected screen
+///   offset falls within [collisionRadius] px of an already-placed label.
+///
+/// [screenOffsetOf] projects a spot to a screen offset (in the real screen,
+/// `MapCamera.latLngToScreenOffset`); pass `null` to skip the zoom-gated
+/// pass entirely. Deliberately simple/greedy -- full label clustering is
+/// out of scope for this phase (see spec Notes).
+Set<String> computeLabeledSpotIds({
+  required List<ObservationSpot> spots,
+  required double zoom,
+  String? selectedSpotId,
+  Offset Function(ObservationSpot spot)? screenOffsetOf,
+  double zoomThreshold = 14,
+  double collisionRadius = 56,
+}) {
+  final labeled = <String>{};
+  final placedOffsets = <Offset>[];
+
+  if (selectedSpotId != null) {
+    final matches = spots.where((s) => s.id == selectedSpotId);
+    if (matches.isNotEmpty) {
+      labeled.add(selectedSpotId);
+      if (screenOffsetOf != null) {
+        placedOffsets.add(screenOffsetOf(matches.first));
+      }
+    }
+  }
+
+  if (zoom < zoomThreshold || screenOffsetOf == null) return labeled;
+
+  final ordered = [...spots]..sort((a, b) => a.id.compareTo(b.id));
+  for (final spot in ordered) {
+    if (spot.id == selectedSpotId) continue;
+    final offset = screenOffsetOf(spot);
+    final collides = placedOffsets.any(
+      (placed) => (placed - offset).distance < collisionRadius,
+    );
+    if (collides) continue;
+    labeled.add(spot.id);
+    placedOffsets.add(offset);
+  }
+  return labeled;
+}
+
 /// Maps the active spots to flutter_map [Marker]s.
 ///
 /// Pure and side-effect free (no [State] access) so it can be unit tested
-/// without a widget tree.
+/// without a widget tree. [zoom] and [screenOffsetOf] gate the on-map label
+/// display rules (spec 016 P1-1); both are optional so existing call sites
+/// (fixed at the map's initial zoom of 12, below the zoom-gated label
+/// threshold) keep compiling and rendering unchanged. In the real screen,
+/// [screenOffsetOf] is `(spot) => camera.latLngToScreenOffset(...)`; tests
+/// can inject a synthetic projection instead of building a real MapCamera.
 List<Marker> buildObservationMarkers({
   required List<ObservationSpot> spots,
   required Set<String> activeKinds,
   String? selectedSpotId,
   required void Function(ObservationSpot) onSpotTap,
+  double zoom = 12,
+  Offset Function(ObservationSpot spot)? screenOffsetOf,
 }) {
-  return filterObservationSpots(spots, activeKinds).map((spot) {
+  final filtered = filterObservationSpots(spots, activeKinds);
+  final labeledIds = computeLabeledSpotIds(
+    spots: filtered,
+    zoom: zoom,
+    selectedSpotId: selectedSpotId,
+    screenOffsetOf: screenOffsetOf,
+  );
+
+  return filtered.map((spot) {
+    final showLabel = labeledIds.contains(spot.id);
     return Marker(
       point: LatLng(spot.coord.lat, spot.coord.lng),
-      width: 44,
-      height: 44,
+      width: ObservationMarker.markerWidth(showLabel),
+      height: ObservationMarker.markerHeight(showLabel),
+      alignment: ObservationMarker.markerAlignment(showLabel),
       child: ObservationMarker(
         spot: spot,
         selected: spot.id == selectedSpotId,
+        showLabel: showLabel,
         onTap: () => onSpotTap(spot),
       ),
     );
@@ -47,10 +140,12 @@ class ObservationMarker extends StatelessWidget {
     required this.spot,
     required this.selected,
     required this.onTap,
+    this.showLabel = false,
   });
 
   final ObservationSpot spot;
   final bool selected;
+  final bool showLabel;
   final VoidCallback onTap;
 
   /// Desaturated warm gray-brown, hardcoded because it must sit visibly away
@@ -60,20 +155,47 @@ class ObservationMarker extends StatelessWidget {
 
   static const double _pinSize = 28;
 
+  /// Hit-testable pin box side length -- unchanged from before on-map
+  /// labels existed.
+  static const double pinBoxSize = 44;
+  static const double _labelGap = 6;
+  static const double _labelPillHeight = 22;
+  static const double _labelMaxWidth = 150;
+
   static const _kindLabels = {
     'bird': '조류 관찰 스팟',
     'star': '별 관찰 스팟',
     'heritage': '노포 관찰 스팟',
   };
 
+  /// flutter_map `Marker.width` to reserve: just the pin hit area when no
+  /// label shows, or the wider label-pill column when one does.
+  static double markerWidth(bool showLabel) =>
+      showLabel ? _labelMaxWidth : pinBoxSize;
+
+  /// flutter_map `Marker.height` to reserve: the pin alone, or the pin plus
+  /// the fixed-height pill stacked below it with a gap.
+  static double markerHeight(bool showLabel) =>
+      showLabel ? pinBoxSize + _labelGap + _labelPillHeight : pinBoxSize;
+
+  /// flutter_map `Marker.alignment` -- which point of the box lands on the
+  /// spot's LatLng. Unlabeled markers use the original center-of-box anchor
+  /// (box == pin, so this exactly reproduces pre-label behavior). Labeled
+  /// markers grow taller for the pill below, so they re-anchor to
+  /// top-center: the pin (the first, centered child of the column) then
+  /// still sits right at the coordinate instead of drifting down as the box
+  /// grows.
+  static Alignment markerAlignment(bool showLabel) =>
+      showLabel ? Alignment.topCenter : Alignment.center;
+
   @override
   Widget build(BuildContext context) {
-    return Semantics(
+    final pin = Semantics(
       button: true,
       label: '${_kindLabels[spot.kind] ?? '관찰 스팟'}, ${spot.name}',
       child: SizedBox(
-        width: 44,
-        height: 44,
+        width: pinBoxSize,
+        height: pinBoxSize,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
@@ -83,6 +205,66 @@ class ObservationMarker extends StatelessWidget {
               child: _ObservationPin(spot: spot, selected: selected),
             ),
           ),
+        ),
+      ),
+    );
+
+    if (!showLabel) return pin;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        pin,
+        const SizedBox(height: _labelGap),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: _labelMaxWidth),
+          child: _ObservationLabelPill(
+            text: spotLabelText(spot),
+            selected: selected,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Semi-transparent pill label shown below a marker's pin (spec 016 P1):
+/// measurement-only text, never a suitability score. Own widget class per
+/// this file's no-private-build-method convention (see [_RoundPin] et al).
+class _ObservationLabelPill extends StatelessWidget {
+  const _ObservationLabelPill({required this.text, required this.selected});
+
+  final String text;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      height: ObservationMarker._labelPillHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        // Fully opaque surface (not a translucent tint) so the text stays
+        // readable over the dark map tile underneath regardless of the
+        // tile's own brightness at that point -- the token pair alone
+        // already clears 4.5:1 (verified WCAG contrast, spec 016 Phase 5
+        // P2-4), so no alpha blending with the tile is needed or safe.
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: selected ? _pinShadow(true) : const [],
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: textTheme.labelSmall?.copyWith(
+          fontSize: 12,
+          height: 1.0,
+          color: colorScheme.onSurface,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
         ),
       ),
     );

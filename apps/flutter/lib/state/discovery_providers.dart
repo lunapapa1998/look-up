@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:latlong2/latlong.dart';
+
+import '../api/gpx_api.dart';
 import '../api/observation_map_api.dart';
 import '../api/suitability_api.dart';
 import '../api/trails_api.dart';
@@ -124,6 +127,27 @@ class TrailsNotifier extends AsyncNotifier<TrailsResponse> {
 
 final trailsProvider =
     AsyncNotifierProvider<TrailsNotifier, TrailsResponse>(TrailsNotifier.new);
+
+final gpxApiProvider = Provider<GpxApi>((ref) {
+  return HttpGpxApi();
+});
+
+typedef TrailTrack = ({TrailCourse course, List<LatLng> points});
+
+final observationTrailTracksProvider = FutureProvider<List<TrailTrack>>((
+  ref,
+) async {
+  final trails = await ref.watch(trailsProvider.future);
+  final courses = trails.courses;
+  final gpxApi = ref.watch(gpxApiProvider);
+  final tracks = await Future.wait(
+    courses.map((course) => gpxApi.fetchGpxTrack(course.gpxUrl)),
+  );
+  return [
+    for (var i = 0; i < courses.length; i++)
+      (course: courses[i], points: tracks[i]),
+  ];
+});
 
 final hotspotsProvider = Provider<List<Hotspot>>((ref) {
   return const [
