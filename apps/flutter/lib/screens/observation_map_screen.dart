@@ -347,7 +347,12 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                   children: [
                     Row(
                       children: [
-                        Semantics(
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                Semantics(
                           label: _activeKinds.length == _layerKinds.length
                               ? '전체 레이어 끄기'
                               : '전체 레이어 켜기',
@@ -390,7 +395,10 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                           ),
                           const SizedBox(width: 8),
                         ],
-                        const Spacer(),
+                              ],
+                            ),
+                          ),
+                        ),
                         Semantics(
                           label: '현재 위치로 이동',
                           child: IconButton(

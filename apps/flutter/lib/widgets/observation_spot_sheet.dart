@@ -118,29 +118,32 @@ class ObservationSpotSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              if (selectedSpot == null)
-                _SpotSearchAndFilterBar(
-                  searchQuery: searchQuery,
-                  onSearchChanged: onSearchChanged,
-                  sortBy: sortBy,
-                  onSortChanged: onSortChanged,
-                  sqmFilterActive: sqmFilterActive,
-                  onSqmFilterChanged: onSqmFilterChanged,
-                ),
               Expanded(
+                // The search/filter bar lives INSIDE the scroll view (not as a
+                // fixed sibling) so the collapsed peek (0.16) never overflows:
+                // at peek only the grabber+header fit and everything below
+                // scrolls. Non-lazy list is fine (spots <= ~18).
                 child: selectedSpot != null
                     ? ObservationSpotDetail(
                         spot: selectedSpot!,
                         scrollController: scrollController,
                       )
-                    : isFilteredEmpty
-                        ? const _EmptyFilterResult()
-                        : ListView.builder(
-                            controller: scrollController,
-                            itemCount: spots.length,
-                            itemBuilder: (context, index) {
-                              final spot = spots[index];
-                              return InkWell(
+                    : ListView(
+                        controller: scrollController,
+                        children: [
+                          _SpotSearchAndFilterBar(
+                            searchQuery: searchQuery,
+                            onSearchChanged: onSearchChanged,
+                            sortBy: sortBy,
+                            onSortChanged: onSortChanged,
+                            sqmFilterActive: sqmFilterActive,
+                            onSqmFilterChanged: onSqmFilterChanged,
+                          ),
+                          if (isFilteredEmpty)
+                            const _EmptyFilterResult()
+                          else
+                            for (final spot in spots)
+                              InkWell(
                                 key: Key('obsmap_spot_item_${spot.id}'),
                                 onTap: () => onSelectSpot(spot),
                                 child: Padding(
@@ -177,9 +180,9 @@ class ObservationSpotSheet extends StatelessWidget {
                                     ],
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                        ],
+                      ),
               ),
             ],
           ),
