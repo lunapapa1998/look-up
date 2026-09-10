@@ -157,11 +157,20 @@
 - **브레인 uvicorn end-to-end 라이브 검증(강화 37.5921/126.3984)**: HTTP 200, region 인천 강화군, degraded=false, **18 스팟(조류 14 + 별 1 + 노포 3)**. 조류 실데이터=영종도 송산만 갯벌 36종·알락꼬리마도요 280, 여차리 갯벌/물꽝, 초지리 들판 황로 14 등. 별=강화 천문인마을 SQM 16.81 Bortle 8 approx. 노포=꽃게와낙지 1363m 등. `score` 필드 없음 확인.
 - **⚠️ 파이프라인 verdict=FAIL = false-negative**(3번째 사례): `lead.ok:true`·`validation:true`·codex **14 PASS + 1 FAIL(브레인 라이브검증 미수행)** — 유일 FAIL이 스펙 설계상 브레인 몫이라 lead가 규칙5로 에스컬레이션, 브레인이 검증 완료로 해소. verify2 미기록으로 verdict FAIL 굳음. [[factory-verdict-false-negative]] 재확인.
 
+## 관찰 지도 flutter consumer 완성 (2026-09-10) ✅ — 커밋 d7fdc16 (실질 PASS, 잔여=오너 시뮬 육안)
+
+- **015 flutter** 구현·`just check` green(flutter test 75/75, analyze 무경고). 커밋 `d7fdc16`. `specs/015-observation-map-flutter.md`(risk high). app_shell index1 placeholder→`ObservationMapScreen`.
+- **신규 의존성**: `flutter_map 8.3.2`+`latlong2 0.10.1`, CARTO dark_matter 무키 다크타일. **낮모드 저알파 오버레이**(design-lead P1-1: full-bleed 다크지도가 앱 낮/밤 장면전환 정체성과 충돌 → `colorScheme.surface` 0.12~0.18 오버레이로 정합, positron 스왑은 후속). 발사 전 justfile `flutter-check`에 `flutter pub get` 선행 추가(유지보수)+pub 캐시 워밍으로 신규패키지 취득 de-risk.
+- **핵심 규율 계승(013)**: 측정값↔적합도 종분리(핀/리스트=측정값, 시트 상세에서만 기존 `/api/suitability` 2차 호출+구분선 분리), eBird 정직표기(한국어 "커뮤니티 관측" 배지+"N일 전" 날짜파싱 폴백, "실시간" 금지). 핀 3종 **색+형태 이중 인코딩**(P1-2, WCAG 1.4.1, `flutter_dash` 금지), **위치 권한거부 폴백**(P1-3, 강화 기본좌표+배너+재시도), 3-스냅 시트(0.16/0.45/0.9), 레이어칩 필터, 상태 4종.
+- **design-lead 발사 전 검수=조건부 GO**(P1 3+P2 5 전부 반영). [[lookup-design-lead-workflow]] 관문 준수.
+- **⚠️ 파이프라인 verdict=FAIL = false-negative(4번째)**: codex 검증 **23항목 중 22 PASS**(nullable 파싱·카메라 fit·측정/적합도 구분선·정직문구·상태·위치폴백·오버플로우·접근성 전부 PASS), 유일 FAIL은 "`_build*` 코드베이스 전체 0건" 체크박스 문구의 **스코프 오독**(신규 6파일 0건 확인, 지적된 `mode_header`/`course_card`/`trails_catalog`는 기존 파일=회귀금지로 무변경). 브레인 grep+`just check` 재실행으로 실질 PASS 확정. **크로스모델 가치 발현**: lead가 런 중 실 결함 2건(단일스팟 zero-area bounds 크래시·테스트 State 재사용) 자체 수정. [[factory-verdict-false-negative]]/[[factory-crossmodel-verify-value]].
+- **잔여**: 오너 시뮬/실기기 육안검증(다크타일 렌더·핀 위치·3-스냅 드래그·측정vs적합도 시각분리·오버플로우 — 이 머신 idb/cliclick 없어 지도 탭까지 탭 도달 불가, 013 오버플로우 선례상 필수). 앱은 홈 index0 시작 → 관찰지도 index1은 탭 필요.
+
 ## 다음 세션 시작점 (후속 조각)
 
-**다음 = 관찰 지도 flutter consumer(핵심 UI)** — `GET /api/observation-map`를 소비하는 지도 화면. flutter_map+OSM 다크타일, full-bleed 지도 + **3-스냅 드래그 바텀시트**, 핀 3종(조류/별/노포)+레이어칩+탭→시트, 지역 bbox fit+GPS 1샷, **측정값(핀)/적합도(시트, 기존 /api/suitability 재사용) 종분리**, eBird "최근 관측·N일 전"+신선도 색. design-lead 관찰지도 자문은 이미 완료(PROGRESS "관찰 지도=앱 핵심" 절) → **flutter 스펙 작성 → design-lead 스펙 검수 → 발사**. MVP 절제(면 오버레이·3D·나침반·오프라인·다중지역 후속). 계약은 `member.md §25`.
+**다음 = 오너 육안검증 후 후속 조각 선택.** 관찰 지도(015) 실질 완료 → 후속 UX 부채(지도 탭 모드토글 진입점·positron 낮타일 스왑·클러스터링) 또는 아래 B/C/D 중 오너 선택.
 
-**완료분**: 013 트레일 flutter(`b1de369`/`d8441fe`, green+육안검증+오버플로우 수정), 014 관찰지도 backend(`6215339`, green+라이브검증). **낮-밤 패키지 탭**=1박2일 예약 커머스로 정의만 기록(구현 후속).
+**완료분**: 013 트레일 flutter(`b1de369`/`d8441fe`), 014 관찰지도 backend(`6215339`), **015 관찰지도 flutter(`d7fdc16`, green+실질PASS, 잔여=오너 육안)**. **낮-밤 패키지 탭**=1박2일 예약 커머스로 정의만 기록(구현 후속).
 
 ~~**012 트레일 backend PASS** → 다음=flutter consumer 조각~~ (013으로 완료).
 
