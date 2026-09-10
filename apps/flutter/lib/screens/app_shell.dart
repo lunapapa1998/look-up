@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'diary_list_screen.dart';
 import 'home_discovery_screen.dart';
+import 'observation_map_screen.dart';
 import 'placeholder_screen.dart';
 import 'trails_catalog_screen.dart';
 
@@ -18,8 +19,7 @@ class _AppShellState extends State<AppShell> {
 
   List<Widget> get _tabs => [
     HomeDiscoveryScreen(onViewMapPressed: () => setState(() => _selectedIndex = 1)),
-    // 목업 03 후속 조각 -- 실제 화면 구현 전 임시 플레이스홀더
-    const PlaceholderScreen(icon: Icons.map, title: '관찰 지도'),
+    const ObservationMapScreen(),
     const TrailsCatalogScreen(),
     // 목업 05 후속 조각 -- 실제 화면 구현 전 임시 플레이스홀더
     const PlaceholderScreen(icon: Icons.route, title: '낮-밤 패키지'),

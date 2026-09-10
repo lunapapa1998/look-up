@@ -25,9 +25,9 @@ backend-check:
 suitability-live:
     cd apps/backend && RUN_LIVE_TESTS=1 uv run pytest -m live -q -s
 
-# flutter lane: static analysis + widget/unit tests.
+# flutter lane: fetch deps (so pubspec dependency changes self-resolve in-pipeline) + static analysis + widget/unit tests.
 flutter-check:
-    cd apps/flutter && flutter analyze && flutter test
+    cd apps/flutter && flutter pub get && flutter analyze && flutter test
 
 # Aggregate validation — runs each lane check that has been scaffolded, skips blank lanes.
 # This is the default for lead self-checks; individual specs pin their own lane check.

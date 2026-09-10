@@ -49,6 +49,11 @@ dependencies:
   # Design-token theme (Space Grotesk / Inter / JetBrains Mono).
   google_fonts: ^6.2.1
 
+  # Map rendering for the observation map (OSM tiles).
+  flutter_map: ^8.3.2
+  # Lat/lng geometry types used by flutter_map.
+  latlong2: ^0.10.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

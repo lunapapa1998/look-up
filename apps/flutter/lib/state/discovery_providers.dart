@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../api/observation_map_api.dart';
 import '../api/suitability_api.dart';
 import '../api/trails_api.dart';
 import '../config.dart';
 import '../models/discovery.dart';
+import '../models/observation_map.dart';
 import '../models/trails.dart';
 import '../services/location_service.dart';
 
@@ -160,4 +162,40 @@ final hotspotsProvider = Provider<List<Hotspot>>((ref) {
       ctaLabel: '관측 스팟 >',
     ),
   ];
+});
+
+final observationMapApiProvider = Provider<ObservationMapApi>((ref) {
+  return HttpObservationMapApi(defaultApiBaseUrl);
+});
+
+class ObservationMapNotifier extends AsyncNotifier<ObservationMapResponse> {
+  @override
+  Future<ObservationMapResponse> build() async {
+    final api = ref.watch(observationMapApiProvider);
+    final location = await ref.watch(locationProvider.future);
+    return api.fetchObservationMap(
+      lat: location.lat,
+      lng: location.lng,
+    );
+  }
+}
+
+final observationMapProvider =
+    AsyncNotifierProvider<ObservationMapNotifier, ObservationMapResponse>(
+  ObservationMapNotifier.new,
+);
+
+typedef SpotSuitabilityQuery = ({double lat, double lng, ObsMode mode});
+
+final spotSuitabilityProvider =
+    FutureProvider.family<DiscoveryOverview, SpotSuitabilityQuery>((
+  ref,
+  query,
+) {
+  final api = ref.watch(suitabilityApiProvider);
+  return api.fetchSuitability(
+    lat: query.lat,
+    lng: query.lng,
+    mode: query.mode,
+  );
 });
