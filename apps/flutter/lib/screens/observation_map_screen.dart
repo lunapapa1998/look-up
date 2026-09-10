@@ -153,9 +153,12 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
             ),
             children: [
               TileLayer(
+                // Esri "World Dark Gray Base" — genuinely key-less dark raster
+                // tiles. (CARTO dark_matter now stamps an "API KEY REQUIRED"
+                // watermark on its no-key tiles, so it is unusable here.)
+                // Note the {z}/{y}/{x} (row/col) order and no {s} subdomains.
                 urlTemplate:
-                    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
+                    'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
                 userAgentPackageName: 'com.lookup.app',
               ),
               MarkerLayer(
@@ -180,8 +183,8 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                   ),
                   child: RichAttributionWidget(
                     attributions: [
+                      TextSourceAttribution('Tiles © Esri'),
                       TextSourceAttribution('© OpenStreetMap contributors'),
-                      TextSourceAttribution('© CARTO'),
                     ],
                   ),
                 ),
