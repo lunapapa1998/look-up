@@ -57,7 +57,11 @@ Set<String> computeLabeledSpotIds({
   required double zoom,
   String? selectedSpotId,
   Offset Function(ObservationSpot spot)? screenOffsetOf,
-  double zoomThreshold = 14,
+  // Labels are shown from the map's default zoom (12) so the map reads like
+  // the Figma (labeled pins), not a field of bare dots — collision
+  // suppression below still keeps dense clusters (e.g. Ganghwa's 14 bird
+  // spots) readable by dropping overlapping labels to dot-only.
+  double zoomThreshold = 11,
   double collisionRadius = 56,
 }) {
   final labeled = <String>{};

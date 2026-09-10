@@ -128,9 +128,11 @@ Future<void> _pumpMarker(
 void main() {
   group('Phase 1: on-map pin labels', () {
     testWidgets(
-      'unselected + below zoom 14: no label text, only the pin renders',
+      'unselected + below zoom threshold (10): no label text, only the pin renders',
       (tester) async {
-        final zoom = 12.0;
+        // Labels now show from the default zoom (12); only when zoomed out
+        // below the threshold (11) do unselected spots drop to dot-only.
+        final zoom = 10.0;
         final labeled = computeLabeledSpotIds(
           spots: const [_birdSpot],
           zoom: zoom,
