@@ -42,6 +42,11 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   ObservationSpot? _scatterSpot;
   bool _scatterVisible = false;
   StreamSubscription<MapEvent>? _mapEventSub;
+  // True while the sheet is programmatically animating to mid-snap from
+  // _selectSpot -- suppresses _handleScatterSheetSize so the collapse
+  // animation itself doesn't revert the scatter _selectSpot just activated
+  // (spec 017 P3 bugfix).
+  bool _sheetSnappingToMidSnap = false;
 
   static const _layerKinds = ['bird', 'star', 'heritage', 'trail'];
   static const _layerLabels = {
@@ -88,14 +93,26 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
 
   void _selectSpot(ObservationSpot spot) {
     setState(() => _selectedSpot = spot);
-    _sheetController.animateTo(
-      _sheetMidSnap,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
-    );
+    _sheetSnappingToMidSnap = true;
+    _sheetController
+        .animateTo(
+          _sheetMidSnap,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        )
+        .whenComplete(() => _sheetSnappingToMidSnap = false);
     if (spot.kind == 'bird') {
       _revealAboveSheet(spot, targetZoom: 15);
-      _activateScatter(spot);
+      if (_scatterSpot != null && _scatterSpot!.id != spot.id) {
+        _revertScatter();
+        Future.delayed(const Duration(milliseconds: 150), () {
+          if (mounted && _selectedSpot?.id == spot.id) {
+            _activateScatter(spot);
+          }
+        });
+      } else {
+        _activateScatter(spot);
+      }
     } else {
       _revealAboveSheet(spot);
       _revertScatter();
@@ -152,6 +169,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   /// Reverts the scatter once the sheet is dragged well past its mid-snap
   /// resting point, so it doesn't sit under the expanding sheet.
   void _handleScatterSheetSize() {
+    if (_sheetSnappingToMidSnap) return;
     if (_sheetController.isAttached &&
         _sheetController.size > _sheetMidSnap + 0.02) {
       _revertScatter();
@@ -541,10 +559,6 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                       mapAsync: mapAsync,
                       onRetry: _retryObservationMap,
                     ),
-                    if (scatterResult != null && scatterResult.wasReduced)
-                      _ScatteredBirdCaptionBanner(
-                        totalCount: scatterResult.totalCount,
-                      ),
                     if (_activeKinds.isEmpty)
                       Container(
                         margin: const EdgeInsets.only(top: 8),
@@ -616,6 +630,18 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
               },
             ),
           ),
+          if (scatterResult != null && scatterResult.wasReduced)
+            Positioned(
+              left: 16,
+              bottom:
+                  MediaQuery.sizeOf(context).height * _sheetMidSnap + 16,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: _ScatteredBirdCaptionBanner(
+                  totalCount: scatterResult.totalCount,
+                ),
+              ),
+            ),
           ObservationSpotSheet(
             spots: filteredSpots,
             selectedSpot: _selectedSpot,
@@ -815,7 +841,6 @@ class _ScatteredBirdCaptionBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,

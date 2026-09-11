@@ -168,6 +168,75 @@ class _HugeFlockBirdApi implements ObservationMapApi {
   }
 }
 
+/// [ObservationMapApi] fixture with two distinct bird spots (bird-001 and
+/// bird-002), each with its own single-species `topSpecies` list -- lets a
+/// test tell which spot's scatter is currently mounted purely by checking
+/// rendered [ScatteredBirdMarker.nameKo] values (spec 017 P3 bird-to-bird
+/// scatter-switch regression test).
+class _TwoBirdSpotsApi implements ObservationMapApi {
+  static const _spot1 = ObservationSpot(
+    id: 'bird-001',
+    kind: 'bird',
+    name: '스팟 하나',
+    coord: Coordinate(lat: 37.601, lng: 126.412),
+    nightSky: null,
+    birds: BirdObservation(
+      speciesCount: 1,
+      topSpecies: [
+        BirdSpecies(
+          nameKo: '저어새',
+          nameSci: 'Platalea minor',
+          speciesCode: 'blbspo1',
+          count: 4,
+          obsDt: '2026-09-09 07:12',
+        ),
+      ],
+      mostRecentObsDt: '2026-09-09 07:12',
+      status: 'community',
+    ),
+    heritage: null,
+  );
+
+  static const _spot2 = ObservationSpot(
+    id: 'bird-002',
+    kind: 'bird',
+    // Offset ~1.1km north of _spot1's coord — far enough to be a distinct
+    // second spot, but still within the visible viewport after _spot1 is
+    // selected and the camera zooms to 15 (spec 017 P3 _revealAboveSheet),
+    // so its on-map marker remains tappable in the bird-to-bird switch test.
+    name: '스팟 둘',
+    coord: Coordinate(lat: 37.611, lng: 126.412),
+    nightSky: null,
+    birds: BirdObservation(
+      speciesCount: 1,
+      topSpecies: [
+        BirdSpecies(
+          nameKo: '흰죽지',
+          nameSci: 'Aythya ferina',
+          speciesCode: 'compo1',
+          count: 4,
+          obsDt: '2026-09-09 07:12',
+        ),
+      ],
+      mostRecentObsDt: '2026-09-09 07:12',
+      status: 'community',
+    ),
+    heritage: null,
+  );
+
+  @override
+  Future<ObservationMapResponse> fetchObservationMap({
+    required double lat,
+    required double lng,
+  }) async {
+    return const ObservationMapResponse(
+      region: 'test',
+      degraded: false,
+      spots: [_spot1, _spot2],
+    );
+  }
+}
+
 void main() {
   group('Phase 1: on-map pin labels', () {
     testWidgets(
@@ -986,6 +1055,105 @@ void main() {
     );
   });
 
+  group(
+    'Phase 3 bugfix: bird-to-bird scatter switch defers to _revertScatter',
+    () {
+      testWidgets(
+        'tapping a second bird spot while the first\'s scatter is active '
+        'reverts the old scatter (150ms delayed fade) before activating the '
+        'new one, instead of instantly overwriting it',
+        (tester) async {
+          await _pumpTrailMapScreen(
+            tester,
+            observationMapApi: _TwoBirdSpotsApi(),
+          );
+          await tester.pump();
+
+          await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+          await tester.pumpAndSettle();
+
+          var markers = tester
+              .widgetList<ScatteredBirdMarker>(find.byType(ScatteredBirdMarker))
+              .toList();
+          expect(markers, isNotEmpty);
+          expect(markers.every((m) => m.nameKo == '저어새'), isTrue);
+
+          // Right after the second tap -- before the 150ms delayed revert
+          // has unmounted the old scatter and before the delayed
+          // re-activation has mounted the new one -- the old spot's markers
+          // must still be the ones in the tree (fading out), never an
+          // instant swap to the new spot's markers.
+          //
+          // bird-001 is already selected, so the sheet now shows
+          // ObservationSpotDetail rather than the spot list (no
+          // obsmap_spot_item_bird-002 key to tap) -- select bird-002 via its
+          // on-map marker instead, matching the existing "Phase 3: scatter
+          // revert on non-bird selection" test's pattern for heritage-001.
+          await tester.tap(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is ObservationMarker && widget.spot.id == 'bird-002',
+            ),
+          );
+          await tester.pump();
+
+          markers = tester
+              .widgetList<ScatteredBirdMarker>(find.byType(ScatteredBirdMarker))
+              .toList();
+          expect(markers, isNotEmpty);
+          expect(markers.every((m) => m.nameKo == '저어새'), isTrue);
+          expect(markers.any((m) => m.nameKo == '흰죽지'), isFalse);
+
+          await tester.pumpAndSettle();
+
+          markers = tester
+              .widgetList<ScatteredBirdMarker>(find.byType(ScatteredBirdMarker))
+              .toList();
+          expect(markers, isNotEmpty);
+          expect(markers.every((m) => m.nameKo == '흰죽지'), isTrue);
+          expect(markers.any((m) => m.nameKo == '저어새'), isFalse);
+        },
+      );
+    },
+  );
+
+  group(
+    'Phase 3 bugfix: sheet mid-snap collapse animation does not revert a '
+    'scatter activated by the same selection',
+    () {
+      testWidgets(
+        'selecting a bird spot while the sheet is expanded past mid-snap '
+        'keeps the scatter mounted through the 250ms collapse-to-mid-snap '
+        'animation instead of _handleScatterSheetSize reverting it mid-flight',
+        (tester) async {
+          await _pumpTrailMapScreen(tester);
+          await tester.pump();
+
+          final sheet = tester.widget<DraggableScrollableSheet>(
+            find.byType(DraggableScrollableSheet),
+          );
+          final sheetController = sheet.controller!;
+          // Past _sheetMidSnap (0.45) + the 0.02 revert-trigger margin, so
+          // an unguarded _handleScatterSheetSize would see the sheet still
+          // "expanded" while _selectSpot's mid-snap collapse animation runs.
+          sheetController.jumpTo(0.5);
+          await tester.pump();
+
+          await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+          // Partway through the 250ms collapse animation -- not settled --
+          // so _sheetSnappingToMidSnap is still true.
+          await tester.pump(const Duration(milliseconds: 100));
+
+          expect(find.byType(ScatteredBirdMarker), findsWidgets);
+
+          await tester.pumpAndSettle();
+
+          expect(find.byType(ScatteredBirdMarker), findsWidgets);
+        },
+      );
+    },
+  );
+
   group('Phase 4: individual bird tap tooltip', () {
     testWidgets(
       'tapping a scattered individual shows a SnackBar containing one of '
@@ -997,7 +1165,8 @@ void main() {
         await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byType(ScatteredBirdMarker).first);
+        // flutter_map MarkerLayer의 내부 변환 때문에 생기는 known false-positive hit-test 경고
+        await tester.tap(find.byType(ScatteredBirdMarker).first, warnIfMissed: false);
         await tester.pump();
 
         expect(find.byType(SnackBar), findsOneWidget);
@@ -1023,7 +1192,8 @@ void main() {
         await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byType(ScatteredBirdMarker).first);
+        // flutter_map MarkerLayer의 내부 변환 때문에 생기는 known false-positive hit-test 경고
+        await tester.tap(find.byType(ScatteredBirdMarker).first, warnIfMissed: false);
         await tester.pump();
 
         expect(

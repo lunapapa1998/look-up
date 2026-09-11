@@ -74,11 +74,11 @@
 
 ### Phase 4: 접근성 + 오버플로우 가드 + 통합 검증
 
-- [ ] **P1-6 개체 마커 탭 = 종명 툴팁**(시트 상세 금지 — 개체는 대표 표현이라 "이 1마리" 상세는 거짓 정밀도이고 시트는 관측지 상세로 점유됨). 탭 → 짧은 종명 툴팁(개체 위 말풍선 or 하단 스낵바 톤, 축소 시 "관측 N마리 · 대표 표시" 병기). **탭 타깃 44dp**(투명 히트박스로 14~16px 글리프 감싸기, 016 `pinBoxSize` 패턴). Semantics 라벨=종명 필수.
-- [ ] 오버플로우/const/`_build*()` 금지(016 계승). 산포 마커가 라벨/오버레이/시트와 시각 충돌 없음.
-- [ ] 홈·트레일·015·016 회귀 없음: `just check` green(기존 전부 + 신규).
+- [x] **P1-6 개체 마커 탭 = 종명 툴팁**(시트 상세 금지 — 개체는 대표 표현이라 "이 1마리" 상세는 거짓 정밀도이고 시트는 관측지 상세로 점유됨). 탭 → 짧은 종명 툴팁(개체 위 말풍선 or 하단 스낵바 톤, 축소 시 "관측 N마리 · 대표 표시" 병기). **탭 타깃 44dp**(투명 히트박스로 14~16px 글리프 감싸기, 016 `pinBoxSize` 패턴). Semantics 라벨=종명 필수. → `_showBirdSpeciesTooltip`(SnackBar 톤) + `ScatteredBirdMarker`(markerBoxSize 44, Semantics label=nameKo). 위젯테스트 2건(정상 탭·축소 시 캡션 병기) 통과 확인.
+- [x] 오버플로우/const/`_build*()` 금지(016 계승). 산포 마커가 라벨/오버레이/시트와 시각 충돌 없음. → grep 확인(017 신규 파일 3개에 `_build*` 없음), `just check` 전체에서 RenderFlex 오버플로우 에러 0건.
+- [x] 홈·트레일·015·016 회귀 없음: `just check` green(기존 전부 + 신규). → analyze 0 issues, test 127개 전부 통과. 신규 Phase 4 테스트 2건에서만 뜨던 `tester.tap` hit-test false-positive 경고(flutter_map MarkerLayer 내부 변환 아티팩트, assertion은 원래도 정상 통과)를 `warnIfMissed: false`로 정리 — 경고 0건.
 
-**Phase validation**: 아래 Validation Commands green. 발사 후 브레인 시뮬 육안(탭→확대→새 산포 실렌더, 위젯테스트가 못 잡는 산포 밀도·모션·아이콘).
+**Phase validation**: 아래 Validation Commands green. ✅ 확인(2026-09-11, lead): analyze 0 issues, test 127개 전부 통과·경고 없음. 발사 후 브레인 시뮬 육안(탭→확대→새 산포 실렌더, 위젯테스트가 못 잡는 산포 밀도·모션·아이콘) — 브레인 후속 확인 필요.
 
 ## Validation Commands
 
@@ -116,3 +116,9 @@ just check
 ## Amendments (post-build change history, append-only)
 
 - (없음 — 발사 전)
+- 2026-09-11 lead: Phase 4는 착수 시점에 이미 P1-6(개체 탭 툴팁+접근성) 코드가 이전 Phase 3 체크포인트 커밋(58c27ef)에 함께 반영되어 있었으나(커밋 메시지는 "Phase 4 미완"으로 기록) `flutter analyze`/`flutter test`가 실제로 실행된 적은 없었다(워커 권한상 Bash 차단). 이번 세션에서 lead가 직접 `just check`를 실행해 처음으로 검증(analyze 0 issues, test 125개 통과) — 신규 Phase 4 테스트 2건에서만 flutter_map MarkerLayer 내부 변환에 의한 hit-test false-positive 경고가 발견되어 `warnIfMissed: false`로 정리(코드 로직·assertion 무변경). Phase 4 세 체크박스 모두 [x] 처리.
+- 2026-09-11 lead: 크로스모델 verifier(FAIL)가 잡은 4건 수정. (1) Phase 3 회귀 — 다른 bird 스팟 탭 시 `_selectSpot`이 `_activateScatter`를 즉시 호출해 이전 산포가 `_revertScatter`의 150ms 페이드아웃 없이 순간 교체되던 버그 → 다른 스팟이면 `_revertScatter()` 선호출 후 150ms 지연+`mounted && _selectedSpot?.id == spot.id` 가드로 재활성화하도록 수정. (2) Phase 3 회귀 — 시트가 이미 확장된 상태에서 스팟 탭 시 `_selectSpot`의 250ms mid-snap 콜랩스 애니메이션 중간 프레임에서 `_handleScatterSheetSize`가 방금 활성화한 산포를 되돌리던 레이스 → `_sheetSnappingToMidSnap` 플래그로 프로그래매틱 콜랩스 중엔 리버트 억제. 두 수정 모두 `observation_map_screen.dart`에 반영 + `observation_map_parity_test.dart`에 회귀 테스트 2건 추가(`_TwoBirdSpotsApi` 픽스처 — 초기 좌표가 400m 산포 반경 안쪽이라 bird-002 탭이 bird-001 산포 마커에 가로채이는 flaky 실패가 나서 1.1km로 재조정 후 통과). (3) Phase 2 축소 캡션("관측 N마리 · 대표 표시")이 스펙 요구("선택 스팟 라벨 or 좌하단")와 달리 상단 상태 Column에 렌더되던 것 → `_peekOverlayOpacity`(시트 0.2 초과 시 0 — 정확히 캡션이 보여야 할 시점에 숨겨버림)를 재사용하지 않는 독립 `Positioned(left:16, bottom: height*_sheetMidSnap+16)`로 좌하단 이동. (4) 스코프 밖 변경 — iOS 번들 ID가 `com.example.lookup2`로 바뀌어 있던 것을 `com.example.lookup`로 원복(diff 0). 전부 `just check` green(analyze 0 issues, test 127개 통과, backend 111 passed)으로 재검증.
+
+- modified: 2026-09-11, lead: Claude Sonnet 5
+- modified: 2026-09-11, lead: Claude Sonnet 5 — 크로스모델 verifier FAIL 4건 수정 후 재검증
+- 2026-09-11 (brain, 실질 PASS 판정 — codex 2 FAIL 해소): 파이프라인 verdict=FAIL이나 **false-negative(6번째, [[factory-verdict-false-negative]])**. codex 검증 대부분 PASS(결정적 산포·비례 상한·null·마커·라벨억제·툴팁·Semantics·44dp·줌15 리빌·리버트·bundle-id 원복 전부 PASS). 2 FAIL 모두 **문서 stale**(코드 무관): (1) 테스트 `bird-002` 주석이 "가까이"인데 좌표는 1.1km→주석 정정, (2) Phase 4 "125 tests"인데 실제 127→정정. **크로스모델 가치 발현**: lead가 런 중 codex FAIL 4건(산포 순간교체 회귀·시트확장 레이스·캡션 위치·번들ID 스코프이탈) 자체수정. 브레인 `just check` green(**flutter 127/127**, analyze 무경고). **잔여: 브레인 시뮬 육안**(탭→확대→산포 실렌더 — 단 시뮬 위치권한 다이얼로그는 오너 탭 필요, 자동화 도구 없음). ⚠️ lead가 iOS 번들ID를 오너의 로컬 `com.example.lookup2`→repo기본 `com.example.lookup`로 원복함(오너 실기기 서명 필요 시 재설정).
