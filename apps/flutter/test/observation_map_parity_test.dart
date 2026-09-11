@@ -24,10 +24,13 @@ import 'package:lookup/widgets/observation_marker.dart';
 Future<void> _pumpTrailMapScreen(
   WidgetTester tester, {
   GpxApi? gpxApi,
+  ObservationMapApi? observationMapApi,
 }) async {
   final container = ProviderContainer(
     overrides: [
-      observationMapApiProvider.overrideWithValue(FakeObservationMapApi()),
+      observationMapApiProvider.overrideWithValue(
+        observationMapApi ?? FakeObservationMapApi(),
+      ),
       suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
       locationServiceProvider.overrideWithValue(
         FakeLocationService(
@@ -123,6 +126,46 @@ Future<void> _pumpMarker(
       ),
     ),
   );
+}
+
+/// [ObservationMapApi] fixture with a single bird spot whose one species has
+/// a count of 300 -- forces `scatterBirds`' reduction path (default cap 25),
+/// for the "대표 표시" caption test (spec 017 Phase 2).
+class _HugeFlockBirdApi implements ObservationMapApi {
+  static const _spot = ObservationSpot(
+    id: 'bird-001',
+    kind: 'bird',
+    name: '강화도 동막갯벌',
+    coord: Coordinate(lat: 37.601, lng: 126.412),
+    nightSky: null,
+    birds: BirdObservation(
+      speciesCount: 1,
+      topSpecies: [
+        BirdSpecies(
+          nameKo: '알락꼬리마도요',
+          nameSci: 'Numenius madagascariensis',
+          speciesCode: 'bartai1',
+          count: 300,
+          obsDt: '2026-09-09 07:12',
+        ),
+      ],
+      mostRecentObsDt: '2026-09-09 07:12',
+      status: 'community',
+    ),
+    heritage: null,
+  );
+
+  @override
+  Future<ObservationMapResponse> fetchObservationMap({
+    required double lat,
+    required double lng,
+  }) async {
+    return const ObservationMapResponse(
+      region: 'test',
+      degraded: false,
+      spots: [_spot],
+    );
+  }
 }
 
 void main() {
@@ -865,6 +908,131 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('표시할 레이어를 선택하세요'), findsOneWidget);
+      },
+    );
+  });
+
+  group('Phase 2: individual bird scatter markers', () {
+    testWidgets(
+      'bird-001 (species counts 24 + null-as-1 = 25, exactly at the default '
+      'cap) renders exactly 25 ScatteredBirdMarker widgets and no reduced '
+      'caption',
+      (tester) async {
+        await _pumpTrailMapScreen(tester);
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ScatteredBirdMarker), findsNWidgets(25));
+        expect(find.textContaining('대표 표시'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'star-001 (non-bird spot) renders no ScatteredBirdMarker at all',
+      (tester) async {
+        await _pumpTrailMapScreen(tester);
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_star-001')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ScatteredBirdMarker), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a species count of 300 forces the reduction path: the "대표 표시" '
+      'caption appears exactly once',
+      (tester) async {
+        await _pumpTrailMapScreen(
+          tester,
+          observationMapApi: _HugeFlockBirdApi(),
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('대표 표시'), findsOneWidget);
+      },
+    );
+  });
+
+  group('Phase 3: scatter revert on non-bird selection', () {
+    testWidgets(
+      'selecting heritage-001 after bird-001 fully clears the previous scatter',
+      (tester) async {
+        await _pumpTrailMapScreen(tester);
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ScatteredBirdMarker), findsNWidgets(25));
+
+        await tester.tap(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is ObservationMarker &&
+                widget.spot.id == 'heritage-001',
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ScatteredBirdMarker), findsNothing);
+      },
+    );
+  });
+
+  group('Phase 4: individual bird tap tooltip', () {
+    testWidgets(
+      'tapping a scattered individual shows a SnackBar containing one of '
+      'bird-001\'s species names',
+      (tester) async {
+        await _pumpTrailMapScreen(tester);
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(ScatteredBirdMarker).first);
+        await tester.pump();
+
+        expect(find.byType(SnackBar), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byType(SnackBar),
+            matching: find.textContaining(RegExp('저어새|검은머리물떼새')),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'when the scatter was reduced, the tooltip appends the "대표 표시" phrase',
+      (tester) async {
+        await _pumpTrailMapScreen(
+          tester,
+          observationMapApi: _HugeFlockBirdApi(),
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byType(ScatteredBirdMarker).first);
+        await tester.pump();
+
+        expect(
+          find.descendant(
+            of: find.byType(SnackBar),
+            matching: find.textContaining('대표 표시'),
+          ),
+          findsOneWidget,
+        );
       },
     );
   });

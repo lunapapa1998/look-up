@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import '../models/discovery.dart';
 import '../models/observation_map.dart';
 import '../models/trails.dart';
 import '../state/discovery_providers.dart';
+import '../utils/bird_scatter.dart';
 import '../utils/observation_spot_filter.dart';
 import '../widgets/observation_map_overlays.dart';
 import '../widgets/observation_marker.dart';
@@ -34,6 +37,11 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   String _searchQuery = '';
   SpotSort _sortBy = SpotSort.distance;
   bool _sqmFilterActive = false;
+  // Which spot's scatter is currently mounted -- may stay non-null briefly
+  // during a fade-out even after _selectedSpot changes (spec 017 P3).
+  ObservationSpot? _scatterSpot;
+  bool _scatterVisible = false;
+  StreamSubscription<MapEvent>? _mapEventSub;
 
   static const _layerKinds = ['bird', 'star', 'heritage', 'trail'];
   static const _layerLabels = {
@@ -49,12 +57,17 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   void initState() {
     super.initState();
     _trailHitNotifier.addListener(_handleTrailHit);
+    _mapEventSub =
+        _mapController.mapEventStream.listen(_handleScatterMapEvent);
+    _sheetController.addListener(_handleScatterSheetSize);
   }
 
   @override
   void dispose() {
     _trailHitNotifier.removeListener(_handleTrailHit);
     _trailHitNotifier.dispose();
+    _mapEventSub?.cancel();
+    _sheetController.removeListener(_handleScatterSheetSize);
     _mapController.dispose();
     _sheetController.dispose();
     super.dispose();
@@ -80,14 +93,20 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
     );
-    _revealAboveSheet(spot);
+    if (spot.kind == 'bird') {
+      _revealAboveSheet(spot, targetZoom: 15);
+      _activateScatter(spot);
+    } else {
+      _revealAboveSheet(spot);
+      _revertScatter();
+    }
   }
 
   /// Shifts the camera (via [MapCamera.latLngToScreenOffset] /
   /// [MapCamera.screenOffsetToLatLng] pixel-space round trip) so [spot]
   /// lands in the vertical center of the area still visible above the
   /// mid-snap sheet, instead of underneath it.
-  void _revealAboveSheet(ObservationSpot spot) {
+  void _revealAboveSheet(ObservationSpot spot, {double? targetZoom}) {
     final camera = _mapController.camera;
     final screenSize = camera.nonRotatedSize;
     final spotOffset = camera.latLngToScreenOffset(
@@ -100,7 +119,65 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     final newCenter = camera.screenOffsetToLatLng(
       Offset(center.dx, center.dy + shiftY),
     );
-    _mapController.move(newCenter, camera.zoom);
+    _mapController.move(newCenter, targetZoom ?? camera.zoom);
+  }
+
+  /// Mounts [spot]'s scatter and fades it in (spec 017 P3).
+  void _activateScatter(ObservationSpot spot) {
+    setState(() {
+      _scatterSpot = spot;
+      _scatterVisible = true;
+    });
+  }
+
+  /// Fades the current scatter out, then unmounts it once the fade
+  /// finishes -- guarded so repeated calls (e.g. from both the map-event and
+  /// sheet-size listeners) are harmless.
+  void _revertScatter() {
+    if (_scatterSpot == null || !_scatterVisible) return;
+    setState(() => _scatterVisible = false);
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted && !_scatterVisible) {
+        setState(() => _scatterSpot = null);
+      }
+    });
+  }
+
+  /// Reverts the scatter once the user zooms back out past the zoom-15
+  /// reveal threshold, so it doesn't linger detached from its trigger.
+  void _handleScatterMapEvent(MapEvent event) {
+    if (_mapController.camera.zoom < 13) _revertScatter();
+  }
+
+  /// Reverts the scatter once the sheet is dragged well past its mid-snap
+  /// resting point, so it doesn't sit under the expanding sheet.
+  void _handleScatterSheetSize() {
+    if (_sheetController.isAttached &&
+        _sheetController.size > _sheetMidSnap + 0.02) {
+      _revertScatter();
+    }
+  }
+
+  /// Shows a brief species-name tooltip for a tapped scattered individual
+  /// (spec 017 P4) -- appends the reduced-caption phrase when the scatter
+  /// was capped, so the tap target itself explains why the individual might
+  /// represent more than one real bird.
+  void _showBirdSpeciesTooltip(
+    ScatteredBird bird,
+    bool wasReduced,
+    int totalCount,
+  ) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          wasReduced
+              ? '${bird.nameKo} · 관측 $totalCount마리 · 대표 표시'
+              : bird.nameKo,
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _toggleKind(String kind, bool selected) {
@@ -202,6 +279,18 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
       _sortBy,
       origin: origin,
     );
+    // Individual scatter is a pure derivation of the mounted scatter spot
+    // (spec 017 P3 state machine), not a fresh derivation of the selection --
+    // it must keep rendering during the fade-out even after _scatterSpot's
+    // owning selection has already changed.
+    final scatterSpot = _scatterSpot;
+    final scatterResult = scatterSpot != null
+        ? scatterBirds(
+            center: scatterSpot.coord,
+            topSpecies: scatterSpot.birds!.topSpecies,
+            seed: scatterSpot.id,
+          )
+        : null;
     // Conditional watch, not unconditional-then-filter: keeps the GPX
     // fetch lazy so it never fires while the trail chip is off.
     final trailTracks = _activeKinds.contains('trail')
@@ -260,10 +349,47 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                       screenOffsetOf: (spot) => camera.latLngToScreenOffset(
                         LatLng(spot.coord.lat, spot.coord.lng),
                       ),
+                      scatterActive: _scatterSpot != null,
                     ),
                   );
                 },
               ),
+              if (scatterResult != null)
+                MarkerLayer(
+                  markers: [
+                    for (
+                      var i = 0;
+                      i < scatterResult.individuals.length;
+                      i++
+                    )
+                      Marker(
+                        point: LatLng(
+                          scatterResult.individuals[i].coord.lat,
+                          scatterResult.individuals[i].coord.lng,
+                        ),
+                        width: ScatteredBirdMarker.markerBoxSize,
+                        height: ScatteredBirdMarker.markerBoxSize,
+                        child: AnimatedOpacity(
+                          opacity: _scatterVisible ? 1 : 0,
+                          duration: _scatterVisible
+                              ? Duration.zero
+                              : const Duration(milliseconds: 150),
+                          child: _StaggeredBirdEntrance(
+                            key: ValueKey('${scatterSpot!.id}_$i'),
+                            index: i,
+                            child: ScatteredBirdMarker(
+                              nameKo: scatterResult.individuals[i].nameKo,
+                              onTap: () => _showBirdSpeciesTooltip(
+                                scatterResult.individuals[i],
+                                scatterResult.wasReduced,
+                                scatterResult.totalCount,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               if (_activeKinds.contains('trail')) ...[
                 PolylineLayer<TrailTrack>(
                   hitNotifier: _trailHitNotifier,
@@ -415,6 +541,10 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                       mapAsync: mapAsync,
                       onRetry: _retryObservationMap,
                     ),
+                    if (scatterResult != null && scatterResult.wasReduced)
+                      _ScatteredBirdCaptionBanner(
+                        totalCount: scatterResult.totalCount,
+                      ),
                     if (_activeKinds.isEmpty)
                       Container(
                         margin: const EdgeInsets.only(top: 8),
@@ -499,6 +629,52 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
             onSqmFilterChanged: _toggleSqmFilter,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Staggers a scattered bird marker's reveal-in by [index] * 25ms, then
+/// fades and scales it up from 0.6x -- the per-marker entrance look (spec
+/// 017 P3), independent of the flat whole-group revert fade applied by its
+/// parent [AnimatedOpacity] in [_ObservationMapScreenState.build].
+class _StaggeredBirdEntrance extends StatefulWidget {
+  const _StaggeredBirdEntrance({
+    super.key,
+    required this.index,
+    required this.child,
+  });
+
+  final int index;
+  final Widget child;
+
+  @override
+  State<_StaggeredBirdEntrance> createState() =>
+      _StaggeredBirdEntranceState();
+}
+
+class _StaggeredBirdEntranceState extends State<_StaggeredBirdEntrance> {
+  bool _revealed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: widget.index * 25), () {
+      if (mounted) setState(() => _revealed = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: _revealed ? 1 : 0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+      child: AnimatedScale(
+        scale: _revealed ? 1.0 : 0.6,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        child: widget.child,
       ),
     );
   }
@@ -618,6 +794,36 @@ class _LocationFallbackBanner extends StatelessWidget {
             child: const Text('위치 켜기'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Caption shown while a bird spot's individual scatter was reduced (spec
+/// 017 P1-3): [totalCount] is [ScatterResult.totalCount], the honest
+/// uncapped real count, never [ScatterResult.individuals.length] -- the map
+/// shows at most `maxIndividuals` markers as a representative sample while
+/// this caption keeps the real number visible. Not shown when the scatter
+/// wasn't reduced (individuals already equal the real count, so no caption
+/// is needed).
+class _ScatteredBirdCaptionBanner extends StatelessWidget {
+  const _ScatteredBirdCaptionBanner({required this.totalCount});
+
+  final int totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '관측 $totalCount마리 · 대표 표시',
+        style: Theme.of(context).textTheme.bodySmall,
       ),
     );
   }

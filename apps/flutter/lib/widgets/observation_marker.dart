@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
@@ -63,6 +65,7 @@ Set<String> computeLabeledSpotIds({
   // spots) readable by dropping overlapping labels to dot-only.
   double zoomThreshold = 11,
   double collisionRadius = 56,
+  bool scatterActive = false,
 }) {
   final labeled = <String>{};
   final placedOffsets = <Offset>[];
@@ -76,6 +79,10 @@ Set<String> computeLabeledSpotIds({
       }
     }
   }
+
+  // Scatter reveal (spec 017 P3) hides every other on-map label so the
+  // scattered individuals read cleanly, regardless of zoom.
+  if (scatterActive) return labeled;
 
   if (zoom < zoomThreshold || screenOffsetOf == null) return labeled;
 
@@ -109,6 +116,7 @@ List<Marker> buildObservationMarkers({
   required void Function(ObservationSpot) onSpotTap,
   double zoom = 12,
   Offset Function(ObservationSpot spot)? screenOffsetOf,
+  bool scatterActive = false,
 }) {
   final filtered = filterObservationSpots(spots, activeKinds);
   final labeledIds = computeLabeledSpotIds(
@@ -116,6 +124,7 @@ List<Marker> buildObservationMarkers({
     zoom: zoom,
     selectedSpotId: selectedSpotId,
     screenOffsetOf: screenOffsetOf,
+    scatterActive: scatterActive,
   );
 
   return filtered.map((spot) {
@@ -471,4 +480,65 @@ class _BirdSilhouettePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _BirdSilhouettePainter oldDelegate) =>
       oldDelegate.color != color;
+}
+
+/// Renders one scattered individual bird (spec 017 P1-4): a bare bright
+/// silhouette glyph with no teardrop container and no per-species shape or
+/// color, so a spread of these reads as "presence" rather than "these are
+/// N distinct pins" -- deliberately distinct from [ObservationMarker]'s
+/// teardrop pin. Tap reveals a species-name tooltip (spec 017 P4).
+class ScatteredBirdMarker extends StatelessWidget {
+  const ScatteredBirdMarker({
+    super.key,
+    required this.nameKo,
+    required this.onTap,
+  });
+
+  final String nameKo;
+  final VoidCallback onTap;
+
+  /// flutter_map `Marker.width`/`Marker.height` to reserve -- matches
+  /// [ObservationMarker.pinBoxSize]'s hit-box convention even though this
+  /// marker has no hit target yet.
+  static const double markerBoxSize = 44;
+  static const double _glyphSize = 15;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: nameKo,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: markerBoxSize,
+          height: markerBoxSize,
+          child: Center(
+            child: SizedBox(
+              width: _glyphSize,
+              height: _glyphSize,
+              child: Stack(
+                children: [
+                  ImageFiltered(
+                    imageFilter: ui.ImageFilter.blur(sigmaX: 1, sigmaY: 1),
+                    child: CustomPaint(
+                      size: const Size(_glyphSize, _glyphSize),
+                      painter: const _BirdSilhouettePainter(
+                        color: Color(0x66000000),
+                      ),
+                    ),
+                  ),
+                  CustomPaint(
+                    size: const Size(_glyphSize, _glyphSize),
+                    painter: const _BirdSilhouettePainter(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

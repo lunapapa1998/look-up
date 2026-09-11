@@ -2076,3 +2076,90 @@ class ObservationSpotSheet extends StatelessWidget {
 - `just check`를 lead가 직접 실행해 analyze 0 issues, 113 tests passed로 확인했다.
 
 DONE: flutter-engineer | apps/flutter/.team/member.md에 Phase 2c 핸드오프 노트 append (lib/test 변경은 이전 세션에서 완료, just check green 확인됨)
+
+## Phase 1 bird_scatter.dart pure scatter logic
+
+`specs/017-bird-scatter-reveal-flutter.md` Phase 1 — 신규 순수 함수 파일 `lib/utils/bird_scatter.dart` + `test/bird_scatter_test.dart`, 다른 파일은 손대지 않았다.
+
+Exact contract (verbatim, future tasks consume this):
+
+```dart
+import '../models/trails.dart';       // Coordinate
+import '../models/observation_map.dart'; // BirdSpecies
+
+class ScatteredBird {
+  final Coordinate coord;
+  final String nameKo;
+  final String speciesCode;
+  const ScatteredBird({required this.coord, required this.nameKo, required this.speciesCode});
+}
+
+class ScatterResult {
+  final List<ScatteredBird> individuals;
+  final bool wasReduced;
+  final int totalCount;
+  const ScatterResult({required this.individuals, required this.wasReduced, required this.totalCount});
+}
+
+ScatterResult scatterBirds({
+  required Coordinate center,
+  required List<BirdSpecies> topSpecies,
+  required String seed,
+  int maxIndividuals = 25,
+  double radiusMeters = 400,
+})
+```
+
+`totalCount`는 축소 여부와 무관하게 `topSpecies`의 실제(무제한) 합계 — 캡션용 정직한 수치이고, `individuals.length`(≤`maxIndividuals`)와는 별개다. `nameKo`/`speciesCode`는 소속 `BirdSpecies`에서 그대로 복사한다.
+
+## Phase 2 scattered bird marker plus scatter render (spec 017)
+
+`specs/017-bird-scatter-reveal-flutter.md` Phase 2 — `ScatteredBirdMarker` 위젯(개체 산포 마커)과 그 렌더 배선. 손댄 파일 3개만: `lib/widgets/observation_marker.dart`, `lib/screens/observation_map_screen.dart`, `test/observation_map_parity_test.dart`. `lib/utils/bird_scatter.dart`(Phase 1 산출물)는 계약대로 그대로 소비, 무변경.
+
+- **`ScatteredBirdMarker`** (`lib/widgets/observation_marker.dart`, 기존 `ObservationMarker`/`_BirdSilhouettePainter` 등은 무변경): 새 `StatelessWidget`, public API는 `static const double markerBoxSize = 44`(flutter_map `Marker.width`/`height`용, `ObservationMarker.pinBoxSize`와 동일 관례)와 `const ScatteredBirdMarker({super.key})` 생성자뿐. 내부적으로 44 박스 중앙에 15px 글리프, 기존 `_BirdSilhouettePainter`를 재사용해 흰색 글리프 아래에 alpha 0.4 black 카피를 `ImageFiltered`(`dart:ui`의 `ImageFilter.blur(sigmaX: 1, sigmaY: 1)`, **const 생성자가 아님** — SDK 소스로 직접 확인, 그래서 이 서브트리는 `const`로 감쌀 수 없다)로 블러해 그림자로 겹친다. 탭/Semantics 없음(후속 Phase 4에서 추가 예정) — 순수 시각 전용.
+- **배선** (`lib/screens/observation_map_screen.dart`): `build()` 안, `filteredSpots` 계산 직후(선택된 스팟이 `kind == 'bird'`일 때만 `scatterBirds(center: selectedSpot.coord, topSpecies: selectedSpot.birds!.topSpecies, seed: selectedSpot.id)`를 호출, 그 외엔 `null`)에 로컬 `scatterResult` 변수를 추가. `FlutterMap.children`에서는 기존 관찰 핀 `MarkerLayer`(`buildObservationMarkers`를 감싼 `StreamBuilder`) 바로 다음, trail 레이어 분기 이전에 `if (scatterResult != null) MarkerLayer(...)`를 추가해 `scatterResult.individuals`마다 `Marker(width/height: ScatteredBirdMarker.markerBoxSize, child: const ScatteredBirdMarker())`를 렌더. 캡션은 새 private 위젯 `_ScatteredBirdCaptionBanner`(`_LocationFallbackBanner`와 동일한 Container 스타일)로, 상단 `SafeArea` Column에서 `_ObservationMapStatusBanner` 바로 다음·빈 레이어 배너 이전에 `if (scatterResult != null && scatterResult.wasReduced)`일 때만 삽입 — 텍스트는 `individuals.length`가 아니라 `scatterResult.totalCount`를 사용한 `'관측 $totalCount마리 · 대표 표시'`.
+- **`_pumpTrailMapScreen` 시그니처 변경**: 선택적 named 파라미터 `ObservationMapApi? observationMapApi`를 추가(기존 `gpxApi` 패턴과 동일하게 `observationMapApi ?? FakeObservationMapApi()`로 override). 기존 호출부는 모두 파라미터를 안 넘기므로 동작 불변.
+- 신규 테스트 `group('Phase 2: individual bird scatter markers', ...)` 3개: (1) `FakeObservationMapApi`의 `bird-001`(count 24 + null→1 = 25, 상한과 정확히 일치) 탭 → `ScatteredBirdMarker` 정확히 25개, "대표 표시" 텍스트 없음. (2) `star-001` 탭 → `ScatteredBirdMarker` 0개. (3) 새 fixture `_HugeFlockBirdApi`(종 1개, count 300 → 축소 경로 강제)를 `observationMapApi` override로 주입해 탭 → "대표 표시" 텍스트 정확히 1회.
+- **미실행 검증**: 이 워커 역할 권한상 `flutter`/`dart` 바이너리 Bash 호출이 자동 차단되어(`ls`/`grep`/`readlink` 등 단순 조회는 통과, `flutter analyze`/`flutter test`/`dart --version`은 즉시 "requires approval"로 실패) 실제 실행 검증을 못 했다. 대신 전체 diff를 라인 단위로 재검토(괄호/const 매칭, import 사용 여부, 계약 필드명)했고, `ImageFilter.blur`가 const가 아님을 로컬 dart-sdk 소스(`sky_engine/lib/ui/painting.dart`)에서 직접 확인해 해당 서브트리의 `const`를 제거했다. **파이프라인 validate 단계에서 반드시 실행**: `cd apps/flutter && flutter analyze && flutter test`.
+
+축소(largest-remainder) 알고리즘: `totalCount > maxIndividuals`일 때만 `wasReduced=true`가 되고, 먼저 모든 종에 1개씩 예약해 희귀종(count 1~2)이 절대 0개가 되지 않도록 한 뒤, 남은 슬롯(`maxIndividuals - 종수`)을 `effectiveCount`(= `count ?? 1`) 비례 몫의 정수부(floor)로 나눠주고, floor 합과 남은 슬롯의 차이만큼을 소수부 잔여값이 큰 순서(동률은 `topSpecies` 원래 순서)로 종별로 1개씩 추가 배분해 최종 합이 정확히 `maxIndividuals`가 되게 한다. `topSpecies.length > maxIndividuals`인 희귀 엣지 케이스는 앞에서부터 `maxIndividuals`개 종에 1개씩만 주고 나머지는 드롭한다. 좌표 산포는 seed 문자열(spot.id)을 로컬 FNV-1a 32bit 해시로 변환해 `scatterBirds` 호출당 하나의 `Random` 인스턴스를 만들고(`String.hashCode` 미사용 — 버전 간 안정성 미보장), `topSpecies` 순서 → 종 내 할당 순서로 각 개체마다 `angle`/`radiusFraction` 두 개의 double을 이 순서로만 뽑아 균일 원판 샘플링으로 `center` 기준 `radiusMeters` 이내 좌표를 만든다 — 같은 seed·입력이면 항상 같은 좌표·같은 순서.
+
+`lib/utils/bird_scatter.dart`는 순수 Dart(`dart:math` + 위 두 모델 임포트만, Flutter/State 임포트 없음)이며, `test/bird_scatter_test.dart`는 스펙이 요구한 6개 케이스(상한 미초과, 결정성, 반경 내, null 방어, 280/2/1 희귀종 케이스, 6마리 이하-미축소 케이스)를 모두 담았다. `package:flutter_test`를 사용해 기존 `test/observation_map_parity_test.dart`의 import 관례를 따랐다.
+
+이 세션 샌드박스에서도 이전 항목들과 동일하게 `flutter`-접두 Bash 명령이 승인 게이트에 막혀 `flutter analyze`/`flutter test`를 직접 실행하지 못했다 — 대신 두 신규 파일을 처음부터 끝까지 재검토해 (a) `Coordinate`/`BirdSpecies` 필드명이 `lib/models/trails.dart`·`lib/models/observation_map.dart`와 정확히 일치하는지, (b) 모든 분기(`totalCount<=max`/축소/종수>상한/빈 리스트)에서 `allocations`·`wasReduced`가 빠짐없이 대입되는지, (c) 예시(280/2/1, max 25)를 손으로 계산해 각 종 1개 이상·합계 25·`wasReduced=true`가 나오는지 확인했다. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## Phase 3a scatter state machine plus zoom-15 reveal (spec 017)
+
+`specs/017-bird-scatter-reveal-flutter.md` Phase 3 — 줌인 리빌(zoom-15)과 라벨 억제, 리버트 상태 머신만. 애니메이션 위젯은 후속 태스크(별도). 손댄 파일 2개만: `lib/widgets/observation_marker.dart`, `lib/screens/observation_map_screen.dart`.
+
+- **`computeLabeledSpotIds`/`buildObservationMarkers`** (`observation_marker.dart`): 둘 다 새 optional named `bool scatterActive = false` 추가. `computeLabeledSpotIds`는 기존 `selectedSpotId` 처리 블록 직후·줌 임계값 체크 이전에 `if (scatterActive) return labeled;`를 삽입 — 산포가 떠 있는 동안은 줌과 무관하게 다른 라벨을 전부 숨겨서 산포 개체들이 깨끗하게 보이도록 함. `scatterActive` 생략 시(기본값 `false`) 기존 동작 완전히 불변. `buildObservationMarkers`는 받은 값을 그대로 내부 `computeLabeledSpotIds` 호출에 전달.
+- **3개 새 state 필드** (`_ObservationMapScreenState`): `ObservationSpot? _scatterSpot`(현재 마운트된 산포의 소유 스팟 — 페이드아웃 도중엔 `_selectedSpot`이 이미 바뀌어도 잠깐 non-null로 남아있을 수 있음), `bool _scatterVisible`(목표 opacity 플래그, 애니메이션 위젯이 다음 태스크에서 참조할 것), `StreamSubscription<MapEvent>? _mapEventSub`(줌 감시용, `dispose`에서 cancel).
+- **4개 새 private 메서드** (`_selectSpot` 근처): `_activateScatter(spot)` — `_scatterSpot`/`_scatterVisible`을 한 번에 켬. `_revertScatter()` — `_scatterSpot`이 null이거나 이미 `_scatterVisible == false`면 즉시 리턴(반복 호출 안전), 아니면 `_scatterVisible = false`로 페이드아웃을 시작하고 150ms 뒤 `mounted && !_scatterVisible`을 재확인한 다음에만 `_scatterSpot = null`로 실제 데이터를 정리 — 페이드 도중 다른 스팟이 다시 활성화되면(즉 `_scatterVisible`이 다시 true가 되면) 정리를 건너뛰어 새 산포를 지우지 않음. `_handleScatterMapEvent(event)` — 카메라 줌이 13 미만이면 리버트(줌-15 리빌 임계값 아래로 빠지면 산포가 트리거와 분리된 채 남지 않도록). `_handleScatterSheetSize()` — 시트가 mid-snap(0.45)+0.02보다 커지면 리버트(시트가 확장되며 산포 위로 덮이지 않도록).
+- **`_revealAboveSheet` 시그니처 변경**: 새 optional named `double? targetZoom` 추가. 기존 팬 계산 로직은 한 줄도 안 건드리고, 마지막 `_mapController.move(...)` 호출의 두 번째 인자만 `targetZoom ?? camera.zoom`으로 바꿈.
+- **`_selectSpot` 분기**: 기존 `setState(_selectedSpot=...)`/`_sheetController.animateTo(...)`는 그대로 두고, 뒤따르던 무조건 `_revealAboveSheet(spot)` 호출을 `spot.kind == 'bird'`일 때 `_revealAboveSheet(spot, targetZoom: 15)` + `_activateScatter(spot)`, 아니면 `_revealAboveSheet(spot)`(줌 인자 없이) + `_revertScatter()`로 분기.
+- **`build()`의 `scatterResult` 파생 변경**: 기존엔 `_selectedSpot`+`kind=='bird'` 체크에서 유도했으나, 이제 `_scatterSpot`(신규 state)에서 직접 유도 — non-null이면 `scatterBirds(center: _scatterSpot.coord, topSpecies: _scatterSpot.birds!.topSpecies, seed: _scatterSpot.id)`, 아니면 `null`. `kind` 체크는 삭제(`_scatterSpot`은 오직 새 조류 분기에서만 대입되므로 불필요). 기존 scatter `MarkerLayer`/축소 캡션 배너는 이 동일한 `scatterResult` 변수를 그대로 참조하며 무변경.
+- 마지막으로 base 핀 레이어의 `StreamBuilder` 안 `buildObservationMarkers` 호출에 `scatterActive: _scatterSpot != null` 인자 추가.
+- **미실행 검증**: 이 워커 세션에서도 `flutter`/`dart` 바이너리 Bash 호출이 승인 게이트에 막혀 실행하지 못했다. 대신 diff를 라인 단위로 재검토했고, `test/observation_map_parity_test.dart`·`test/observation_map_wiring_test.dart`의 모든 `computeLabeledSpotIds`/`buildObservationMarkers` 호출부가 `scatterActive`를 생략(→ 기본 `false`)함을 grep으로 확인해 기존 테스트가 영향받지 않음을 확인했다. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## Phase 3b stagger reveal-in and flat revert fade (spec 017)
+
+`specs/017-bird-scatter-reveal-flutter.md` Phase 3 나머지 — 개체별 스태거 리빌인 애니메이션과 그룹 전체 플랫 리버트 페이드. 손댄 파일 2개만: `lib/screens/observation_map_screen.dart`, `test/observation_map_parity_test.dart`.
+
+- **새 private `StatefulWidget` `_StaggeredBirdEntrance`** (`observation_map_screen.dart`, 클래스 정의는 `_ObservationMapScreenState` 바로 다음): 필드는 `required int index`, `required Widget child`뿐. `State`는 `bool _revealed = false`로 시작하고, `initState`에서 `Future.delayed(Duration(milliseconds: index * 25), ...)`를 걸어 콜백에서 `mounted`를 확인한 뒤 `setState(() => _revealed = true)` — 즉 `index`가 클수록 늦게 나타나는 순차 스태거. `build()`는 `AnimatedOpacity(opacity: _revealed?1:0, duration: 200ms, curve: easeOut)` 안에 `AnimatedScale(scale: _revealed?1.0:0.6, 동일 duration/curve)`를 감싸 `child`를 렌더 — 페이드인 + 0.6배→1.0배 스케일업 동시 진행. 새 패키지 의존성 없음(기존 `material.dart`만 사용).
+- **scatter `MarkerLayer`의 `markers` 리스트 구성 변경** (동일 파일, 기존 `if (scatterResult != null) MarkerLayer(...)` 블록): `for (final bird in scatterResult.individuals)` for-in을 `for (var i = 0; i < scatterResult.individuals.length; i++)` 인덱스 for로 교체(포인트/폭/높이 계산은 무변경, `scatterResult.individuals[i]`로 인덱싱만 바뀜). 각 `Marker.child`는 이제 3단 중첩: 바깥 `AnimatedOpacity`(opacity: `_scatterVisible`?1:0, duration: `_scatterVisible`이면 `Duration.zero` 아니면 `150ms` — 그룹 전체가 한 번에 스냅 인/차등 없이 페이드아웃하는 "플랫 리버트"만 담당) → 그 안에 `_StaggeredBirdEntrance(key: ValueKey('${scatterSpot.id}_$i'), index: i, child: const ScatteredBirdMarker())`(스태거 리빌인 담당) → 그 안에 `const ScatteredBirdMarker()`(최종 시각 마커). `scatterSpot`은 이미 스코프에 있던 기존 로컬 변수를 재사용(`scatterSpot!.id` — `scatterResult != null` 분기 안에서도 컴파일러가 `scatterSpot`을 자동으로 non-null로 승격하지 않아 `!` 필요).
+- **`ValueKey` 스킴**: `'${spot.id}_$index'` 형태 — 다른 스팟으로 산포가 바뀌면(같은 리스트 인덱스라도) 항상 새 `Key`가 되어 Flutter가 이전 스팟의 이미 리빌된 `State`를 재사용하지 않고 매번 새 `_StaggeredBirdEntranceState`(즉 `_revealed = false`부터)를 만들어 스태거 리빌인이 스팟 전환마다 항상 재생되도록 강제한다.
+- 신규 테스트 `group('Phase 3: scatter revert on non-bird selection', ...)` 1개: bird-001 탭 후 `pumpAndSettle`로 25개 `ScatteredBirdMarker` 사전조건 확인 → star-001 탭 후 `pumpAndSettle`(150ms 페이드 + delayed clear까지 자동 처리)로 `ScatteredBirdMarker` 0개 확인. 기존 Phase 2 테스트 3개는 무변경.
+- **미실행 검증**: 이 워커 역할 권한상 `flutter analyze`/`flutter test` Bash 호출이 승인 게이트에 막혀 실행하지 못했다. 대신 변경된 `markers` 빌더 블록과 새 위젯 전체를 라인 단위로 재검토(괄호 매칭, `scatterSpot!` null-safety 승격 필요 여부, `AnimatedOpacity`/`AnimatedScale`의 numeric-literal-in-double-context 규칙)했다. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+후속 수정: 위 Phase 3 테스트('selecting star-001 after bird-001 fully clears the previous scatter')는 원래 두 번째 스팟도 `obsmap_spot_item_star-001` 시트 리스트 아이템 `Key`를 탭하도록 작성됐었으나, `observation_spot_sheet.dart`의 `build()`(약 126줄, `selectedSpot != null` 삼항)가 스팟이 하나라도 선택되면 시트 본문 전체를 `ObservationSpotDetail`로 교체해버려 리스트 아이템 자체가 트리에서 사라지므로 `find.byKey`가 0 widgets로 실패했다. 수정: 이미 하나가 선택된 상태에서 두 번째 스팟을 선택할 때는 시트 리스트 아이템이 아니라 그 스팟의 온맵 `ObservationMarker` 핀을 `find.byWidgetPredicate((widget) => widget is ObservationMarker && widget.spot.id == 'star-001')`로 찾아 탭해야 한다 — `FlutterMap`과 그 마커들은 시트 상태와 무관하게 항상 마운트돼 있기 때문. 첫 번째 tap(`obsmap_spot_item_bird-001`, 시트가 아직 리스트를 보여주는 동안 실행되므로 그대로 유효)과 두 `expect(find.byType(ScatteredBirdMarker), ...)`는 무변경.
+
+추가 후속 수정(spec 017 P1-1의 zoom-to-15 카메라 점프 반영): bird-001 선택 시 지도가 zoom 15로 그 좌표에 딱 맞춰 팬/줌되면서 `star-001`(bird-001에서 약 12km 떨어짐)이 뷰포트 완전히 밖으로 나가버려 flutter_map의 `MarkerLayer`가 그 마커 자체를 컬링해 트리에서 사라지므로(`find.byWidgetPredicate`가 0개 매치), 두 번째 탭 대상을 뷰포트 안에 남는 `heritage-001`(bird-001에서 약 300m)로 교체했다 — 앞으로 zoom-to-15류 카메라 점프 직후에 탭할 테스트 스팟은 반드시 점프 대상 스팟과 공간적으로 가까워야 한다.
+
+## Phase 4 individual bird tap tooltip plus accessibility (spec 017)
+
+`specs/017-bird-scatter-reveal-flutter.md` Phase 4 — 개체 산포 마커 탭 시 종명 툴팁, 접근성. 손댄 파일 2개 + 테스트 1개: `lib/widgets/observation_marker.dart`, `lib/screens/observation_map_screen.dart`, `test/observation_map_parity_test.dart`.
+
+- **`ScatteredBirdMarker` 생성자 변경** (`observation_marker.dart`): 기존 `const ScatteredBirdMarker({super.key})`에서 두 신규 required named 필드 `String nameKo`, `VoidCallback onTap`이 추가되며 `onTap`이 클로저라 더 이상 `const` 생성자가 아니다(`ScatteredBirdMarker({super.key, required this.nameKo, required this.onTap})`). `markerBoxSize`(44)와 `_glyphSize`(15)는 무변경. `build()`의 기존 44×44 `SizedBox`(글리프+그림자 Stack)를 그대로 감싸는 `GestureDetector`(`behavior: HitTestBehavior.opaque`, `onTap: onTap`)를 추가하고, 그 바깥을 `Semantics(button: true, label: nameKo)`로 한 번 더 감쌌다 — `ObservationMarker`의 기존 `pinBoxSize` 히트박스 관례와 동일한 패턴.
+- **배선** (`observation_map_screen.dart`): scatter `MarkerLayer`의 `child: const ScatteredBirdMarker()` 호출부를 `ScatteredBirdMarker(nameKo: scatterResult.individuals[i].nameKo, onTap: () => _showBirdSpeciesTooltip(scatterResult.individuals[i], scatterResult.wasReduced, scatterResult.totalCount))`로 교체. 새 private 메서드 `_showBirdSpeciesTooltip(ScatteredBird bird, bool wasReduced, int totalCount)`을 `_ObservationMapScreenState`에 추가 — `ScaffoldMessenger.of(context).hideCurrentSnackBar()` 후 `showSnackBar`로 `SnackBar(content: Text(...), duration: const Duration(seconds: 2))`를 띄운다. 텍스트 형태: `wasReduced == true`면 `'${bird.nameKo} · 관측 $totalCount마리 · 대표 표시'`(가운뎃점 두 개로 이름/관측수/대표표시 문구를 구분), `false`면 `bird.nameKo` 단독.
+- **테스트** (`test/observation_map_parity_test.dart`): 새 `group('Phase 4: individual bird tap tooltip', ...)` 2개. (1) 기본 `FakeObservationMapApi`로 bird-001 선택 후 첫 `ScatteredBirdMarker` 탭 → `SnackBar` 정확히 1개, 그 안에 `저어새`/`검은머리물떼새` 중 하나를 포함하는 텍스트가 정확히 1개(둘 다 fixture의 실제 종명이라 탭 대상이 어느 쪽이든 통과). (2) 기존 `_HugeFlockBirdApi`(count 300, 축소 강제) 주입 후 동일 탭 → `SnackBar` 안에 `'대표 표시'`가 정확히 1개 포함되어 있어 축소 시 캡션 문구가 툴팁에도 붙는지 확인. 두 테스트 모두 `pumpAndSettle` 대신 마지막 탭 뒤에는 `tester.pump()` 한 번만 사용 — `SnackBar` 진입 애니메이션이 `pumpAndSettle`로 다 settle되기 전에 텍스트를 관찰하기 위함(둘 다 통과하지만 설계상 이렇게 요청됨).
+- **미실행 검증**: 이 워커 역할 권한상 `flutter` 바이너리 Bash 호출이 승인 게이트에 막혀 `flutter analyze`/`flutter test`를 실행하지 못했다. 대신 두 소스 파일과 테스트 추가분을 라인 단위로 재검토(괄호/중괄호 매칭, `ScatteredBird`/`ScatterResult` 필드명이 `lib/utils/bird_scatter.dart`와 일치하는지, 새 생성자가 호출되는 유일한 지점이 배선 코드뿐인지 grep으로 확인)했다. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
