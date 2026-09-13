@@ -42,7 +42,7 @@
 - `apps/flutter/lib/widgets/spot_detail/bird_spot_detail.dart` - 조류 스팟 상세(종 목록 → 종 탭 시 SpeciesDetail 전환). 커뮤니티 관측·상대시간(019) 계승.
 - `apps/flutter/lib/widgets/spot_detail/star_spot_detail.dart` - 별(SQM·Bortle·다크스카이 등급 + 적합도, 019 로직 이관).
 - `apps/flutter/lib/widgets/spot_detail/heritage_spot_detail.dart` - 노포(이름·주소·거리).
-- `apps/flutter/lib/widgets/spot_detail/trail_spot_detail.dart` - **탐방로 리치**: 거리·소요시간·난이도·순환(계약) + 종점 밤하늘 + 종점 노포 + 낮/밤 적합도 + **두루누비 상세(설명·테마·편의시설·화장실·교통·시점종점명·고도·대표이미지, 020)**. 없는 필드 미렌더.
+- `apps/flutter/lib/widgets/spot_detail/trail_spot_detail.dart` - **탐방로 리치**: 거리·소요시간·난이도·순환(계약) + 종점 밤하늘 + 종점 노포 + 낮/밤 적합도 + **두루누비 상세(020 실계약: `description`·`themeId`·`startName`·`endName`·`travelerInfo`(교통편 원문, HTML `<br>` 포함)·`tourInfo`(주변관광 원문)·`elevationProfile`[{positionRatio,elevationM}])**. ⚠️ 편의시설·화장실·대표이미지는 두루누비 API에 필드 자체가 없어 020에서 제외됨 — 렌더하지 말 것. `travelerInfo`/`tourInfo`는 `<br>` 포함 HTML 텍스트라 개행 정규화 후 표시. 없는 필드 미렌더.
 - `apps/flutter/lib/widgets/spot_detail/species_detail.dart` - 위키 종 상세(사진 or 실루엣 placeholder + 요약 + 위키 링크 + 개체수·관측시각·관측위치). **정직 스코프**(§).
 - 테스트: 시트 상태전환(list↔spotDetail↔speciesDetail)·종류별 컴포넌트 렌더·위키/트레일상세 fake 소비·모달/alert 부재 negative assert·정직 placeholder.
 
@@ -61,7 +61,7 @@
 **Phase validation**: `just check` green(종상세 전환·위키 fake·placeholder·modal 부재 negative assert).
 
 ### Phase 3: 탐방로 리치 상세 (두루누비, 020 `/api/trails/detail`)
-- [ ] `models/trail_detail.dart`+`trailDetailProvider`+`trails_api.fetchTrailDetail`. `trail_spot_detail.dart`에 두루누비 상세(설명·테마·편의시설·화장실·교통·시점종점명·고도·이미지) on-demand 로드·렌더. 없는 필드 미렌더, 로딩/에러 상태.
+- [ ] `models/trail_detail.dart`+`trailDetailProvider`+`trails_api.fetchTrailDetail`. `trail_spot_detail.dart`에 두루누비 상세(020 실계약: description·themeId·startName·endName·travelerInfo·tourInfo·elevationProfile) on-demand 로드·렌더. travelerInfo/tourInfo는 HTML `<br>` 개행 정규화. 편의시설/화장실/이미지는 020 제외라 미대상. 없는 필드 미렌더, 로딩/에러 상태.
 
 **Phase validation**: `just check` green(트레일상세 fake 소비·부분필드·로딩/에러).
 
@@ -87,7 +87,7 @@ just check
 
 ### 소비 계약 (020)
 - `GET /api/species?sci&ko` → `{nameKo,nameSci,summary?,thumbnailUrl?,wikiUrl?,source}`(결과없음=null필드).
-- `GET /api/trails/detail?crsIdx` → 코스 리치(설명·테마·편의시설·화장실·교통·시점종점명·고도·이미지, 부분 null 가능).
+- `GET /api/trails/detail?crsIdx` → 코스 리치(`description`·`themeId`·`startName`·`endName`·`travelerInfo`(교통)·`tourInfo`(주변관광)·`elevationProfile`[{positionRatio,elevationM}]·`found`·`degraded`, 부분 null 가능). 편의시설·화장실·대표이미지는 020에서 제외(두루누비 API에 없음).
 
 ### 불변 원칙
 - backend 무변경(020 소비만). 015~019·홈·트레일탭 회귀 금지. 정직표기(없는 데이터 placeholder·미렌더). 신규 위젯 별도 클래스(`_build*()` 금지).
