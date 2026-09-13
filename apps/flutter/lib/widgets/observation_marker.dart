@@ -307,7 +307,7 @@ class _ObservationPin extends StatelessWidget {
               ObservationMarker._pinSize * 0.5,
               ObservationMarker._pinSize * 0.5,
             ),
-            painter: _BirdSilhouettePainter(color: Colors.white),
+            painter: BirdSilhouettePainter(color: Colors.white),
           ),
         );
       case 'star':
@@ -454,8 +454,8 @@ class _TeardropPin extends StatelessWidget {
 /// No Material [Icons] constant depicts a bird (and [Icons.flutter_dash] is
 /// off-limits as the Flutter mascot), so the bird glyph is hand-drawn as a
 /// minimal two-swoop "gull in flight" silhouette.
-class _BirdSilhouettePainter extends CustomPainter {
-  const _BirdSilhouettePainter({required this.color});
+class BirdSilhouettePainter extends CustomPainter {
+  const BirdSilhouettePainter({required this.color});
 
   final Color color;
 
@@ -478,7 +478,7 @@ class _BirdSilhouettePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BirdSilhouettePainter oldDelegate) =>
+  bool shouldRepaint(covariant BirdSilhouettePainter oldDelegate) =>
       oldDelegate.color != color;
 }
 
@@ -497,11 +497,18 @@ class ScatteredBirdMarker extends StatelessWidget {
   final String nameKo;
   final VoidCallback onTap;
 
-  /// flutter_map `Marker.width`/`Marker.height` to reserve -- matches
+  /// flutter_map `Marker.height` to reserve -- matches
   /// [ObservationMarker.pinBoxSize]'s hit-box convention even though this
   /// marker has no hit target yet.
   static const double markerBoxSize = 44;
   static const double _glyphSize = 15;
+  static const double _labelGap = 4;
+  static const double _labelMaxWidth = 96;
+
+  /// flutter_map `Marker.width` to reserve: the glyph plus the gap plus the
+  /// species-name label pill next to it (spec 019 P2).
+  static const double markerBoxWidth =
+      _glyphSize + _labelGap + _labelMaxWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -512,30 +519,40 @@ class ScatteredBirdMarker extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: SizedBox(
-          width: markerBoxSize,
+          width: markerBoxWidth,
           height: markerBoxSize,
-          child: Center(
-            child: SizedBox(
-              width: _glyphSize,
-              height: _glyphSize,
-              child: Stack(
-                children: [
-                  ImageFiltered(
-                    imageFilter: ui.ImageFilter.blur(sigmaX: 1, sigmaY: 1),
-                    child: CustomPaint(
-                      size: const Size(_glyphSize, _glyphSize),
-                      painter: const _BirdSilhouettePainter(
-                        color: Color(0x66000000),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: _glyphSize,
+                height: _glyphSize,
+                child: Stack(
+                  children: [
+                    ImageFiltered(
+                      imageFilter: ui.ImageFilter.blur(sigmaX: 1, sigmaY: 1),
+                      child: CustomPaint(
+                        size: const Size(_glyphSize, _glyphSize),
+                        painter: const BirdSilhouettePainter(
+                          color: Color(0x66000000),
+                        ),
                       ),
                     ),
-                  ),
-                  CustomPaint(
-                    size: const Size(_glyphSize, _glyphSize),
-                    painter: const _BirdSilhouettePainter(color: Colors.white),
-                  ),
-                ],
+                    CustomPaint(
+                      size: const Size(_glyphSize, _glyphSize),
+                      painter: const BirdSilhouettePainter(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(width: _labelGap),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _labelMaxWidth),
+                child: _ObservationLabelPill(text: nameKo, selected: false),
+              ),
+            ],
           ),
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -179,13 +180,15 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('조류 12종 관측'), findsOneWidget);
-      // findsWidgets, not findsOneWidget: spec 016 Phase 1 gives the now-
-      // selected bird-001 marker its own on-map pill label, which legitimately
-      // repeats the top species name ("저어새") alongside the detail body's
-      // species list -- see observation_map_parity_test.dart for the
-      // dedicated label-content assertion.
+      // findsWidgets, not findsOneWidget: spec 019 switches the bird scatter
+      // from count-based to species-based, so every species in topSpecies
+      // ("저어새" and "검은머리물떼새" both) now gets its own on-map scatter
+      // marker label, which legitimately repeats both species names
+      // alongside the detail sheet's species list -- see
+      // observation_map_parity_test.dart for the dedicated label-content
+      // assertion.
       expect(find.textContaining('저어새'), findsWidgets);
-      expect(find.textContaining('검은머리물떼새'), findsOneWidget);
+      expect(find.textContaining('검은머리물떼새'), findsWidgets);
     },
   );
 
@@ -364,4 +367,80 @@ void main() {
       expect(find.text('위치 켜기'), findsOneWidget);
     },
   );
+
+  group('Phase 019: zoom/camera constraints and rotation lock', () {
+    testWidgets(
+      'MapOptions constrain zoom to 7-16, contain the camera to the Korea bounding box, and lock rotation while keeping other gestures enabled',
+      (tester) async {
+        await _pumpObservationMap(
+          tester,
+          observationMapApi: FakeObservationMapApi(),
+        );
+        await tester.pump();
+
+        final mapWidget = tester.widget<FlutterMap>(find.byType(FlutterMap));
+
+        expect(mapWidget.options.minZoom, 7);
+        expect(mapWidget.options.maxZoom, 16);
+
+        final cameraConstraint = mapWidget.options.cameraConstraint;
+        expect(cameraConstraint, isA<ContainCamera>());
+        final bounds = (cameraConstraint as ContainCamera).bounds;
+        expect(bounds.north, 38.7);
+        expect(bounds.south, 33.0);
+        expect(bounds.east, 131.9);
+        expect(bounds.west, 124.5);
+
+        final flags = mapWidget.options.interactionOptions.flags;
+        expect(flags & InteractiveFlag.rotate, 0);
+        expect(flags, greaterThan(0));
+      },
+    );
+  });
+
+  group('Phase 4: research here button', () {
+    testWidgets('dragging the map far enough shows the research here button', (
+      tester,
+    ) async {
+      await _pumpObservationMap(
+        tester,
+        observationMapApi: FakeObservationMapApi(),
+      );
+      await tester.pump();
+
+      await tester.drag(find.byType(FlutterMap), const Offset(-2000, -2000));
+      await tester.pump();
+
+      expect(find.byKey(const Key('obsmap_research_button')), findsOneWidget);
+    });
+
+    testWidgets(
+      'tapping the research here button refetches at the new center and hides the button',
+      (tester) async {
+        final fetchedCenters = <(double, double)>[];
+        final api = FakeObservationMapApi(
+          onFetch: (lat, lng) => fetchedCenters.add((lat, lng)),
+        );
+
+        await _pumpObservationMap(tester, observationMapApi: api);
+        await tester.pump();
+
+        await tester.drag(find.byType(FlutterMap), const Offset(-2000, -2000));
+        await tester.pump();
+
+        expect(
+          find.byKey(const Key('obsmap_research_button')),
+          findsOneWidget,
+        );
+
+        fetchedCenters.clear();
+
+        await tester.tap(find.byKey(const Key('obsmap_research_button')));
+        await tester.pumpAndSettle();
+
+        expect(fetchedCenters, hasLength(1));
+        expect(find.byKey(const Key('obsmap_research_button')), findsNothing);
+      },
+    );
+  });
 }

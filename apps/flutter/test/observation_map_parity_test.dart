@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -128,9 +127,10 @@ Future<void> _pumpMarker(
   );
 }
 
-/// [ObservationMapApi] fixture with a single bird spot whose one species has
-/// a count of 300 -- forces `scatterBirds`' reduction path (default cap 25),
-/// for the "대표 표시" caption test (spec 017 Phase 2).
+/// [ObservationMapApi] fixture with a single bird spot whose `topSpecies`
+/// list (length 1) is shorter than its `speciesCount` (3) -- forces the
+/// reduction path (one marker per topSpecies entry, capped below the real
+/// species count), for the "대표 표시" caption test (spec 017 Phase 2).
 class _HugeFlockBirdApi implements ObservationMapApi {
   static const _spot = ObservationSpot(
     id: 'bird-001',
@@ -139,7 +139,7 @@ class _HugeFlockBirdApi implements ObservationMapApi {
     coord: Coordinate(lat: 37.601, lng: 126.412),
     nightSky: null,
     birds: BirdObservation(
-      speciesCount: 1,
+      speciesCount: 3,
       topSpecies: [
         BirdSpecies(
           nameKo: '알락꼬리마도요',
@@ -750,56 +750,7 @@ void main() {
     );
   });
 
-  group('Phase 4a: compass button and tide/moon overlay', () {
-    testWidgets(
-      'CompassButton with rotationDegrees 0 renders nothing (already north-up)',
-      (tester) async {
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: Center(
-                child: CompassButton(rotationDegrees: 0, onTap: () {}),
-              ),
-            ),
-          ),
-        );
-
-        expect(
-          find.byKey(const Key('obsmap_compass_button')),
-          findsNothing,
-        );
-      },
-    );
-
-    testWidgets(
-      'CompassButton with rotationDegrees 45 renders the button and calls onTap exactly once on tap',
-      (tester) async {
-        var tapCount = 0;
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: Center(
-                child: CompassButton(
-                  rotationDegrees: 45,
-                  onTap: () => tapCount++,
-                ),
-              ),
-            ),
-          ),
-        );
-
-        expect(
-          find.byKey(const Key('obsmap_compass_button')),
-          findsOneWidget,
-        );
-
-        await tester.tap(find.byKey(const Key('obsmap_compass_button')));
-        await tester.pump();
-
-        expect(tapCount, 1);
-      },
-    );
-
+  group('Phase 4a: tide/moon overlay', () {
     testWidgets(
       'TideMoonOverlay with both tideText and moonText null renders nothing',
       (tester) async {
@@ -867,39 +818,6 @@ void main() {
   });
 
   group('Phase 4b: compass and tide/moon overlay wiring', () {
-    testWidgets(
-      'compass button is absent on initial pump: the map starts north-up',
-      (tester) async {
-        await _pumpTrailMapScreen(tester);
-        await tester.pump();
-
-        expect(find.byKey(const Key('obsmap_compass_button')), findsNothing);
-      },
-    );
-
-    testWidgets(
-      'rotating the map reveals the compass button, and tapping it resets '
-      'rotation back to north (the button disappears again)',
-      (tester) async {
-        await _pumpTrailMapScreen(tester);
-        await tester.pump();
-
-        final flutterMap = tester.widget<FlutterMap>(find.byType(FlutterMap));
-        flutterMap.mapController!.rotate(45);
-        await tester.pump();
-
-        expect(
-          find.byKey(const Key('obsmap_compass_button')),
-          findsOneWidget,
-        );
-
-        await tester.tap(find.byKey(const Key('obsmap_compass_button')));
-        await tester.pumpAndSettle();
-
-        expect(find.byKey(const Key('obsmap_compass_button')), findsNothing);
-      },
-    );
-
     testWidgets(
       'with FakeSuitabilityApi default data, the tide/moon overlay renders '
       'non-empty tide and moon text once the discovery provider resolves',
@@ -983,9 +901,8 @@ void main() {
 
   group('Phase 2: individual bird scatter markers', () {
     testWidgets(
-      'bird-001 (species counts 24 + null-as-1 = 25, exactly at the default '
-      'cap) renders exactly 25 ScatteredBirdMarker widgets and no reduced '
-      'caption',
+      'bird-001 renders one ScatteredBirdMarker per topSpecies entry and '
+      'shows the reduced species caption',
       (tester) async {
         await _pumpTrailMapScreen(tester);
         await tester.pump();
@@ -993,8 +910,8 @@ void main() {
         await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
         await tester.pumpAndSettle();
 
-        expect(find.byType(ScatteredBirdMarker), findsNWidgets(25));
-        expect(find.textContaining('대표 표시'), findsNothing);
+        expect(find.byType(ScatteredBirdMarker), findsNWidgets(2));
+        expect(find.textContaining('관측 12종 중 상위 2종 표시'), findsOneWidget);
       },
     );
 
@@ -1012,8 +929,7 @@ void main() {
     );
 
     testWidgets(
-      'a species count of 300 forces the reduction path: the "대표 표시" '
-      'caption appears exactly once',
+      'topSpecies shorter than speciesCount forces the reduction path',
       (tester) async {
         await _pumpTrailMapScreen(
           tester,
@@ -1024,7 +940,7 @@ void main() {
         await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('대표 표시'), findsOneWidget);
+        expect(find.textContaining('관측 3종 중 상위 1종 표시'), findsOneWidget);
       },
     );
   });
@@ -1039,7 +955,7 @@ void main() {
         await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
         await tester.pumpAndSettle();
 
-        expect(find.byType(ScatteredBirdMarker), findsNWidgets(25));
+        expect(find.byType(ScatteredBirdMarker), findsNWidgets(2));
 
         await tester.tap(
           find.byWidgetPredicate(
@@ -1154,10 +1070,10 @@ void main() {
     },
   );
 
-  group('Phase 4: individual bird tap tooltip', () {
+  group('Phase 4: species detail modal', () {
     testWidgets(
-      'tapping a scattered individual shows a SnackBar containing one of '
-      'bird-001\'s species names',
+      'tapping a scattered individual shows exactly one species detail '
+      'modal containing one of bird-001\'s species names',
       (tester) async {
         await _pumpTrailMapScreen(tester);
         await tester.pump();
@@ -1167,42 +1083,60 @@ void main() {
 
         // flutter_map MarkerLayer의 내부 변환 때문에 생기는 known false-positive hit-test 경고
         await tester.tap(find.byType(ScatteredBirdMarker).first, warnIfMissed: false);
-        await tester.pump();
+        await tester.pumpAndSettle();
 
-        expect(find.byType(SnackBar), findsOneWidget);
+        final sheet = find.byKey(const Key('bird_species_detail_sheet'));
+        expect(sheet, findsOneWidget);
         expect(
           find.descendant(
-            of: find.byType(SnackBar),
+            of: sheet,
             matching: find.textContaining(RegExp('저어새|검은머리물떼새')),
           ),
           findsOneWidget,
         );
       },
     );
+  });
 
+  group('Phase 3c: sheet peek and handle drag', () {
     testWidgets(
-      'when the scatter was reduced, the tooltip appends the "대표 표시" phrase',
+      'initial pump shows the search field and the tide/moon overlay '
+      'simultaneously without either being hidden',
       (tester) async {
-        await _pumpTrailMapScreen(
-          tester,
-          observationMapApi: _HugeFlockBirdApi(),
-        );
-        await tester.pump();
-
-        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
-        await tester.pumpAndSettle();
-
-        // flutter_map MarkerLayer의 내부 변환 때문에 생기는 known false-positive hit-test 경고
-        await tester.tap(find.byType(ScatteredBirdMarker).first, warnIfMissed: false);
+        await _pumpTrailMapScreen(tester);
         await tester.pump();
 
         expect(
-          find.descendant(
-            of: find.byType(SnackBar),
-            matching: find.textContaining('대표 표시'),
-          ),
+          find.byKey(const Key('obsmap_search_field')),
           findsOneWidget,
         );
+        expect(
+          find.byKey(const Key('obsmap_tide_moon_overlay')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'dragging the sheet handle upward increases the '
+      'DraggableScrollableSheet controller size',
+      (tester) async {
+        await _pumpTrailMapScreen(tester);
+        await tester.pump();
+
+        final sheet = tester.widget<DraggableScrollableSheet>(
+          find.byType(DraggableScrollableSheet),
+        );
+        final sheetController = sheet.controller!;
+        final initialSize = sheetController.size;
+
+        await tester.drag(
+          find.byKey(const Key('obsmap_sheet_handle')),
+          const Offset(0, -300),
+        );
+        await tester.pump();
+
+        expect(sheetController.size, greaterThan(initialSize));
       },
     );
   });

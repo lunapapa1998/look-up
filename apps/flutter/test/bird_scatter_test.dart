@@ -9,7 +9,7 @@ import 'package:lookup/utils/bird_scatter.dart';
 BirdSpecies _species(String code, int? count, {String nameKo = ''}) {
   return BirdSpecies(
     nameKo: nameKo.isEmpty ? code : nameKo,
-    nameSci: code,
+    nameSci: 'Sci $code',
     speciesCode: code,
     count: count,
     obsDt: '2026-09-01',
@@ -30,14 +30,31 @@ void main() {
   const center = Coordinate(lat: 37.71, lng: 126.42);
 
   group('scatterBirds', () {
-    test('never emits more than maxIndividuals individuals', () {
+    test('emits exactly one marker per species, mapped 1:1', () {
+      final topSpecies = [
+        _species('A', 3, nameKo: '까치'),
+        _species('B', null, nameKo: '박새'),
+        _species('C', 12, nameKo: '직박구리'),
+        _species('D', 1, nameKo: '참새'),
+      ];
+
       final result = scatterBirds(
         center: center,
-        topSpecies: [_species('A', 280), _species('B', 2), _species('C', 1)],
+        topSpecies: topSpecies,
+        speciesCount: 4,
         seed: 'spot-1',
       );
 
-      expect(result.individuals.length, lessThanOrEqualTo(25));
+      expect(result.individuals.length, 4);
+      for (var i = 0; i < topSpecies.length; i++) {
+        final expected = topSpecies[i];
+        final actual = result.individuals[i];
+        expect(actual.nameKo, expected.nameKo);
+        expect(actual.nameSci, expected.nameSci);
+        expect(actual.speciesCode, expected.speciesCode);
+        expect(actual.count, expected.count);
+        expect(actual.obsDt, expected.obsDt);
+      }
     });
 
     test('is deterministic for the same seed and inputs', () {
@@ -50,11 +67,13 @@ void main() {
       final first = scatterBirds(
         center: center,
         topSpecies: topSpecies,
+        speciesCount: 3,
         seed: 'spot-42',
       );
       final second = scatterBirds(
         center: center,
         topSpecies: topSpecies,
+        speciesCount: 3,
         seed: 'spot-42',
       );
 
@@ -71,6 +90,7 @@ void main() {
       final result = scatterBirds(
         center: center,
         topSpecies: [_species('A', 280), _species('B', 2), _species('C', 1)],
+        speciesCount: 3,
         seed: 'spot-radius',
         radiusMeters: radiusMeters,
       );
@@ -81,47 +101,44 @@ void main() {
       }
     });
 
-    test('treats a null count as 1 without crashing or dropping the species', () {
-      final result = scatterBirds(
-        center: center,
-        topSpecies: [_species('A', null), _species('B', 3)],
-        seed: 'spot-null',
-      );
-
-      final codes = result.individuals.map((b) => b.speciesCode).toSet();
-      expect(codes.contains('A'), isTrue);
-      expect(result.totalCount, 4);
-    });
-
-    test('rare-species case: every species keeps at least 1 individual when reduced', () {
+    test('wasReduced is true and totalSpeciesCount is preserved when '
+        'topSpecies is a subset of speciesCount', () {
       final result = scatterBirds(
         center: center,
         topSpecies: [_species('A', 280), _species('B', 2), _species('C', 1)],
-        seed: 'spot-rare',
+        speciesCount: 12,
+        seed: 'spot-reduced',
       );
 
-      final countsBySpecies = <String, int>{};
-      for (final individual in result.individuals) {
-        countsBySpecies[individual.speciesCode] =
-            (countsBySpecies[individual.speciesCode] ?? 0) + 1;
-      }
-
-      expect(countsBySpecies['A'], greaterThanOrEqualTo(1));
-      expect(countsBySpecies['B'], greaterThanOrEqualTo(1));
-      expect(countsBySpecies['C'], greaterThanOrEqualTo(1));
-      expect(result.individuals.length, lessThanOrEqualTo(25));
       expect(result.wasReduced, isTrue);
+      expect(result.totalSpeciesCount, 12);
+      expect(result.individuals.length, 3);
     });
 
-    test('below-cap case emits the exact real total and is not reduced', () {
+    test('wasReduced is false when topSpecies covers all species', () {
       final result = scatterBirds(
         center: center,
         topSpecies: [_species('A', 3), _species('B', 2), _species('C', 1)],
+        speciesCount: 3,
         seed: 'spot-below-cap',
       );
 
       expect(result.wasReduced, isFalse);
-      expect(result.individuals.length, 6);
+      expect(result.individuals.length, 3);
+    });
+
+    test('empty topSpecies yields no individuals, wasReduced false, and '
+        'totalSpeciesCount equal to speciesCount', () {
+      final result = scatterBirds(
+        center: center,
+        topSpecies: const [],
+        speciesCount: 5,
+        seed: 'spot-empty',
+      );
+
+      expect(result.individuals, isEmpty);
+      expect(result.wasReduced, isFalse);
+      expect(result.totalSpeciesCount, 5);
     });
   });
 }

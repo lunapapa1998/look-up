@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,7 @@ import '../models/trails.dart';
 import '../state/discovery_providers.dart';
 import '../utils/bird_scatter.dart';
 import '../utils/observation_spot_filter.dart';
+import '../widgets/bird_species_detail.dart';
 import '../widgets/observation_map_overlays.dart';
 import '../widgets/observation_marker.dart';
 import '../widgets/observation_spot_sheet.dart';
@@ -41,12 +43,24 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   // during a fade-out even after _selectedSpot changes (spec 017 P3).
   ObservationSpot? _scatterSpot;
   bool _scatterVisible = false;
+  // Center the observation-map data was last fetched at (spec 019 P4) --
+  // compared against the live camera center to decide when the map has
+  // drifted far enough to offer a "search again here" re-fetch.
+  LatLng? _lastFetchCenter;
+  bool _showResearchButton = false;
+  bool _isResearching = false;
   StreamSubscription<MapEvent>? _mapEventSub;
   // True while the sheet is programmatically animating to mid-snap from
   // _selectSpot -- suppresses _handleScatterSheetSize so the collapse
   // animation itself doesn't revert the scatter _selectSpot just activated
   // (spec 017 P3 bugfix).
   bool _sheetSnappingToMidSnap = false;
+  // Debug-only min/max zoom stepper state (spec 019), lifted here so the
+  // stepper in _DebugZoomOverlay actually drives the live MapOptions instead
+  // of just a local label.
+  double _debugMinZoom = 7.0;
+  double _debugMaxZoom = 16.0;
+  static const _hardMaxDebugZoom = 16.0;
 
   static const _layerKinds = ['bird', 'star', 'heritage', 'trail'];
   static const _layerLabels = {
@@ -164,6 +178,19 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   /// reveal threshold, so it doesn't linger detached from its trigger.
   void _handleScatterMapEvent(MapEvent event) {
     if (_mapController.camera.zoom < 13) _revertScatter();
+
+    if (event is MapEventMoveEnd && _lastFetchCenter != null) {
+      const distanceCalc = Distance();
+      final camera = _mapController.camera;
+      final bounds = camera.visibleBounds;
+      final diagonal =
+          distanceCalc.distance(bounds.northEast, bounds.southWest);
+      final drift = distanceCalc.distance(_lastFetchCenter!, camera.center);
+      final shouldShow = drift > diagonal * 0.3;
+      if (shouldShow != _showResearchButton) {
+        setState(() => _showResearchButton = shouldShow);
+      }
+    }
   }
 
   /// Reverts the scatter once the sheet is dragged well past its mid-snap
@@ -176,24 +203,16 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     }
   }
 
-  /// Shows a brief species-name tooltip for a tapped scattered individual
-  /// (spec 017 P4) -- appends the reduced-caption phrase when the scatter
-  /// was capped, so the tap target itself explains why the individual might
-  /// represent more than one real bird.
-  void _showBirdSpeciesTooltip(
-    ScatteredBird bird,
-    bool wasReduced,
-    int totalCount,
-  ) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          wasReduced
-              ? '${bird.nameKo} · 관측 $totalCount마리 · 대표 표시'
-              : bird.nameKo,
-        ),
-        duration: const Duration(seconds: 2),
+  /// Shows the species-detail bottom sheet for a tapped scattered individual
+  /// (spec 019 P1-4). Only called while [_scatterSpot] is mounted, so its
+  /// name/coord are used as the detail sheet's spot context.
+  void _showBirdSpeciesDetail(ScatteredBird bird) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (_) => BirdSpeciesDetail(
+        bird: bird,
+        spotName: _scatterSpot!.name,
+        spotCoord: _scatterSpot!.coord,
       ),
     );
   }
@@ -210,13 +229,32 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
 
   void _recenter() {
     final location = ref.read(locationProvider).valueOrNull;
-    _mapController.move(
-      LatLng(
-        location?.lat ?? defaultObservationLat,
-        location?.lng ?? defaultObservationLng,
-      ),
-      _mapController.camera.zoom,
-    );
+    final lat = location?.lat ?? defaultObservationLat;
+    final lng = location?.lng ?? defaultObservationLng;
+    _mapController.move(LatLng(lat, lng), _mapController.camera.zoom);
+    _lastFetchCenter = LatLng(lat, lng);
+    setState(() => _showResearchButton = false);
+    ref.read(observationMapProvider.notifier).refreshAtCenter(lat: lat, lng: lng);
+  }
+
+  /// Re-fetches observation-map data centered on the current camera position
+  /// (spec 019 P4 "이곳에서 다시 검색"). Clears the current selection/scatter
+  /// afterward since they may not exist in the newly fetched spot set.
+  Future<void> _researchHere() async {
+    setState(() => _isResearching = true);
+    final center = _mapController.camera.center;
+    await ref
+        .read(observationMapProvider.notifier)
+        .refreshAtCenter(lat: center.latitude, lng: center.longitude);
+    if (!mounted) return;
+    setState(() {
+      _isResearching = false;
+      _showResearchButton = false;
+      _lastFetchCenter = center;
+      _selectedSpot = null;
+      _scatterSpot = null;
+      _scatterVisible = false;
+    });
   }
 
   void _retryObservationMap() {
@@ -239,13 +277,27 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     setState(() => _sqmFilterActive = value);
   }
 
+  void _adjustDebugMinZoom(double delta) {
+    setState(() {
+      _debugMinZoom = (_debugMinZoom + delta).clamp(1.0, _debugMaxZoom);
+    });
+  }
+
+  void _adjustDebugMaxZoom(double delta) {
+    setState(() {
+      _debugMaxZoom =
+          (_debugMaxZoom + delta).clamp(_debugMinZoom, _hardMaxDebugZoom);
+    });
+  }
+
   /// Fades the compass/tide-moon overlays out once the sheet is dragged
-  /// meaningfully past its 0.16 resting peek, so they never visually collide
-  /// with the expanding sheet. [_sheetController] only reports a valid
-  /// [DraggableScrollableController.size] once attached to its sheet.
+  /// meaningfully past its [kObsSheetPeek] resting peek, so they never
+  /// visually collide with the expanding sheet. [_sheetController] only
+  /// reports a valid [DraggableScrollableController.size] once attached to
+  /// its sheet.
   double _peekOverlayOpacity() {
     if (!_sheetController.isAttached) return 1.0;
-    return _sheetController.size > 0.2 ? 0.0 : 1.0;
+    return _sheetController.size > kObsSheetPeek + 0.04 ? 0.0 : 1.0;
   }
 
   @override
@@ -253,6 +305,11 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     ref.listen(observationMapProvider, (previous, next) {
+      if (_lastFetchCenter == null) {
+        final loc = ref.read(locationProvider).valueOrNull;
+        if (loc != null) _lastFetchCenter = LatLng(loc.lat, loc.lng);
+      }
+
       final spots = next.valueOrNull?.spots;
       if (spots == null || spots.isEmpty) return;
 
@@ -267,7 +324,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
       }
 
       final minSheetHeight =
-          MediaQuery.sizeOf(context).height * 0.16 + 40;
+          MediaQuery.sizeOf(context).height * kObsSheetPeek + 40;
       _mapController.fitCamera(
         CameraFit.bounds(
           bounds: bounds,
@@ -306,9 +363,16 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
         ? scatterBirds(
             center: scatterSpot.coord,
             topSpecies: scatterSpot.birds!.topSpecies,
+            speciesCount: scatterSpot.birds!.speciesCount,
             seed: scatterSpot.id,
           )
         : null;
+    // Depth-sort so lower-latitude (visually lower on screen) markers draw
+    // last and appear on top of higher-latitude ones when they overlap.
+    final sortedScatterIndividuals = scatterResult == null
+        ? const <ScatteredBird>[]
+        : ([...scatterResult.individuals]
+            ..sort((a, b) => b.coord.lat.compareTo(a.coord.lat)));
     // Conditional watch, not unconditional-then-filter: keeps the GPX
     // fetch lazy so it never fires while the trail chip is off.
     final trailTracks = _activeKinds.contains('trail')
@@ -325,7 +389,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     final moonText = discoveryOverview == null
         ? null
         : _goldenHourDescriptionFor(discoveryOverview.goldenHours, obsMode);
-    final peekHeight = MediaQuery.sizeOf(context).height * 0.16;
+    final peekHeight = MediaQuery.sizeOf(context).height * kObsSheetPeek;
 
     return Scaffold(
       key: const Key('obsmap_screen'),
@@ -333,10 +397,22 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
         children: [
           FlutterMap(
             mapController: _mapController,
-            options: const MapOptions(
+            options: MapOptions(
               initialCenter:
-                  LatLng(defaultObservationLat, defaultObservationLng),
+                  const LatLng(defaultObservationLat, defaultObservationLng),
               initialZoom: 12,
+              minZoom: _debugMinZoom,
+              // Esri World_Dark_Gray_Base tiles only exist up to z16.
+              maxZoom: _debugMaxZoom,
+              cameraConstraint: CameraConstraint.contain(
+                bounds: LatLngBounds(
+                  const LatLng(33.0, 124.5),
+                  const LatLng(38.7, 131.9),
+                ),
+              ),
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              ),
             ),
             children: [
               TileLayer(
@@ -377,15 +453,15 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                   markers: [
                     for (
                       var i = 0;
-                      i < scatterResult.individuals.length;
+                      i < sortedScatterIndividuals.length;
                       i++
                     )
                       Marker(
                         point: LatLng(
-                          scatterResult.individuals[i].coord.lat,
-                          scatterResult.individuals[i].coord.lng,
+                          sortedScatterIndividuals[i].coord.lat,
+                          sortedScatterIndividuals[i].coord.lng,
                         ),
-                        width: ScatteredBirdMarker.markerBoxSize,
+                        width: ScatteredBirdMarker.markerBoxWidth,
                         height: ScatteredBirdMarker.markerBoxSize,
                         child: AnimatedOpacity(
                           opacity: _scatterVisible ? 1 : 0,
@@ -396,11 +472,9 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                             key: ValueKey('${scatterSpot!.id}_$i'),
                             index: i,
                             child: ScatteredBirdMarker(
-                              nameKo: scatterResult.individuals[i].nameKo,
-                              onTap: () => _showBirdSpeciesTooltip(
-                                scatterResult.individuals[i],
-                                scatterResult.wasReduced,
-                                scatterResult.totalCount,
+                              nameKo: sortedScatterIndividuals[i].nameKo,
+                              onTap: () => _showBirdSpeciesDetail(
+                                sortedScatterIndividuals[i],
                               ),
                             ),
                           ),
@@ -553,6 +627,16 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                         ),
                       ],
                     ),
+                    if (_showResearchButton)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Center(
+                          child: _ResearchHereButton(
+                            researching: _isResearching,
+                            onTap: _researchHere,
+                          ),
+                        ),
+                      ),
                     if (isFallbackLocation)
                       _LocationFallbackBanner(onEnableLocation: _enableLocation),
                     _ObservationMapStatusBanner(
@@ -581,32 +665,6 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
             ),
           ),
           Positioned(
-            right: 16,
-            bottom: peekHeight + 16,
-            child: AnimatedBuilder(
-              animation: _sheetController,
-              builder: (context, _) {
-                final opacity = _peekOverlayOpacity();
-                return AnimatedOpacity(
-                  duration: const Duration(milliseconds: 200),
-                  opacity: opacity,
-                  child: IgnorePointer(
-                    ignoring: opacity == 0,
-                    child: StreamBuilder<MapEvent>(
-                      stream: _mapController.mapEventStream,
-                      builder: (context, snapshot) {
-                        return CompassButton(
-                          rotationDegrees: _mapController.camera.rotation,
-                          onTap: () => _mapController.rotate(0),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          Positioned(
             left: 16,
             bottom: peekHeight + 16,
             child: AnimatedBuilder(
@@ -630,6 +688,19 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
               },
             ),
           ),
+          // TODO(019): 값 확정 후 제거
+          if (kDebugMode)
+            Positioned(
+              right: 16,
+              bottom: peekHeight + 16,
+              child: _DebugZoomOverlay(
+                mapController: _mapController,
+                minZoom: _debugMinZoom,
+                maxZoom: _debugMaxZoom,
+                onMinZoomDelta: _adjustDebugMinZoom,
+                onMaxZoomDelta: _adjustDebugMaxZoom,
+              ),
+            ),
           if (scatterResult != null && scatterResult.wasReduced)
             Positioned(
               left: 16,
@@ -638,7 +709,8 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 220),
                 child: _ScatteredBirdCaptionBanner(
-                  totalCount: scatterResult.totalCount,
+                  totalSpeciesCount: scatterResult.totalSpeciesCount,
+                  displayedSpeciesCount: scatterResult.individuals.length,
                 ),
               ),
             ),
@@ -656,6 +728,110 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// TODO(019): 값 확정 후 제거
+/// Debug-only panel showing live zoom/center and a min/max zoom stepper, so
+/// the owner can screenshot-review candidate zoom/camera constraint values
+/// before they're hardcoded into [MapOptions]. Never rendered outside
+/// [kDebugMode]; the stepper here drives the lifted zoom state in
+/// [_ObservationMapScreenState] via [onMinZoomDelta]/[onMaxZoomDelta], which
+/// in turn feeds the real map's [MapOptions.minZoom]/[MapOptions.maxZoom].
+class _DebugZoomOverlay extends StatelessWidget {
+  const _DebugZoomOverlay({
+    required this.mapController,
+    required this.minZoom,
+    required this.maxZoom,
+    required this.onMinZoomDelta,
+    required this.onMaxZoomDelta,
+  });
+
+  final MapController mapController;
+  final double minZoom;
+  final double maxZoom;
+  final ValueChanged<double> onMinZoomDelta;
+  final ValueChanged<double> onMaxZoomDelta;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return StreamBuilder<MapEvent>(
+      stream: mapController.mapEventStream,
+      builder: (context, snapshot) {
+        final camera = mapController.camera;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'zoom ${camera.zoom.toStringAsFixed(1)}',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              Text(
+                '${camera.center.latitude.toStringAsFixed(4)}, '
+                '${camera.center.longitude.toStringAsFixed(4)}',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('min', style: Theme.of(context).textTheme.labelSmall),
+                  IconButton(
+                    icon: const Icon(Icons.remove, size: 16),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => onMinZoomDelta(-1),
+                  ),
+                  Text(
+                    minZoom.toStringAsFixed(0),
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add, size: 16),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => onMinZoomDelta(1),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('max', style: Theme.of(context).textTheme.labelSmall),
+                  IconButton(
+                    icon: const Icon(Icons.remove, size: 16),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => onMaxZoomDelta(-1),
+                  ),
+                  Text(
+                    maxZoom.toStringAsFixed(0),
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add, size: 16),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => onMaxZoomDelta(1),
+                  ),
+                ],
+              ),
+              Text(
+                '타일 z16까지',
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -825,17 +1001,72 @@ class _LocationFallbackBanner extends StatelessWidget {
   }
 }
 
-/// Caption shown while a bird spot's individual scatter was reduced (spec
-/// 017 P1-3): [totalCount] is [ScatterResult.totalCount], the honest
-/// uncapped real count, never [ScatterResult.individuals.length] -- the map
-/// shows at most `maxIndividuals` markers as a representative sample while
-/// this caption keeps the real number visible. Not shown when the scatter
-/// wasn't reduced (individuals already equal the real count, so no caption
-/// is needed).
-class _ScatteredBirdCaptionBanner extends StatelessWidget {
-  const _ScatteredBirdCaptionBanner({required this.totalCount});
+/// Pill button offered once the camera has drifted well past the last
+/// fetched center (spec 019 P4), letting the user explicitly re-fetch
+/// observation-map data for the area they've panned to instead of always
+/// tracking their GPS location.
+class _ResearchHereButton extends StatelessWidget {
+  const _ResearchHereButton({required this.researching, required this.onTap});
 
-  final int totalCount;
+  final bool researching;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: '이 지역에서 다시 검색',
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Material(
+          key: const Key('obsmap_research_button'),
+          color: colorScheme.surfaceContainerHighest,
+          shape: const StadiumBorder(),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: researching ? null : onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: researching
+                    ? const [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text('검색 중'),
+                      ]
+                    : const [
+                        Icon(Icons.refresh, size: 18),
+                        SizedBox(width: 8),
+                        Text('이 지역에서 검색'),
+                      ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Caption shown while a bird spot's scatter only displays its top species
+/// (spec 019 P2): [totalSpeciesCount] is [ScatterResult.totalSpeciesCount],
+/// the spot's real total species count, while [displayedSpeciesCount] is how
+/// many of those are actually shown as markers. Not shown when the scatter
+/// wasn't reduced (every species is already shown, so no caption is needed).
+class _ScatteredBirdCaptionBanner extends StatelessWidget {
+  const _ScatteredBirdCaptionBanner({
+    required this.totalSpeciesCount,
+    required this.displayedSpeciesCount,
+  });
+
+  final int totalSpeciesCount;
+  final int displayedSpeciesCount;
 
   @override
   Widget build(BuildContext context) {
@@ -847,7 +1078,7 @@ class _ScatteredBirdCaptionBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        '관측 $totalCount마리 · 대표 표시',
+        '관측 $totalSpeciesCount종 중 상위 $displayedSpeciesCount종 표시',
         style: Theme.of(context).textTheme.bodySmall,
       ),
     );

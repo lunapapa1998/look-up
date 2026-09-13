@@ -202,6 +202,14 @@ class ObservationMapNotifier extends AsyncNotifier<ObservationMapResponse> {
       lng: location.lng,
     );
   }
+
+  Future<void> refreshAtCenter({required double lat, required double lng}) async {
+    state = const AsyncLoading();
+    final api = ref.read(observationMapApiProvider);
+    state = await AsyncValue.guard(
+      () => api.fetchObservationMap(lat: lat, lng: lng),
+    );
+  }
 }
 
 final observationMapProvider =

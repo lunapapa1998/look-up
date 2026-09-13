@@ -3,27 +3,46 @@ import 'dart:math';
 import '../models/observation_map.dart';
 import '../models/trails.dart';
 
+/// One species' representative marker within a spot's scatter (spec 019 P2):
+/// exactly one [ScatteredBird] per species in [scatterBirds]'s `topSpecies`
+/// input, never one per observed individual.
 class ScatteredBird {
   final Coordinate coord;
   final String nameKo;
+  final String nameSci;
   final String speciesCode;
+  final int? count;
+  final String obsDt;
 
   const ScatteredBird({
     required this.coord,
     required this.nameKo,
+    required this.nameSci,
     required this.speciesCode,
+    required this.count,
+    required this.obsDt,
   });
 }
 
+/// Result of scattering a spot's top species into representative markers.
 class ScatterResult {
+  /// One entry per species in `topSpecies` -- never one per observed
+  /// individual bird.
   final List<ScatteredBird> individuals;
+
+  /// True when `topSpecies` is a strict subset of the spot's total species
+  /// (i.e. only the top few species are being shown, and some were omitted).
   final bool wasReduced;
-  final int totalCount;
+
+  /// The spot's total observed species count (the `speciesCount` argument
+  /// passed to [scatterBirds]) -- `topSpecies` may only cover the top few of
+  /// these.
+  final int totalSpeciesCount;
 
   const ScatterResult({
     required this.individuals,
     required this.wasReduced,
-    required this.totalCount,
+    required this.totalSpeciesCount,
   });
 }
 
@@ -42,90 +61,42 @@ int _fnv1a32(String input) {
 ScatterResult scatterBirds({
   required Coordinate center,
   required List<BirdSpecies> topSpecies,
+  required int speciesCount,
   required String seed,
-  int maxIndividuals = 25,
   double radiusMeters = 400,
 }) {
   if (topSpecies.isEmpty) {
-    return const ScatterResult(
-      individuals: [],
+    return ScatterResult(
+      individuals: const [],
       wasReduced: false,
-      totalCount: 0,
+      totalSpeciesCount: speciesCount,
     );
-  }
-
-  final effectiveCounts = topSpecies
-      .map((species) => species.count ?? 1)
-      .toList(growable: false);
-  final totalCount = effectiveCounts.fold<int>(0, (a, b) => a + b);
-
-  List<int> allocations;
-  bool wasReduced;
-
-  if (totalCount <= maxIndividuals) {
-    allocations = effectiveCounts;
-    wasReduced = false;
-  } else {
-    wasReduced = true;
-    final speciesTotal = topSpecies.length;
-    if (speciesTotal > maxIndividuals) {
-      allocations = List<int>.filled(speciesTotal, 0);
-      for (var i = 0; i < maxIndividuals; i++) {
-        allocations[i] = 1;
-      }
-    } else {
-      final remaining = maxIndividuals - speciesTotal;
-      final shares = List<double>.generate(
-        speciesTotal,
-        (i) => effectiveCounts[i] / totalCount * remaining,
-      );
-      final floors = shares.map((share) => share.floor()).toList(
-        growable: false,
-      );
-      final allocatedFromFloor = floors.fold<int>(0, (a, b) => a + b);
-      final leftover = remaining - allocatedFromFloor;
-
-      final byRemainderDesc = List<int>.generate(speciesTotal, (i) => i)
-        ..sort((a, b) {
-          final remainderA = shares[a] - floors[a];
-          final remainderB = shares[b] - floors[b];
-          final cmp = remainderB.compareTo(remainderA);
-          if (cmp != 0) return cmp;
-          return a.compareTo(b);
-        });
-
-      allocations = List<int>.generate(speciesTotal, (i) => 1 + floors[i]);
-      for (var i = 0; i < leftover; i++) {
-        allocations[byRemainderDesc[i]] += 1;
-      }
-    }
   }
 
   final random = Random(_fnv1a32(seed));
   final individuals = <ScatteredBird>[];
-  for (var i = 0; i < topSpecies.length; i++) {
-    final species = topSpecies[i];
-    final count = i < allocations.length ? allocations[i] : 0;
-    for (var j = 0; j < count; j++) {
-      final angle = random.nextDouble() * 2 * pi;
-      final radiusFraction = sqrt(random.nextDouble());
-      final actualRadius = radiusFraction * radiusMeters;
-      final dLat = actualRadius * cos(angle) / 111320;
-      final dLng =
-          actualRadius * sin(angle) / (111320 * cos(center.lat * pi / 180));
-      individuals.add(
-        ScatteredBird(
-          coord: Coordinate(lat: center.lat + dLat, lng: center.lng + dLng),
-          nameKo: species.nameKo,
-          speciesCode: species.speciesCode,
-        ),
-      );
-    }
+  for (final species in topSpecies) {
+    final angle = random.nextDouble() * 2 * pi;
+    final radiusFraction = sqrt(random.nextDouble());
+    final actualRadius = radiusFraction * radiusMeters;
+    final dLat = actualRadius * cos(angle) / 111320;
+    final dLng =
+        actualRadius * sin(angle) / (111320 * cos(center.lat * pi / 180));
+    individuals.add(
+      ScatteredBird(
+        coord: Coordinate(lat: center.lat + dLat, lng: center.lng + dLng),
+        nameKo: species.nameKo,
+        nameSci: species.nameSci,
+        speciesCode: species.speciesCode,
+        count: species.count,
+        obsDt: species.obsDt,
+      ),
+    );
   }
 
   return ScatterResult(
     individuals: individuals,
-    wasReduced: wasReduced,
-    totalCount: totalCount,
+    wasReduced: topSpecies.length < speciesCount,
+    totalSpeciesCount: speciesCount,
   );
 }

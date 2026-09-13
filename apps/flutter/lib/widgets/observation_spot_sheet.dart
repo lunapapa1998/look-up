@@ -5,6 +5,12 @@ import '../utils/observation_spot_filter.dart';
 import '../utils/trail_format.dart';
 import 'observation_spot_detail.dart';
 
+/// Resting ("peek") extent of [ObservationSpotSheet] as a fraction of screen
+/// height -- also the lower bound for handle-drag resizing and one of the
+/// three snap points. Shared with observation_map_screen.dart so the peek
+/// overlay fade threshold and the sheet's own peek stay in sync.
+const double kObsSheetPeek = 0.24;
+
 /// 3-snap draggable bottom sheet over the observation map: a spot list at
 /// rest, expandable to a half/full sheet, swapping to
 /// [ObservationSpotDetail] once a spot is selected.
@@ -68,6 +74,28 @@ class ObservationSpotSheet extends StatelessWidget {
 
   int _countKind(String kind) => spots.where((s) => s.kind == kind).length;
 
+  /// Drives handle-drag resizing: dragging up (negative `dy`) grows the
+  /// sheet, dragging down shrinks it, clamped to [kObsSheetPeek, 0.9].
+  void _handleHandleDragUpdate(BuildContext context, DragUpdateDetails details) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final newSize = sheetController.size - details.delta.dy / screenHeight;
+    sheetController.jumpTo(newSize.clamp(kObsSheetPeek, 0.9));
+  }
+
+  /// Snaps to whichever of the three stops is closest to where the drag let go.
+  void _handleHandleDragEnd(DragEndDetails details) {
+    const snapSizes = [kObsSheetPeek, 0.45, 0.9];
+    final currentSize = sheetController.size;
+    final nearest = snapSizes.reduce(
+      (a, b) => (a - currentSize).abs() < (b - currentSize).abs() ? a : b,
+    );
+    sheetController.animateTo(
+      nearest,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOut,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -77,11 +105,11 @@ class ObservationSpotSheet extends StatelessWidget {
 
     return DraggableScrollableSheet(
       controller: sheetController,
-      initialChildSize: 0.16,
-      minChildSize: 0.16,
+      initialChildSize: kObsSheetPeek,
+      minChildSize: kObsSheetPeek,
       maxChildSize: 0.9,
       snap: true,
-      snapSizes: const [0.16, 0.45, 0.9],
+      snapSizes: const [kObsSheetPeek, 0.45, 0.9],
       builder: (context, scrollController) {
         return Material(
           color: colorScheme.surfaceContainer,
@@ -89,40 +117,61 @@ class ObservationSpotSheet extends StatelessWidget {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: Column(
             children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              GestureDetector(
+                key: const Key('obsmap_sheet_handle'),
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (details) =>
+                    _handleHandleDragUpdate(context, details),
+                onVerticalDragEnd: _handleHandleDragEnd,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '관찰 스팟 ${spots.length}곳',
-                      style: textTheme.titleMedium,
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '조류 ${_countKind('bird')} · 별 ${_countKind('star')} · '
-                      '노포 ${_countKind('heritage')}',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '관찰 스팟 ${spots.length}곳',
+                            style: textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '조류 ${_countKind('bird')} · 별 ${_countKind('star')} · '
+                            '노포 ${_countKind('heritage')}',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
+              if (selectedSpot == null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: _SpotSearchField(
+                    searchQuery: searchQuery,
+                    onSearchChanged: onSearchChanged,
+                  ),
+                ),
               Expanded(
-                // The search/filter bar lives INSIDE the scroll view (not as a
-                // fixed sibling) so the collapsed peek (0.16) never overflows:
-                // at peek only the grabber+header fit and everything below
-                // scrolls. Non-lazy list is fine (spots <= ~18).
+                // The sort/SQM chips live INSIDE the scroll view (not the
+                // search field, which is a fixed sibling above) so the
+                // collapsed peek (kObsSheetPeek) never overflows: at peek
+                // only the grabber+header+search field fit and everything
+                // below scrolls. Non-lazy list is fine (spots <= ~18).
                 child: selectedSpot != null
                     ? ObservationSpotDetail(
                         spot: selectedSpot!,
@@ -131,9 +180,7 @@ class ObservationSpotSheet extends StatelessWidget {
                     : ListView(
                         controller: scrollController,
                         children: [
-                          _SpotSearchAndFilterBar(
-                            searchQuery: searchQuery,
-                            onSearchChanged: onSearchChanged,
+                          _SpotFilterChips(
                             sortBy: sortBy,
                             onSortChanged: onSortChanged,
                             sqmFilterActive: sqmFilterActive,
@@ -192,22 +239,54 @@ class ObservationSpotSheet extends StatelessWidget {
   }
 }
 
-/// Search field + sort/filter chip row shown above the spot list (list view
-/// only, never above [ObservationSpotDetail]) -- own widget class per this
-/// codebase's no-private-build-method convention, see
+/// Search field shown above the spot list as a fixed (non-scrolling) sibling
+/// of the scroll view, so it stays visible at every sheet size -- own widget
+/// class per this codebase's no-private-build-method convention, see
 /// `_LocationFallbackBanner` in observation_map_screen.dart for the pattern.
-class _SpotSearchAndFilterBar extends StatelessWidget {
-  const _SpotSearchAndFilterBar({
+class _SpotSearchField extends StatelessWidget {
+  const _SpotSearchField({
     required this.searchQuery,
     required this.onSearchChanged,
+  });
+
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Semantics(
+      label: '스팟 이름으로 검색',
+      child: TextField(
+        key: const Key('obsmap_search_field'),
+        onChanged: onSearchChanged,
+        decoration: InputDecoration(
+          hintText: '스팟 이름으로 검색',
+          prefixIcon: const Icon(Icons.search),
+          isDense: true,
+          filled: true,
+          fillColor: colorScheme.surfaceContainerHighest,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sort/SQM-filter chip row shown as the top item of the scrollable spot
+/// list (list view only, never above [ObservationSpotDetail]).
+class _SpotFilterChips extends StatelessWidget {
+  const _SpotFilterChips({
     required this.sortBy,
     required this.onSortChanged,
     required this.sqmFilterActive,
     required this.onSqmFilterChanged,
   });
 
-  final String searchQuery;
-  final ValueChanged<String> onSearchChanged;
   final SpotSort sortBy;
   final ValueChanged<SpotSort> onSortChanged;
   final bool sqmFilterActive;
@@ -215,87 +294,61 @@ class _SpotSearchAndFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Semantics(
-            label: '스팟 이름으로 검색',
-            child: TextField(
-              key: const Key('obsmap_search_field'),
-              onChanged: onSearchChanged,
-              decoration: InputDecoration(
-                hintText: '스팟 이름으로 검색',
-                prefixIcon: const Icon(Icons.search),
-                isDense: true,
-                filled: true,
-                fillColor: colorScheme.surfaceContainerHighest,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            SizedBox(
+              height: 44,
+              child: Center(
+                child: ChoiceChip(
+                  key: const Key('obsmap_sort_distance'),
+                  label: const Text('거리순'),
+                  selected: sortBy == SpotSort.distance,
+                  onSelected: (_) => onSortChanged(SpotSort.distance),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                SizedBox(
-                  height: 44,
-                  child: Center(
-                    child: ChoiceChip(
-                      key: const Key('obsmap_sort_distance'),
-                      label: const Text('거리순'),
-                      selected: sortBy == SpotSort.distance,
-                      onSelected: (_) => onSortChanged(SpotSort.distance),
-                    ),
-                  ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 44,
+              child: Center(
+                child: ChoiceChip(
+                  key: const Key('obsmap_sort_recent'),
+                  label: const Text('최신순'),
+                  selected: sortBy == SpotSort.recent,
+                  onSelected: (_) => onSortChanged(SpotSort.recent),
                 ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 44,
-                  child: Center(
-                    child: ChoiceChip(
-                      key: const Key('obsmap_sort_recent'),
-                      label: const Text('최신순'),
-                      selected: sortBy == SpotSort.recent,
-                      onSelected: (_) => onSortChanged(SpotSort.recent),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 44,
-                  child: Center(
-                    child: ChoiceChip(
-                      key: const Key('obsmap_sort_sqm'),
-                      label: const Text('SQM순'),
-                      selected: sortBy == SpotSort.sqm,
-                      onSelected: (_) => onSortChanged(SpotSort.sqm),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 44,
-                  child: Center(
-                    child: FilterChip(
-                      key: const Key('obsmap_filter_sqm'),
-                      label: const Text('SQM 21.5 이상 · 빛공해 적음'),
-                      selected: sqmFilterActive,
-                      onSelected: onSqmFilterChanged,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 44,
+              child: Center(
+                child: ChoiceChip(
+                  key: const Key('obsmap_sort_sqm'),
+                  label: const Text('SQM순'),
+                  selected: sortBy == SpotSort.sqm,
+                  onSelected: (_) => onSortChanged(SpotSort.sqm),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 44,
+              child: Center(
+                child: FilterChip(
+                  key: const Key('obsmap_filter_sqm'),
+                  label: const Text('SQM 21.5 이상 · 빛공해 적음'),
+                  selected: sqmFilterActive,
+                  onSelected: onSqmFilterChanged,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

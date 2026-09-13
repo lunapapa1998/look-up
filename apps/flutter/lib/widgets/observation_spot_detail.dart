@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/discovery.dart';
 import '../models/observation_map.dart';
 import '../state/discovery_providers.dart';
+import '../utils/relative_time.dart';
 import '../utils/trail_format.dart';
 import 'night_sky_tag.dart';
 import 'score_gauge.dart';
@@ -110,12 +111,7 @@ class _BirdMeasurement extends StatelessWidget {
   final BirdObservation birds;
   final DateTime now;
 
-  String _recencyLabel() {
-    final parsed = DateTime.tryParse(birds.mostRecentObsDt);
-    if (parsed == null) return birds.mostRecentObsDt;
-    final days = now.difference(parsed).inDays;
-    return '${days < 0 ? 0 : days}일 전';
-  }
+  String _recencyLabel() => formatRelativeTime(birds.mostRecentObsDt, now);
 
   @override
   Widget build(BuildContext context) {
