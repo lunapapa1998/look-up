@@ -175,11 +175,26 @@
 - **⚠️ verdict=FAIL=false-negative(5번째)**: codex 15중 13 PASS, 2 FAIL은 브레인 시뮬검증(브레인 몫)+Phase5 stale 숫자(109→113). 크로스모델 가치: lead가 런 중 codex FAIL 1(전체칩) 자체수정. [[factory-verdict-false-negative]].
 - **⭐ 브레인 시뮬 육안검증 완료(오너 지시)**: iPhone 17 Pro 실렌더에서 **오버플로우 2건 발견·수정**(위젯테스트 113 통과했으나 못 잡음 — 013/015 교훈 반복). ① 레이어 칩 Row 가로 70px(칩 5개 폭초과→가로 스크롤), ② 시트 peek 세로 65px(검색바 초과→스크롤 안으로). 커밋 `27b7cf9`. 재검증: 콘솔 오버플로우 0, 조석/음력 오버레이·레이어칩·시트 정상. **온-맵 라벨은 zoom<14라 도트만(P1-1 설계대로)** — 줌인/선택 시 라벨 표시.
 
-## 다음 세션 시작점 (후속 조각)
+## 관찰 지도 017~019 + hotfix 완성 (2026-09-11~13) ✅ — 실기기 빌드까지
 
-**다음 = 오너 최종 확인 후 후속 조각.** 관찰 지도 015+016 완료(Figma parity). 후속 UX 부채: 온-맵 라벨 줌인 체감·트레일 선 실렌더 확인(오너), label-collision 클러스터링, 트레일 탭 딥링크, 지도 탭 모드토글 진입점. 대공사 후속: 3D(엔진 스왑)·히트맵/빛공해 색면(backend raster)·오프라인 캐시.
+- **017 조류 산포 리빌**(`58c27ef`/`5b22ee4`): 조류 스팟 탭→확대+개체 새 산포(stagger). false-negative 6번째, green.
+- **018 조류 스팟 이름 정제 backend**(`75ed195`): eBird 핫스팟 우선→"의왕--왕송저수지" 수준(주소 아님). 브레인 라이브 검증.
+- **019 UX 개선 8건 flutter**(`a61703e`): 줌 min7/max16·한국bounds·회전잠금+나침반 제거·산포=종수·종명 pill·종상세 modal·핸들드래그·검색바 peek0.24·"이 지역에서 검색"·상대시간·임시 줌 오버레이(kDebugMode).
+- **hotfix 4건**(`adfc5ba`, 오너 실기기 피드백): overzoom(maxNativeZoom16+maxZoom18)·**핀 탭 시 화면 중앙 정렬**(확대 시 핀 사라지던 버그)·이름 축약 `shortSpotName`("인천--수봉공원(...)"→"수봉공원")·"이 지역에서 검색"/recenter 카메라 고정.
+- **실기기 빌드 성공**: iPhone(00008130..., 무선), 팀 877MN2RY22, **bundle id `com.example.lookup2` 필수**(`com.example.lookup`은 흔한 placeholder라 자동 프로비저닝 실패 — `adfc5ba` 전 커밋에서 복원). Mac IP는 세션마다 변함(`ipconfig getifaddr en0` 확인), 앱 `--dart-define=API_BASE_URL=http://<IP>:8000`. 무선 디버거 attach는 실패해도 앱은 설치됨(홈에서 실행, 위치+로컬네트워크 Allow 필요).
+- 육안검증 체크리스트+오너 피드백: `docs/observation-map-ux-checklist.md`.
 
-**완료분**: 013 트레일 flutter, 014 관찰지도 backend(`6215339`), **015 관찰지도 flutter(`d7fdc16`/`277b0a1`)**, **016 Figma parity 확장(`520d2d5`/`27b7cf9`, green+시뮬 육안검증)**. **낮-밤 패키지 탭**=1박2일 예약 커머스로 정의만 기록(구현 후속).
+## 다음 세션 시작점 (후속 조각) — ⭐ 020/021 스펙 작성 완료, 발사만 남음
+
+**다음 = 020 backend + 021 flutter 발사** (design-lead 검수는 오너 지시로 생략, 스펙에 설계결정 명시됨). 통합 바텀시트 상세 아키텍처 + Wikipedia 종상세 + 탐방로 리치.
+
+- **`specs/020-species-wiki-rich-trails-backend.md`**(risk high): `GET /api/species?sci&ko`(Wikipedia 사진·요약·링크, ko우선 영문폴백) + `GET /api/trails/detail?crsIdx`(두루누비 코스 리치=설명·테마·편의시설·화장실·교통·시점종점명·고도·이미지). **발사**: `just build specs/020-species-wiki-rich-trails-backend.md factory/teams/backend.yaml`. 발사 후 브레인 uvicorn 라이브 검증(저어새 위키·강화 코스 상세).
+- **`specs/021-observation-map-unified-sheet-detail-flutter.md`**(risk high, 020 소비): **통합 바텀시트 상태머신**(list↔spotDetail↔speciesDetail) — 핀 종류별 컴포넌트(`bird/star/heritage/trail_spot_detail`), 조류 종탭→인-시트 위키 종상세, 탐방로 탭→인-시트 리치 상세. **모달(019)·alert(016) 전부 폐기**(오너 지시). **발사**: 020 완료 후 `just build specs/021-...flutter.yaml`(020 계약 소비하므로 순차). 발사 후 오너 실기기 육안.
+- **정직 스코프(브레인 판단, design-lead 생략)**: Figma node 62-35 종상세의 울음소리 AI·출현예측%·성조/유조·안전거리·리워드·IUCN/천연기념물은 **데이터원 없어 만들지 않음**(가짜 금지). 실데이터=위키 사진·요약 + eBird 개체수·관측시각·관측위치 + 커뮤니티 배지. 측정/적합도 종분리 계승.
+
+**후속 UX 부채(스코프 밖)**: 임시 줌 오버레이로 오너가 min/max **확정값 정하면 반영+오버레이 제거**(019 Amendments), label-collision 클러스터링, 트레일 탭 딥링크, 지도 탭 모드토글 진입점, positron 낮타일, 보전상태 DB. 대공사: 3D(엔진 스왑)·조류 히트맵/빛공해 색면(backend raster)·오프라인 캐시.
+
+**완료분**: 013 트레일 flutter, 014 관찰지도 backend, 015~019 관찰지도(지도·산포·이름·UX), hotfix(`adfc5ba`). **낮-밤 패키지 탭**=1박2일 예약 커머스로 정의만 기록(구현 후속).
 
 ~~**012 트레일 backend PASS** → 다음=flutter consumer 조각~~ (013으로 완료).
 
