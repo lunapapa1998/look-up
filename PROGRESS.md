@@ -184,13 +184,19 @@
 - **실기기 빌드 성공**: iPhone(00008130..., 무선), 팀 877MN2RY22, **bundle id `com.example.lookup2` 필수**(`com.example.lookup`은 흔한 placeholder라 자동 프로비저닝 실패 — `adfc5ba` 전 커밋에서 복원). Mac IP는 세션마다 변함(`ipconfig getifaddr en0` 확인), 앱 `--dart-define=API_BASE_URL=http://<IP>:8000`. 무선 디버거 attach는 실패해도 앱은 설치됨(홈에서 실행, 위치+로컬네트워크 Allow 필요).
 - 육안검증 체크리스트+오너 피드백: `docs/observation-map-ux-checklist.md`.
 
-## 다음 세션 시작점 (후속 조각) — ⭐ 020/021 스펙 작성 완료, 발사만 남음
+## 종정보(위키)+탐방로 리치 backend + 통합 바텀시트 상세 flutter 완성 (2026-09-13) ✅✅ — 020/021
 
-**다음 = 020 backend + 021 flutter 발사** (design-lead 검수는 오너 지시로 생략, 스펙에 설계결정 명시됨). 통합 바텀시트 상세 아키텍처 + Wikipedia 종상세 + 탐방로 리치.
+- **020 backend** 완성, 커밋 `c90edd6`, attempts=2. `specs/020-...backend.md`(risk high). `GET /api/species?sci&ko`(Wikipedia REST 프록시, ko우선 en폴백=사진·요약·링크) + `GET /api/trails/detail?crsIdx`(두루누비 코스 리치). `backend-check` 133 passed·10 skipped.
+  - **⚠️ verdict=FAIL이나 브레인 라이브 검증이 실 결함 3건 확정·수정**(오프라인 파이프라인 못 잡음): ① **Wikipedia 403(근본)** — httpx 클라이언트 User-Agent 누락 → 전 종 `source:"none"` 전멸(저어새 포함). `_USER_AGENT` 헤더 부여로 해결(라이브만 잡음). ② **empty-extract 폴백 누락(codex 지적)** — ko 200인데 extract 빈 경우 en폴백 안 함 → `_fetch_summary`가 summary 없으면 ValueError로 폴백 유도 + 회귀테스트. ③ **교통·주변관광 복원** — 두루누비 courseList item 라이브 재확인(Amendment 94 예견 후속)으로 `travelerInfo`(교통편)·`tourInfo`(주변관광) 필드 추가. **편의시설·화장실·대표이미지는 API에 필드 자체가 없음을 라이브로 재확인 → 정직하게 계속 제외**.
+  - 라이브 실동작: 저어새·알락꼬리마도요=ko.wikipedia(요약+썸네일), 황로(sci만)=en폴백 / 코스 상세 travelerInfo·tourInfo·elevationProfile 실데이터. 계약 `.team/member.md §GET /api/trails/detail`·`/api/species` 반영.
+- **021 flutter** 완성, 커밋 `2fa70e1`, attempts=2. `specs/021-...flutter.md`(risk high, 020 소비). 바텀시트를 **뷰 상태머신**(list↔spotDetail↔speciesDetail)으로 재편, **모달(019)·alert(016) 전부 폐기**. 핀 종류별 컴포넌트(`spot_detail/{bird,star,heritage,trail}_spot_detail.dart`), 조류 종탭→인-시트 위키 종상세(`species_detail.dart`), 탐방로 탭→인-시트 리치 상세. `bird_species_detail.dart`(구모달) 삭제. `just check` green(backend 133, flutter 154, analyze 0).
+  - **⚠️ verdict=FAIL이나 codex가 실 결함 1건 지적→브레인 수정**: **시트 back 스택 붕괴** — `_handleSheetBack`이 list 복귀 시 `_revertScatter()`를 안 불러 조류 scatter marker 잔존 → 잔존 marker 탭 시 `_selectedSpot`=null인데 SpeciesDetail 열려 back 계층 붕괴(species→list 직행). 근본 수정: species→spotDetail 복귀는 scatter 유지, spotDetail/trail→list 복귀 시에만 scatter 정리(`observation_map_screen.dart:133`). scatter가 flutter_map 카메라 의존이라 위젯테스트 재현 어려워 근본 수정+오너 실기기 육안 위임.
+  - 탐방로 상세: `themeId`/`startName`/`endName`은 lead 판단으로 미렌더(코스명·종점과 중복/내부식별자), `elevationProfile`은 positionRatio가 실거리 아니라 최소/최대 표고 요약만(020 계약 경고 준수). `travelerInfo`/`tourInfo`는 HTML `<br>` 개행 정규화.
+  - **정직 스코프 준수**: Figma 62-35의 울음소리AI·출현예측%·성조/유조·안전거리·리워드·IUCN은 데이터원 없어 미구현(가짜 금지). 위키 링크는 url_launcher 미도입=SelectableText만(후속).
 
-- **`specs/020-species-wiki-rich-trails-backend.md`**(risk high): `GET /api/species?sci&ko`(Wikipedia 사진·요약·링크, ko우선 영문폴백) + `GET /api/trails/detail?crsIdx`(두루누비 코스 리치=설명·테마·편의시설·화장실·교통·시점종점명·고도·이미지). **발사**: `just build specs/020-species-wiki-rich-trails-backend.md factory/teams/backend.yaml`. 발사 후 브레인 uvicorn 라이브 검증(저어새 위키·강화 코스 상세).
-- **`specs/021-observation-map-unified-sheet-detail-flutter.md`**(risk high, 020 소비): **통합 바텀시트 상태머신**(list↔spotDetail↔speciesDetail) — 핀 종류별 컴포넌트(`bird/star/heritage/trail_spot_detail`), 조류 종탭→인-시트 위키 종상세, 탐방로 탭→인-시트 리치 상세. **모달(019)·alert(016) 전부 폐기**(오너 지시). **발사**: 020 완료 후 `just build specs/021-...flutter.yaml`(020 계약 소비하므로 순차). 발사 후 오너 실기기 육안.
-- **정직 스코프(브레인 판단, design-lead 생략)**: Figma node 62-35 종상세의 울음소리 AI·출현예측%·성조/유조·안전거리·리워드·IUCN/천연기념물은 **데이터원 없어 만들지 않음**(가짜 금지). 실데이터=위키 사진·요약 + eBird 개체수·관측시각·관측위치 + 커뮤니티 배지. 측정/적합도 종분리 계승.
+## 다음 세션 시작점 — ⭐ 오너 실기기 육안검증 대기 (020/021)
+
+**다음 = 오너 실기기 육안검증**: 관찰지도 탭에서 (1) 핀 종류별 시트 상세(조류/별/노포/탐방로 각각), (2) 조류 종탭→인-시트 위키 종상세(사진·요약·링크·개체수/관측시각/관측위치), (3) 탐방로 탭→인-시트 리치(설명·교통·주변관광·표고), (4) **모달/alert 없음** 확인, (5) **back 스택**(종상세→스팟상세→리스트, scatter marker 잔존 없음) 확인. 실기기 빌드=`--dart-define=API_BASE_URL=http://<Mac IP>:8000`(IP 세션마다 변함), bundle id `com.example.lookup2`. 체크리스트 갱신: `docs/observation-map-ux-checklist.md`.
 
 **후속 UX 부채(스코프 밖)**: 임시 줌 오버레이로 오너가 min/max **확정값 정하면 반영+오버레이 제거**(019 Amendments), label-collision 클러스터링, 트레일 탭 딥링크, 지도 탭 모드토글 진입점, positron 낮타일, 보전상태 DB. 대공사: 3D(엔진 스왑)·조류 히트맵/빛공해 색면(backend raster)·오프라인 캐시.
 
