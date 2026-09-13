@@ -53,6 +53,24 @@ class _EmptyTrailsApi implements TrailsApi {
   }) async {
     return const TrailsResponse(region: 'test', degraded: false, courses: []);
   }
+
+  @override
+  Future<TrailDetailResponse> fetchTrailDetail({
+    required String crsIdx,
+  }) async {
+    return TrailDetailResponse(
+      crsIdx: crsIdx,
+      found: false,
+      description: null,
+      themeId: null,
+      startName: null,
+      endName: null,
+      travelerInfo: null,
+      tourInfo: null,
+      elevationProfile: const [],
+      degraded: false,
+    );
+  }
 }
 
 void main() {

@@ -13,7 +13,6 @@ import '../models/trails.dart';
 import '../state/discovery_providers.dart';
 import '../utils/bird_scatter.dart';
 import '../utils/observation_spot_filter.dart';
-import '../widgets/bird_species_detail.dart';
 import '../widgets/observation_map_overlays.dart';
 import '../widgets/observation_marker.dart';
 import '../widgets/observation_spot_sheet.dart';
@@ -36,6 +35,8 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
       DraggableScrollableController();
   final LayerHitNotifier<TrailTrack> _trailHitNotifier = ValueNotifier(null);
   ObservationSpot? _selectedSpot;
+  TrailCourse? _selectedTrail;
+  SelectedSpecies? _selectedSpecies;
   String _searchQuery = '';
   SpotSort _sortBy = SpotSort.distance;
   bool _sqmFilterActive = false;
@@ -102,18 +103,60 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   void _handleTrailHit() {
     final hit = _trailHitNotifier.value;
     if (hit == null || hit.hitValues.isEmpty) return;
-    _showTrailInfo(hit.hitValues.first.course);
+    _selectTrail(hit.hitValues.first.course);
   }
 
-  void _showTrailInfo(TrailCourse course) {
-    showDialog<void>(
-      context: context,
-      builder: (_) => _TrailInfoDialog(course: course),
-    );
+  /// Selects a trail course into the sheet's detail view, mirroring the
+  /// non-bird branch of [_selectSpot]: mid-snap the sheet and drop any
+  /// active bird scatter.
+  void _selectTrail(TrailCourse course) {
+    setState(() {
+      _selectedTrail = course;
+      _selectedSpot = null;
+      _selectedSpecies = null;
+    });
+    _sheetSnappingToMidSnap = true;
+    _sheetController
+        .animateTo(
+          _sheetMidSnap,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        )
+        .whenComplete(() => _sheetSnappingToMidSnap = false);
+    _revertScatter();
+  }
+
+  /// Steps the sheet back one level of its list -> spot/trail detail ->
+  /// species detail stack: clears just the species selection when one is
+  /// active, otherwise clears both the selected spot and trail to return to
+  /// the list view.
+  void _handleSheetBack() {
+    if (_selectedSpecies != null) {
+      // Species detail -> back to the parent spot/trail detail; keep the bird
+      // scatter so the spot detail still shows its individuals.
+      setState(() => _selectedSpecies = null);
+      return;
+    }
+    // Spot/trail detail -> back to the list. Also drop any lingering bird
+    // scatter: otherwise its markers stay on the map and, once tapped, would
+    // open SpeciesDetail with no selected spot, collapsing the back stack.
+    setState(() {
+      _selectedSpot = null;
+      _selectedTrail = null;
+    });
+    _revertScatter();
+  }
+
+  void _selectSpecies(SelectedSpecies species) {
+    setState(() => _selectedSpecies = species);
   }
 
   void _selectSpot(ObservationSpot spot) {
-    setState(() => _selectedSpot = spot);
+    setState(() {
+      _selectedSpot = spot;
+      _selectedTrail = null;
+      _selectedSpecies = null;
+    });
     _sheetSnappingToMidSnap = true;
     _sheetController
         .animateTo(
@@ -218,20 +261,6 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
         _sheetController.size > _sheetMidSnap + 0.02) {
       _revertScatter();
     }
-  }
-
-  /// Shows the species-detail bottom sheet for a tapped scattered individual
-  /// (spec 019 P1-4). Only called while [_scatterSpot] is mounted, so its
-  /// name/coord are used as the detail sheet's spot context.
-  void _showBirdSpeciesDetail(ScatteredBird bird) {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (_) => BirdSpeciesDetail(
-        bird: bird,
-        spotName: _scatterSpot!.name,
-        spotCoord: _scatterSpot!.coord,
-      ),
-    );
   }
 
   void _toggleKind(String kind, bool selected) {
@@ -502,9 +531,18 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                             index: i,
                             child: ScatteredBirdMarker(
                               nameKo: sortedScatterIndividuals[i].nameKo,
-                              onTap: () => _showBirdSpeciesDetail(
-                                sortedScatterIndividuals[i],
-                              ),
+                              onTap: () {
+                                final bird = sortedScatterIndividuals[i];
+                                _selectSpecies((
+                                  nameKo: bird.nameKo,
+                                  nameSci: bird.nameSci,
+                                  count: bird.count,
+                                  obsDt: bird.obsDt,
+                                  spotName: _scatterSpot!.name,
+                                  spotCoord: _scatterSpot!.coord,
+                                  status: _scatterSpot!.birds!.status,
+                                ));
+                              },
                             ),
                           ),
                         ),
@@ -540,7 +578,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                         height: 44,
                         child: _TrailheadMarker(
                           course: track.course,
-                          onTap: () => _showTrailInfo(track.course),
+                          onTap: () => _selectTrail(track.course),
                         ),
                       ),
                   ],
@@ -746,7 +784,11 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
           ObservationSpotSheet(
             spots: filteredSpots,
             selectedSpot: _selectedSpot,
+            selectedTrail: _selectedTrail,
+            selectedSpecies: _selectedSpecies,
             onSelectSpot: _selectSpot,
+            onSelectSpecies: _selectSpecies,
+            onBack: _handleSheetBack,
             sheetController: _sheetController,
             searchQuery: _searchQuery,
             onSearchChanged: _setSearchQuery,
@@ -966,29 +1008,6 @@ class _TrailheadMarker extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Lightweight tap tooltip for a trailhead marker or polyline segment: just
-/// the course name and distance -- full course detail is a future deep-link
-/// to the trails tab, out of scope here.
-class _TrailInfoDialog extends StatelessWidget {
-  const _TrailInfoDialog({required this.course});
-
-  final TrailCourse course;
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(course.name),
-      content: Text('${course.distanceKm.toStringAsFixed(1)}km'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('닫기'),
-        ),
-      ],
     );
   }
 }

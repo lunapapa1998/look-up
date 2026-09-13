@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/observation_map.dart';
+import '../models/trails.dart';
 import '../utils/observation_spot_filter.dart';
 import '../utils/spot_name.dart';
 import '../utils/trail_format.dart';
 import 'observation_spot_detail.dart';
+import 'spot_detail/species_detail.dart';
 
 /// Resting ("peek") extent of [ObservationSpotSheet] as a fraction of screen
 /// height -- also the lower bound for handle-drag resizing and one of the
@@ -12,9 +14,24 @@ import 'observation_spot_detail.dart';
 /// overlay fade threshold and the sheet's own peek stay in sync.
 const double kObsSheetPeek = 0.24;
 
+/// One bird species tapped from a bird spot's measurement list or its
+/// on-map scatter marker -- carries both the species' own observation
+/// fields and the spot context needed to render [SpeciesDetail] without a
+/// back-reference to the originating [ObservationSpot]/[ScatteredBird].
+typedef SelectedSpecies = ({
+  String nameKo,
+  String nameSci,
+  int? count,
+  String obsDt,
+  String spotName,
+  Coordinate spotCoord,
+  String status,
+});
+
 /// 3-snap draggable bottom sheet over the observation map: a spot list at
 /// rest, expandable to a half/full sheet, swapping to
-/// [ObservationSpotDetail] once a spot is selected.
+/// [ObservationSpotDetail] once a spot is selected, or to [SpeciesDetail]
+/// once a species is selected from within that detail view.
 ///
 /// Measurement values (species count, SQM, distance) and the suitability
 /// score live in strictly separate blocks inside [ObservationSpotDetail] --
@@ -24,7 +41,11 @@ class ObservationSpotSheet extends StatelessWidget {
     super.key,
     required this.spots,
     required this.selectedSpot,
+    this.selectedTrail,
+    this.selectedSpecies,
     required this.onSelectSpot,
+    required this.onSelectSpecies,
+    required this.onBack,
     required this.sheetController,
     required this.searchQuery,
     required this.onSearchChanged,
@@ -36,7 +57,11 @@ class ObservationSpotSheet extends StatelessWidget {
 
   final List<ObservationSpot> spots;
   final ObservationSpot? selectedSpot;
+  final TrailCourse? selectedTrail;
+  final SelectedSpecies? selectedSpecies;
   final void Function(ObservationSpot) onSelectSpot;
+  final ValueChanged<SelectedSpecies> onSelectSpecies;
+  final VoidCallback onBack;
   final DraggableScrollableController sheetController;
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
@@ -103,6 +128,8 @@ class ObservationSpotSheet extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final isFilteredEmpty =
         spots.isEmpty && (searchQuery.trim().isNotEmpty || sqmFilterActive);
+    final isDetail =
+        selectedSpot != null || selectedTrail != null || selectedSpecies != null;
 
     return DraggableScrollableSheet(
       controller: sheetController,
@@ -159,7 +186,7 @@ class ObservationSpotSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              if (selectedSpot == null)
+              if (!isDetail)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: _SpotSearchField(
@@ -173,10 +200,19 @@ class ObservationSpotSheet extends StatelessWidget {
                 // collapsed peek (kObsSheetPeek) never overflows: at peek
                 // only the grabber+header+search field fit and everything
                 // below scrolls. Non-lazy list is fine (spots <= ~18).
-                child: selectedSpot != null
-                    ? ObservationSpotDetail(
-                        spot: selectedSpot!,
+                child: selectedSpecies != null
+                    ? SpeciesDetail(
+                        selection: selectedSpecies!,
                         scrollController: scrollController,
+                        onBack: onBack,
+                      )
+                    : isDetail
+                    ? ObservationSpotDetail(
+                        spot: selectedSpot,
+                        trail: selectedTrail,
+                        scrollController: scrollController,
+                        onBack: onBack,
+                        onSelectSpecies: onSelectSpecies,
                       )
                     : ListView(
                         controller: scrollController,

@@ -171,3 +171,65 @@ class TrailsResponse {
     );
   }
 }
+
+class ElevationPoint {
+  final double positionRatio;
+  final double elevationM;
+
+  const ElevationPoint({
+    required this.positionRatio,
+    required this.elevationM,
+  });
+
+  factory ElevationPoint.fromJson(Map<String, dynamic> json) {
+    return ElevationPoint(
+      positionRatio: (json['positionRatio'] as num).toDouble(),
+      elevationM: (json['elevationM'] as num).toDouble(),
+    );
+  }
+}
+
+class TrailDetailResponse {
+  final String crsIdx;
+  final bool found;
+  final String? description;
+  final String? themeId;
+  final String? startName;
+  final String? endName;
+  final String? travelerInfo;
+  final String? tourInfo;
+  final List<ElevationPoint> elevationProfile;
+  final bool degraded;
+
+  const TrailDetailResponse({
+    required this.crsIdx,
+    required this.found,
+    required this.description,
+    required this.themeId,
+    required this.startName,
+    required this.endName,
+    required this.travelerInfo,
+    required this.tourInfo,
+    required this.elevationProfile,
+    required this.degraded,
+  });
+
+  factory TrailDetailResponse.fromJson(Map<String, dynamic> json) {
+    return TrailDetailResponse(
+      crsIdx: json['crsIdx'] as String,
+      found: json['found'] as bool,
+      description: json['description'] as String?,
+      themeId: json['themeId'] as String?,
+      startName: json['startName'] as String?,
+      endName: json['endName'] as String?,
+      travelerInfo: json['travelerInfo'] as String?,
+      tourInfo: json['tourInfo'] as String?,
+      elevationProfile: json['elevationProfile'] == null
+          ? const []
+          : (json['elevationProfile'] as List)
+              .map((e) => ElevationPoint.fromJson(e as Map<String, dynamic>))
+              .toList(),
+      degraded: json['degraded'] as bool,
+    );
+  }
+}

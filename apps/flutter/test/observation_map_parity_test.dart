@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:lookup/api/gpx_api.dart';
 import 'package:lookup/api/observation_map_api.dart';
+import 'package:lookup/api/species_api.dart';
 import 'package:lookup/api/suitability_api.dart';
 import 'package:lookup/api/trails_api.dart';
 import 'package:lookup/models/observation_map.dart';
@@ -16,6 +17,7 @@ import 'package:lookup/utils/gpx_parser.dart';
 import 'package:lookup/utils/observation_spot_filter.dart';
 import 'package:lookup/widgets/observation_map_overlays.dart';
 import 'package:lookup/widgets/observation_marker.dart';
+import 'package:lookup/widgets/spot_detail/species_detail.dart';
 
 /// Pumps [ObservationMapScreen] wired with [FakeTrailsApi]/[gpxApi], mirroring
 /// the pump-helper pattern in observation_map_wiring_test.dart -- kept local
@@ -24,6 +26,7 @@ Future<void> _pumpTrailMapScreen(
   WidgetTester tester, {
   GpxApi? gpxApi,
   ObservationMapApi? observationMapApi,
+  SpeciesApi? speciesApi,
 }) async {
   final container = ProviderContainer(
     overrides: [
@@ -31,6 +34,7 @@ Future<void> _pumpTrailMapScreen(
         observationMapApi ?? FakeObservationMapApi(),
       ),
       suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+      speciesApiProvider.overrideWithValue(speciesApi ?? FakeSpeciesApi()),
       locationServiceProvider.overrideWithValue(
         FakeLocationService(
           const ObservationLocation(
@@ -1140,8 +1144,8 @@ void main() {
 
   group('Phase 4: species detail modal', () {
     testWidgets(
-      'tapping a scattered individual shows exactly one species detail '
-      'modal containing one of bird-001\'s species names',
+      'tapping a scattered individual transitions the sheet to SpeciesDetail '
+      'showing one of bird-001\'s species names',
       (tester) async {
         await _pumpTrailMapScreen(tester);
         await tester.pump();
@@ -1153,11 +1157,10 @@ void main() {
         await tester.tap(find.byType(ScatteredBirdMarker).first, warnIfMissed: false);
         await tester.pumpAndSettle();
 
-        final sheet = find.byKey(const Key('bird_species_detail_sheet'));
-        expect(sheet, findsOneWidget);
+        expect(find.byType(SpeciesDetail), findsOneWidget);
         expect(
           find.descendant(
-            of: sheet,
+            of: find.byType(SpeciesDetail),
             matching: find.textContaining(RegExp('저어새|검은머리물떼새')),
           ),
           findsOneWidget,

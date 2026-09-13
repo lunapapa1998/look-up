@@ -25,6 +25,10 @@ abstract class TrailsApi {
     required double lat,
     required double lng,
   });
+
+  Future<TrailDetailResponse> fetchTrailDetail({
+    required String crsIdx,
+  });
 }
 
 /// HTTP implementation of [TrailsApi] against a FastAPI-style backend.
@@ -66,6 +70,22 @@ class HttpTrailsApi implements TrailsApi {
       json.decode(response.body) as Map<String, dynamic>,
     );
   }
+
+  @override
+  Future<TrailDetailResponse> fetchTrailDetail({
+    required String crsIdx,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/trails/detail').replace(
+      queryParameters: {
+        'crsIdx': crsIdx,
+      },
+    );
+    final response = await client.get(uri);
+    _checkStatus(response, 200);
+    return TrailDetailResponse.fromJson(
+      json.decode(response.body) as Map<String, dynamic>,
+    );
+  }
 }
 
 /// In-memory implementation of [TrailsApi] for widget/unit tests. No HTTP;
@@ -74,11 +94,15 @@ class FakeTrailsApi implements TrailsApi {
   final bool degraded;
   final bool shouldThrow;
   final void Function(double lat, double lng)? onFetch;
+  final TrailDetailResponse? trailDetailResponse;
+  final bool trailDetailShouldThrow;
 
   FakeTrailsApi({
     this.degraded = false,
     this.shouldThrow = false,
     this.onFetch,
+    this.trailDetailResponse,
+    this.trailDetailShouldThrow = false,
   });
 
   static const _featuredCourse = TrailCourse(
@@ -203,6 +227,30 @@ class FakeTrailsApi implements TrailsApi {
       region: '인천 강화군',
       degraded: degraded,
       courses: const [_featuredCourse, _secondCourse, _thirdCourse],
+    );
+  }
+
+  @override
+  Future<TrailDetailResponse> fetchTrailDetail({
+    required String crsIdx,
+  }) async {
+    if (trailDetailShouldThrow) {
+      throw TrailsApiException(500, 'fake trail detail failure');
+    }
+    if (trailDetailResponse != null) {
+      return trailDetailResponse!;
+    }
+    return TrailDetailResponse(
+      crsIdx: crsIdx,
+      found: false,
+      description: null,
+      themeId: null,
+      startName: null,
+      endName: null,
+      travelerInfo: null,
+      tourInfo: null,
+      elevationProfile: const [],
+      degraded: false,
     );
   }
 }

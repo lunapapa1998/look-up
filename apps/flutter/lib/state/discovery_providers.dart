@@ -5,11 +5,13 @@ import 'package:latlong2/latlong.dart';
 
 import '../api/gpx_api.dart';
 import '../api/observation_map_api.dart';
+import '../api/species_api.dart';
 import '../api/suitability_api.dart';
 import '../api/trails_api.dart';
 import '../config.dart';
 import '../models/discovery.dart';
 import '../models/observation_map.dart';
+import '../models/species.dart';
 import '../models/trails.dart';
 import '../services/location_service.dart';
 
@@ -113,6 +115,18 @@ final trailsApiProvider = Provider<TrailsApi>((ref) {
   return HttpTrailsApi(defaultApiBaseUrl);
 });
 
+final speciesApiProvider = Provider<SpeciesApi>((ref) {
+  return HttpSpeciesApi(defaultApiBaseUrl);
+});
+
+typedef SpeciesQuery = ({String? sci, String? ko});
+
+final speciesInfoProvider =
+    FutureProvider.family<SpeciesInfo, SpeciesQuery>((ref, query) {
+  final api = ref.watch(speciesApiProvider);
+  return api.fetchSpecies(sci: query.sci, ko: query.ko);
+});
+
 class TrailsNotifier extends AsyncNotifier<TrailsResponse> {
   @override
   Future<TrailsResponse> build() async {
@@ -127,6 +141,12 @@ class TrailsNotifier extends AsyncNotifier<TrailsResponse> {
 
 final trailsProvider =
     AsyncNotifierProvider<TrailsNotifier, TrailsResponse>(TrailsNotifier.new);
+
+final trailDetailProvider =
+    FutureProvider.family<TrailDetailResponse, String>((ref, crsIdx) {
+  final api = ref.watch(trailsApiProvider);
+  return api.fetchTrailDetail(crsIdx: crsIdx);
+});
 
 final gpxApiProvider = Provider<GpxApi>((ref) {
   return HttpGpxApi();
