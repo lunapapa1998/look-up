@@ -1,10 +1,27 @@
 from __future__ import annotations
 
+import re
+
 import httpx
 
 from app.suitability.config import get_observation_config
 
 _TOP_SPECIES_N = 5
+_MAX_LOCATIONS = 20
+
+_COORD_SUFFIX_RE = re.compile(r"\s*\(\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*\)\s*$")
+_ADDR_PREFIX_RE = re.compile(r"^[\d\-]+\s*")
+
+
+def _clean_personal_locname(raw: str) -> str:
+    without_coord = _COORD_SUFFIX_RE.sub("", raw)
+    segments = [segment.strip() for segment in without_coord.split(",")]
+    kept = [segment for segment in segments if segment and segment.upper() != "KR"]
+    if not kept:
+        return without_coord.split(',')[0].strip() or without_coord.strip()
+    first = kept[0]
+    cleaned = _ADDR_PREFIX_RE.sub("", first)
+    return cleaned if cleaned else first
 
 
 def parse_recent_obs(payload: list[dict]) -> list[dict]:
@@ -21,6 +38,7 @@ def parse_recent_obs(payload: list[dict]) -> list[dict]:
                 "lng": float(raw["lng"]),
                 "locId": raw["locId"],
                 "locName": raw["locName"],
+                "locationPrivate": bool(raw.get("locationPrivate", False)),
                 "obsValid": bool(raw.get("obsValid", True)),
             }
         )
@@ -38,6 +56,7 @@ def aggregate_by_location(obs: list[dict]) -> list[dict]:
                 "locName": record["locName"],
                 "lat": record["lat"],
                 "lng": record["lng"],
+                "locationPrivate": record.get("locationPrivate", False),
                 "records": [],
             },
         )
@@ -59,12 +78,17 @@ def aggregate_by_location(obs: list[dict]) -> list[dict]:
             key=lambda entry: (entry["count"] is None, -(entry["count"] or 0)),
         )[:_TOP_SPECIES_N]
 
+        loc_name = group["locName"]
+        if group["locationPrivate"]:
+            loc_name = _clean_personal_locname(loc_name)
+
         results.append(
             {
                 "locId": group["locId"],
-                "locName": group["locName"],
+                "locName": loc_name,
                 "lat": group["lat"],
                 "lng": group["lng"],
+                "locationPrivate": group["locationPrivate"],
                 "speciesCount": len(by_species),
                 "mostRecentObsDt": most_recent_obs_dt,
                 "topSpecies": [
@@ -79,7 +103,10 @@ def aggregate_by_location(obs: list[dict]) -> list[dict]:
                 ],
             }
         )
-    return results
+
+    hotspot_results = [result for result in results if not result["locationPrivate"]]
+    private_results = [result for result in results if result["locationPrivate"]]
+    return (hotspot_results + private_results)[:_MAX_LOCATIONS]
 
 
 def fetch_recent_obs(

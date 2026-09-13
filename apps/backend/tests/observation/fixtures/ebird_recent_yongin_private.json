@@ -1,0 +1,47 @@
+[
+  {
+    "comName": "황조롱이",
+    "sciName": "Falco tinnunculus",
+    "speciesCode": "kestre1",
+    "howMany": 1,
+    "obsDt": "2026-09-08 08:00",
+    "lat": 37.155,
+    "lng": 127.177,
+    "locId": "L4000001",
+    "locName": "486-15 남사읍, 용인시, 경기도, KR (37.155, 127.177)",
+    "locationPrivate": true,
+    "obsValid": true,
+    "obsReviewed": false,
+    "subId": "S400001"
+  },
+  {
+    "comName": "청딱따구리",
+    "sciName": "Picus canus",
+    "speciesCode": "grywoo1",
+    "howMany": 2,
+    "obsDt": "2026-09-08 08:10",
+    "lat": 37.201,
+    "lng": 127.201,
+    "locId": "L4000002",
+    "locName": "291-22 역북동, 용인시, 경기도",
+    "locationPrivate": true,
+    "obsValid": true,
+    "obsReviewed": false,
+    "subId": "S400002"
+  },
+  {
+    "comName": "저어새",
+    "sciName": "Platalea minor",
+    "speciesCode": "blfspo1",
+    "howMany": 12,
+    "obsDt": "2026-09-08 09:00",
+    "lat": 37.62,
+    "lng": 126.6,
+    "locId": "L4000003",
+    "locName": "용인 은이성지 저수지",
+    "locationPrivate": false,
+    "obsValid": true,
+    "obsReviewed": false,
+    "subId": "S400003"
+  }
+]

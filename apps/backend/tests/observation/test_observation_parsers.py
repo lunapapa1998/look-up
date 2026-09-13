@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from app.observation.ebird import aggregate_by_location, parse_recent_obs
+from app.observation.ebird import _clean_personal_locname, aggregate_by_location, parse_recent_obs
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -80,3 +80,60 @@ def test_aggregate_by_location_l2345678():
     group = groups[2]
 
     assert group["speciesCount"] == 2
+
+
+def test_parse_recent_obs_preserves_location_private_flag():
+    payload = _load_json("ebird_recent_yongin_private.json")
+    parsed = parse_recent_obs(payload)
+
+    assert parsed[0]["locationPrivate"] is True
+    assert parsed[1]["locationPrivate"] is True
+    assert parsed[2]["locationPrivate"] is False
+
+
+def test_aggregate_by_location_reorders_hotspot_before_private():
+    payload = _load_json("ebird_recent_yongin_private.json")
+    parsed = parse_recent_obs(payload)
+    groups = aggregate_by_location(parsed)
+
+    # Input order was private, private, hotspot — output must put hotspot first.
+    assert [group["locId"] for group in groups] == ["L4000003", "L4000001", "L4000002"]
+
+    hotspot = groups[0]
+    assert hotspot["locationPrivate"] is False
+    assert hotspot["locName"] == "용인 은이성지 저수지"
+
+    private_first = groups[1]
+    assert private_first["locationPrivate"] is True
+    assert private_first["locName"] == "남사읍"
+
+    private_second = groups[2]
+    assert private_second["locationPrivate"] is True
+    assert private_second["locName"] == "역북동"
+
+
+def test_aggregate_by_location_fills_from_private_when_no_hotspots_exist():
+    payload = _load_json('ebird_recent_yongin_private.json')[:2]
+    parsed = parse_recent_obs(payload)
+    groups = aggregate_by_location(parsed)
+
+    assert len(groups) == 2
+    assert all(group['locationPrivate'] for group in groups)
+    assert [group['locName'] for group in groups] == ['남사읍', '역북동']
+
+
+def test_clean_personal_locname_strips_address_prefix_coord_and_country():
+    assert _clean_personal_locname("486-15 남사읍, 용인시, 경기도, KR (37.155, 127.177)") == "남사읍"
+    assert _clean_personal_locname("291-22 역북동, 용인시, 경기도") == "역북동"
+
+
+def test_clean_personal_locname_falls_back_without_comma():
+    assert _clean_personal_locname("단독관측지") == "단독관측지"
+
+
+def test_clean_personal_locname_falls_back_to_raw_first_segment_when_prefix_strip_empties_it():
+    assert _clean_personal_locname("12-34, 용인시, 경기도") == "12-34"
+
+
+def test_clean_personal_locname_falls_back_without_coordinates_when_all_segments_are_filtered():
+    assert _clean_personal_locname('KR (37.155, 127.177)') == 'KR'

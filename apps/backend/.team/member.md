@@ -536,6 +536,7 @@ Query: lat (float, -90..90, required), lng (float, -180..180, required) — 누�
 ```
 
 - `nightSky.status`는 항상 `"approx"`(정적 lat/lng 휴리스틱, 실제 위성 데이터 아님). `birds.status`는 항상 `"community"`(eBird 시민과학 이력 데이터, `live`/실시간 절대 아님 — 컨슈머 UI 문구가 실시간을 암시하면 안 됨).
+- (2026-09-13 추가, spec 018) aggregate_by_location이 핫스팟(locationPrivate=false)을 우선 배치하고 상한 _MAX_LOCATIONS=20으로 슬라이스, 부족분만 개인관측지로 채움 - 개인관측지 name은 _clean_personal_locname으로 주소 접두/좌표 괄호/KR 제거된 짧은 지명(예: 남사읍, 역북동)으로 정리됨. 계약 스키마/필드는 완전히 무변경(name 문자열 품질만 개선).
 - **이 응답에는 suitability/적합도 점수 필드가 의도적으로 없음.** 탭한 스팟의 현재 시점 적합도가 필요하면 그 스팟의 `coord`로 **기존** `GET /api/suitability?lat&lng&mode`(§8)를 별도 호출해야 함 — 이번 스펙에 새 적합도 엔드포인트는 없음.
 - Verify 명령: `cd apps/backend && uv run pytest tests/observation/ -q`, 그리고 `cd apps/backend && uv run pytest -q`(신규 라이브 테스트가 기본 실행에서 `RUN_LIVE_TESTS` 미설정으로 SKIPPED 뜨는지 확인).
 - **⚠️ 이 런도 role에 Bash 도구가 허용되지 않아(모든 명령이 "requires approval") 위 명령을 실제로 실행하지 못함.** `observation_map.py`(trails.py와 줄 단위 대조)·`main.py` import 순서(ASCII `_` < `s`)·`test_observation_endpoint.py` 5개 테스트(FakeService 반환값 → 라우터 → response_model 직렬화 경로를 손으로 트레이스, 각 `set()` 단언이 실제 fake dict 키와 정확히 일치함을 확인)·`.env.example` 포맷(기존 항목과 동일한 "주석 한 줄 + 변수 한 줄" 패턴)·`test_live.py` 추가분(기존 import/상수/pytestmark 무변경, 신규 함수만 끝에 추가)을 전부 정적 재검증 완료. **다음 엔지니어 또는 오너가 위 두 verify 명령을 실행해서 그린 확인(및 라이브 테스트가 SKIPPED로 표시되는지) 필요.**
