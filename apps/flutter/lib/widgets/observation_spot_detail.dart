@@ -5,6 +5,7 @@ import '../models/discovery.dart';
 import '../models/observation_map.dart';
 import '../state/discovery_providers.dart';
 import '../utils/relative_time.dart';
+import '../utils/spot_name.dart';
 import '../utils/trail_format.dart';
 import 'night_sky_tag.dart';
 import 'score_gauge.dart';
@@ -31,7 +32,7 @@ class ObservationSpotDetail extends ConsumerWidget {
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       children: [
-        Text(spot.name, style: Theme.of(context).textTheme.titleLarge),
+        Text(shortSpotName(spot.name), style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 12),
         _MeasurementBlock(spot: spot),
         if (spot.kind != 'heritage') ...[

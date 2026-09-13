@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/observation_map.dart';
 import '../utils/observation_spot_filter.dart';
+import '../utils/spot_name.dart';
 import '../utils/trail_format.dart';
 import 'observation_spot_detail.dart';
 
@@ -209,7 +210,7 @@ class ObservationSpotSheet extends StatelessWidget {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
-                                          spot.name,
+                                          shortSpotName(spot.name),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),

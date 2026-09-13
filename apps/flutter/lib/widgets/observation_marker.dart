@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 
 import '../models/observation_map.dart';
+import '../utils/spot_name.dart';
 
 /// Keeps only the spots whose [ObservationSpot.kind] is in [activeKinds].
 ///
@@ -22,6 +23,7 @@ List<ObservationSpot> filterObservationSpots(
 /// `_measurementSummary` in observation_spot_sheet.dart but folds in the
 /// spot name for the single-line on-map pill.
 String spotLabelText(ObservationSpot spot) {
+  final name = shortSpotName(spot.name);
   switch (spot.kind) {
     case 'bird':
       final birds = spot.birds!;
@@ -29,15 +31,15 @@ String spotLabelText(ObservationSpot spot) {
         final top = birds.topSpecies.first;
         final count = top.count;
         return count != null
-            ? '${spot.name} · ${top.nameKo} $count'
-            : '${spot.name} · ${top.nameKo}';
+            ? '$name · ${top.nameKo} $count'
+            : '$name · ${top.nameKo}';
       }
-      return '${spot.name} · ${birds.speciesCount}종';
+      return '$name · ${birds.speciesCount}종';
     case 'star':
-      return '${spot.name} · SQM ${spot.nightSky!.sqmValue.toStringAsFixed(2)}';
+      return '$name · SQM ${spot.nightSky!.sqmValue.toStringAsFixed(2)}';
     case 'heritage':
     default:
-      return spot.name;
+      return name;
   }
 }
 
@@ -205,7 +207,7 @@ class ObservationMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final pin = Semantics(
       button: true,
-      label: '${_kindLabels[spot.kind] ?? '관찰 스팟'}, ${spot.name}',
+      label: '${_kindLabels[spot.kind] ?? '관찰 스팟'}, ${shortSpotName(spot.name)}',
       child: SizedBox(
         width: pinBoxSize,
         height: pinBoxSize,

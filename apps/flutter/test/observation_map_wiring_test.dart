@@ -370,7 +370,7 @@ void main() {
 
   group('Phase 019: zoom/camera constraints and rotation lock', () {
     testWidgets(
-      'MapOptions constrain zoom to 7-16, contain the camera to the Korea bounding box, and lock rotation while keeping other gestures enabled',
+      'MapOptions constrain zoom to 7-18 (overzoom past the z16 tile source), contain the camera to the Korea bounding box, and lock rotation while keeping other gestures enabled',
       (tester) async {
         await _pumpObservationMap(
           tester,
@@ -381,7 +381,12 @@ void main() {
         final mapWidget = tester.widget<FlutterMap>(find.byType(FlutterMap));
 
         expect(mapWidget.options.minZoom, 7);
-        expect(mapWidget.options.maxZoom, 16);
+        // maxZoom 18 with TileLayer.maxNativeZoom 16 = overzoom (upscaled
+        // z16 tiles) so users can zoom in closer than the Esri tile source.
+        expect(mapWidget.options.maxZoom, 18);
+        final tileLayer =
+            tester.widget<TileLayer>(find.byType(TileLayer));
+        expect(tileLayer.maxNativeZoom, 16);
 
         final cameraConstraint = mapWidget.options.cameraConstraint;
         expect(cameraConstraint, isA<ContainCamera>());

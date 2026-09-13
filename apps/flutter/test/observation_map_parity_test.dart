@@ -237,6 +237,71 @@ class _TwoBirdSpotsApi implements ObservationMapApi {
   }
 }
 
+/// [ObservationMapApi] with one bird spot and one heritage spot placed far
+/// (~3km) from the bird so that, after tapping the bird zooms/centers the
+/// camera (spec 019 reveal) and its scatter mounts, the heritage marker is
+/// still well outside the scatter radius and reliably tappable in the
+/// "non-bird selection reverts scatter" test.
+class _BirdAndFarHeritageApi implements ObservationMapApi {
+  static const _bird = ObservationSpot(
+    id: 'bird-001',
+    kind: 'bird',
+    name: '스팟 하나',
+    coord: Coordinate(lat: 37.601, lng: 126.412),
+    nightSky: null,
+    birds: BirdObservation(
+      speciesCount: 2,
+      topSpecies: [
+        BirdSpecies(
+          nameKo: '저어새',
+          nameSci: 'Platalea minor',
+          speciesCode: 'blbspo1',
+          count: 4,
+          obsDt: '2026-09-09 07:12',
+        ),
+        BirdSpecies(
+          nameKo: '흰뺨검둥오리',
+          nameSci: 'Anas zonorhyncha',
+          speciesCode: 'spbduc1',
+          count: 3,
+          obsDt: '2026-09-09 07:12',
+        ),
+      ],
+      mostRecentObsDt: '2026-09-09 07:12',
+      status: 'community',
+    ),
+    heritage: null,
+  );
+
+  static const _heritage = ObservationSpot(
+    id: 'heritage-001',
+    kind: 'heritage',
+    // ~3km east of the bird spot: outside the bird's scatter radius so its
+    // marker isn't covered by scattered birds after the reveal.
+    name: '노포 하나',
+    coord: Coordinate(lat: 37.601, lng: 126.446),
+    nightSky: null,
+    birds: null,
+    heritage: HeritageInfo(
+      addr: '인천 강화군 테스트로 1',
+      distanceM: 3000,
+      contentId: 'H1',
+    ),
+  );
+
+  @override
+  Future<ObservationMapResponse> fetchObservationMap({
+    required double lat,
+    required double lng,
+  }) async {
+    return const ObservationMapResponse(
+      region: 'test',
+      degraded: false,
+      spots: [_bird, _heritage],
+    );
+  }
+}
+
 void main() {
   group('Phase 1: on-map pin labels', () {
     testWidgets(
@@ -949,7 +1014,10 @@ void main() {
     testWidgets(
       'selecting heritage-001 after bird-001 fully clears the previous scatter',
       (tester) async {
-        await _pumpTrailMapScreen(tester);
+        await _pumpTrailMapScreen(
+          tester,
+          observationMapApi: _BirdAndFarHeritageApi(),
+        );
         await tester.pump();
 
         await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));

@@ -47,6 +47,10 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   // compared against the live camera center to decide when the map has
   // drifted far enough to offer a "search again here" re-fetch.
   LatLng? _lastFetchCenter;
+  // When true, the next observationMapProvider result must NOT move/fit the
+  // camera (owner: "이 지역에서 검색"/recenter re-fetch was zooming the map out).
+  // Only the very first automatic load fits to the spot bounds.
+  bool _skipNextAutoFit = false;
   bool _showResearchButton = false;
   bool _isResearching = false;
   StreamSubscription<MapEvent>? _mapEventSub;
@@ -59,8 +63,11 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   // stepper in _DebugZoomOverlay actually drives the live MapOptions instead
   // of just a local label.
   double _debugMinZoom = 7.0;
-  double _debugMaxZoom = 16.0;
-  static const _hardMaxDebugZoom = 16.0;
+  // maxZoom 18 with TileLayer.maxNativeZoom 16 = overzoom: past z16 the last
+  // Esri tiles are upscaled (slightly soft) instead of showing "Map data not
+  // yet available", so users can zoom in closer than the tile source's z16.
+  double _debugMaxZoom = 18.0;
+  static const _hardMaxDebugZoom = 19.0;
 
   static const _layerKinds = ['bird', 'star', 'heritage', 'trail'];
   static const _layerLabels = {
@@ -116,7 +123,10 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
         )
         .whenComplete(() => _sheetSnappingToMidSnap = false);
     if (spot.kind == 'bird') {
-      _revealAboveSheet(spot, targetZoom: 15);
+      // Zoom-in on tap, centering the pin on screen. (Zoom itself is fine per
+      // owner; the earlier bug was the pin scrolling off-screen after the
+      // zoom, which looked like an error.)
+      _revealAboveSheet(spot, targetZoom: 14);
       if (_scatterSpot != null && _scatterSpot!.id != spot.id) {
         _revertScatter();
         Future.delayed(const Duration(milliseconds: 150), () {
@@ -138,11 +148,18 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   /// lands in the vertical center of the area still visible above the
   /// mid-snap sheet, instead of underneath it.
   void _revealAboveSheet(ObservationSpot spot, {double? targetZoom}) {
+    final spotLatLng = LatLng(spot.coord.lat, spot.coord.lng);
+    // Zoom-in reveal: center the pin on screen. The pixel round-trip below is
+    // computed in the CURRENT camera projection, so mixing it with a zoom
+    // change lands the pin off-screen (owner saw the pin vanish = "error").
+    // When zooming, just center the spot so it's always visible.
+    if (targetZoom != null) {
+      _mapController.move(spotLatLng, targetZoom);
+      return;
+    }
     final camera = _mapController.camera;
     final screenSize = camera.nonRotatedSize;
-    final spotOffset = camera.latLngToScreenOffset(
-      LatLng(spot.coord.lat, spot.coord.lng),
-    );
+    final spotOffset = camera.latLngToScreenOffset(spotLatLng);
     final visibleTop = screenSize.height * (1 - _sheetMidSnap);
     final targetY = visibleTop / 2;
     final shiftY = spotOffset.dy - targetY;
@@ -150,7 +167,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     final newCenter = camera.screenOffsetToLatLng(
       Offset(center.dx, center.dy + shiftY),
     );
-    _mapController.move(newCenter, targetZoom ?? camera.zoom);
+    _mapController.move(newCenter, camera.zoom);
   }
 
   /// Mounts [spot]'s scatter and fades it in (spec 017 P3).
@@ -233,6 +250,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     final lng = location?.lng ?? defaultObservationLng;
     _mapController.move(LatLng(lat, lng), _mapController.camera.zoom);
     _lastFetchCenter = LatLng(lat, lng);
+    _skipNextAutoFit = true;
     setState(() => _showResearchButton = false);
     ref.read(observationMapProvider.notifier).refreshAtCenter(lat: lat, lng: lng);
   }
@@ -243,6 +261,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   Future<void> _researchHere() async {
     setState(() => _isResearching = true);
     final center = _mapController.camera.center;
+    _skipNextAutoFit = true; // keep the current camera; don't zoom out to fit
     await ref
         .read(observationMapProvider.notifier)
         .refreshAtCenter(lat: center.latitude, lng: center.longitude);
@@ -312,6 +331,12 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
 
       final spots = next.valueOrNull?.spots;
       if (spots == null || spots.isEmpty) return;
+
+      // Re-search / recenter re-fetches must not move the camera.
+      if (_skipNextAutoFit) {
+        _skipNextAutoFit = false;
+        return;
+      }
 
       final bounds = LatLngBounds.fromPoints(
         spots.map((s) => LatLng(s.coord.lat, s.coord.lng)).toList(),
@@ -423,6 +448,10 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                 urlTemplate:
                     'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
                 userAgentPackageName: 'com.lookup.app',
+                // Esri tiles exist to z16; beyond that flutter_map upscales
+                // the z16 tile (overzoom) instead of blanking to "not yet
+                // available", so MapOptions.maxZoom can exceed 16.
+                maxNativeZoom: 16,
               ),
               // Rebuilds on every camera change (pan/zoom/rotate) -- the
               // standard flutter_map pattern for reading live zoom/camera
