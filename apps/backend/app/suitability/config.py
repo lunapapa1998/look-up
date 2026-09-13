@@ -100,3 +100,20 @@ def validate_coordinates(lat: float, lng: float) -> None:
         raise ValueError(f"lat out of range: {lat!r}")
     if not -180 <= lng <= 180:
         raise ValueError(f"lng out of range: {lng!r}")
+
+
+@dataclass(frozen=True)
+class WikipediaConfig:
+    ko_base_url: str
+    en_base_url: str
+
+
+def get_wikipedia_config() -> WikipediaConfig:
+    return WikipediaConfig(
+        ko_base_url=os.getenv(
+            "WIKIPEDIA_KO_BASE_URL", "https://ko.wikipedia.org/api/rest_v1/page/summary"
+        ),
+        en_base_url=os.getenv(
+            "WIKIPEDIA_EN_BASE_URL", "https://en.wikipedia.org/api/rest_v1/page/summary"
+        ),
+    )

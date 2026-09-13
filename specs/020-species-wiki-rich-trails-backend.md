@@ -7,6 +7,8 @@
 
 - created: 2026-09-13
 - modified: 2026-09-13 <brain/orchestrator>
+- modified: 2026-09-13, lead: claude-sonnet-5
+- modified: 2026-09-13, lead: claude-sonnet-5 (크로스모델 검증 FAIL 재수정, §Amendments 참고)
 - refs: `specs/014-observation-map-backend.md`·`specs/018-...names-backend.md`(관찰지도/조류), `specs/012-trails-heritage-backend.md`(`app/trails/*`·두루누비/TourAPI 연동·`GET /api/trails` 계약), `apps/backend/.team/member.md` §20/§25, 오너 피드백(2026-09-13, 종 상세=사진/특징 필요·탐방로 정보 풍부하게)
 - risk: high - 신규 외부 통합(Wikipedia REST) + 두루누비 코스 상세 확장 + 신규 엔드포인트 2개. backend publisher(flutter 021이 소비). 기존 계약(`/api/observation-map`,`/api/trails`,`/api/suitability`) 무변경.
 - ⚠️ design-lead 검수: 오너 지시로 이번 조각 **생략**(설계 판단은 브레인이 §설계 결정에 명시).
@@ -45,24 +47,24 @@
 
 ## Phases
 
-### Phase 1: Wikipedia 종 정보 (`GET /api/species`)
-- [ ] `species/wikipedia.py` 파서(순수) + `fetch_species_summary`(ko 우선·영문 폴백·예외흡수) + 픽스처(저어새 실캡처).
-- [ ] `models.SpeciesInfo` + `routers/species.py`(sci/ko 쿼리, 결과없음=null 정직) + main 등록.
-- [ ] 테스트(파서·엔드포인트 fake) + 라이브 스모크(게이트).
+### Phase 1: Wikipedia 종 정보 (`GET /api/species`) — ✅ 완료 (2026-09-13)
+- [x] `species/wikipedia.py` 파서(순수) + `fetch_species_summary`(ko 우선·영문 폴백·예외흡수) + 픽스처(MediaWiki REST 공개 스키마 기반, 실캡처 불가 사유는 Amendments 참고).
+- [x] `models.SpeciesInfo` + `routers/species.py`(sci/ko 쿼리, 결과없음=null 정직) + main 등록.
+- [x] 테스트(파서·엔드포인트 fake) + 라이브 스모크(게이트).
 
-**Phase validation**: `just check` green. 발사 후 브레인 uvicorn 라이브(저어새/Platalea minor → 사진·요약 확인).
+**Phase validation**: `just check` green(리드가 직접 실행, 124 passed·9 skipped). 라이브 uvicorn 확인(저어새 실사진·요약)은 `RUN_LIVE_TESTS=1` 실행 권한이 있는 오너/후속 세션 몫으로 남음(샌드박스 네트워크 제약, Amendments 참고).
 
-### Phase 2: 두루누비 코스 리치 상세 (`GET /api/trails/detail`)
-- [ ] `fetch_course_detail(crsIdx)`(설명/테마/편의시설/화장실/교통/시점종점명/이미지/고도, 예외흡수 부분필드).
-- [ ] `models` 상세 스키마 + `routers/trails_detail.py` + main 등록.
-- [ ] 테스트(fake·픽스처) + 라이브 스모크(게이트).
+### Phase 2: 두루누비 코스 리치 상세 (`GET /api/trails/detail`) — ✅ 완료 (2026-09-13, Amendment로 스코프 축소)
+- [x] `fetch_course_detail(crsIdx)`(설명/테마ID/시점종점명/GPX 고도프로파일, 예외흡수 부분필드). 편의시설/화장실/교통/대표이미지는 Amendments 근거로 v1 스코프 제외(모델에 필드 자체 없음).
+- [x] `models` 상세 스키마(`ElevationPoint`/`TrailDetailResponse`, 기존 `trails/models.py` 끝에 추가) + `routers/trails_detail.py`(신규 파일, 기존 `routers/trails.py` 무변경) + main 등록.
+- [x] 테스트(fake·픽스처) + 라이브 스모크(게이트).
 
-**Phase validation**: `just check` green. 발사 후 브레인 라이브(강화 코스 crsIdx → 리치 필드 확인).
+**Phase validation**: `just check` green(리드가 직접 실행, 132 passed·10 skipped). 라이브 확인(실제 crsIdx → 리치 필드)은 `RUN_LIVE_TESTS=1` 실행 권한이 있는 오너/후속 세션 몫으로 남음(샌드박스 네트워크 제약).
 
-### Phase 3: 계약 publish
-- [ ] `.team/member.md` §27 두 계약 문서화.
+### Phase 3: 계약 publish — ✅ 완료 (2026-09-13)
+- [x] `.team/member.md` §26(species)·§27(trails/detail) 두 계약 문서화.
 
-**Phase validation**: 아래 Validation Commands.
+**Phase validation**: 아래 Validation Commands — `just check` 리드가 직접 실행, green.
 
 ## Validation Commands
 
@@ -86,4 +88,15 @@ just check
 
 ## Amendments (post-build change history, append-only)
 
-- (없음 — 발사 전)
+- 2026-09-13 (lead, 크로스모델 검증 FAIL 재수정): 배포 전 크로스모델 검증에서 `app/species/wikipedia.py:fetch_species_summary()`가 `get_wikipedia_config()`/`httpx.Client(timeout=10.0)` 호출을 `try` 블록 진입 전에 실행해, 스펙이 요구하는 "모든 예외 흡수→None"을 어기는 FAIL 1건이 나옴. member에게 정확한 재구조화(두 호출을 `try` 안으로 이동, `finally`의 `client.close()`를 `owns_client and client is not None` 가드로 보강)를 위임해 1회 수정으로 해결. `.team/member.md` §28에 문서화(계약 무변경). 리드가 `just check` 직접 실행해 132 passed·10 skipped·0 failed 재확인.
+- 2026-09-13 (lead, 발사 전 계약 확정): 이번 세션의 Bash 샌드박스가 네트워크 요청 도구를 전부 승인거부(scout jetski와 동일 증상 — lead 세션도 예외 없음)해 Wikipedia/두루누비 라이브 재확인이 불가능했다. 대신 `specs/012-trails-heritage-backend.md` Notes의 **기존 실측 캡처**(브레인이 2026-09-09에 이미 라이브로 캡처한 두루누비 courseList 원본, `crsContents`/`crsSummary`/`crsTourInfo`/`travelerinfo`/`routeIdx` 필드 확인됨)를 근거로 Phase 2 계약을 아래와 같이 확정한다:
+  - **두루누비에 "상세" 전용 엔드포인트는 없다.** `courseList` 응답 item 자체에 목록 파서(`parse_course_list`)가 버리는 필드(`crsContents`/`crsSummary`/`crsTourInfo`=코스설명, `travelerinfo`=시점·종점 텍스트, `routeIdx`=테마ID)가 이미 있다. `fetch_course_detail(crsIdx)`는 **같은 courseList 엔드포인트를 재호출**해 crsIdx로 raw item을 찾아 이 필드들을 노출한다(신규 엔드포인트 없음, `DURUNUBI_BASE_URL` 그대로 재사용).
+  - **화장실/교통/편의시설/대표이미지는 v1 스코프에서 제외한다.** 012의 실측 캡처(2 item)에 이 필드들의 실제 키가 전혀 없어 키 이름을 추측하면 "정직 표기" 원칙(§설계 결정)에 위배된다. Purpose/Solution 문구의 "편의시설·화장실·교통" 언급은 이 Amendment로 무효화되고, `TrailDetailResponse`에는 해당 필드를 아예 만들지 않는다(있지도 않은 걸 항상 null로 내리는 죽은 필드 금지). 후속 세션이 라이브로 실제 courseList 전체 필드를 재확인하면 별도 스펙으로 추가한다.
+  - **고도 프로파일은 GPX `<ele>` 태그에서 뽑는다**(012에서 이미 실측 확인된 GPX 구조). 코스 전체 거리(`crsDstnc`, `/api/trails` 목록 응답)와 별도로 이 엔드포인트가 자체 haversine 거리를 재계산하면 두 값이 어긋날 위험이 있어, x축은 절대 km가 아니라 **`positionRatio`(0.0~1.0, 트랙포인트 인덱스 비율)** 로 낸다 — 컨슈머(021)가 필요하면 `/api/trails`의 `distanceKm`을 곱해 근사 km로 환산.
+  - 확정 계약: `GET /api/trails/detail?crsIdx=<코스ID>` → `{crsIdx, found, description, themeId, startName, endName, elevationProfile:[{positionRatio,elevationM}], degraded}`. `found=false`=그 crsIdx가 courseList에 없음(정상 200), `degraded=true`=두루누비 자체 실패(키/네트워크) — 두 실패 사유를 구분해 정직 표기.
+  - Wikipedia 쪽도 동일한 사유로 저어새 실캡처가 불가능해, 픽스처는 MediaWiki REST 공개 스키마(`https://ko.wikipedia.org/api/rest_v1/page/summary/{title}` — title/extract/thumbnail.source/content_urls.desktop.page/type)를 손으로 구성한 스키마 정확 픽스처로 대체하고, `RUN_LIVE_TESTS` 게이트 라이브 스모크로 실제 내용 검증을 후속(오너/브레인 실행)에 위임한다.
+- 2026-09-13 (**브레인 라이브 검증 — 021 발사 전 계약 확정**): uvicorn 기동 후 실 API로 두 엔드포인트를 검증, **실 결함 3건을 확정·수정**했다. lead/codex 오프라인 파이프라인(133 green)이 못 잡은 것들:
+  1. **Wikipedia 403(근본 결함, 라이브만 잡음)** — `fetch_species_summary`가 `httpx.Client`를 User-Agent 헤더 없이 만들어 Wikipedia REST가 전부 **403 Forbidden** 반환 → 코드가 예외를 삼켜 모든 종이 `source:"none"`(저어새 포함 전멸). httpx 직접 재현으로 no-UA=403 / with-UA=200 확정. `wikipedia.py`에 `_USER_AGENT` 상수 추가해 클라이언트 생성 시 헤더 부여. 수정 후 저어새·알락꼬리마도요=ko.wikipedia(요약+썸네일), 황로(sci만)=en.wikipedia 폴백 실동작 확인.
+  2. **empty-extract 폴백 누락(codex 지적 FAIL)** — 한국어 위키에 페이지는 있으나 `extract`가 빈 200 응답을 한국어 히트로 오인해 영문 폴백을 안 함. `_fetch_summary`가 파싱 후 `summary` 없으면 `ValueError`를 던져 폴백을 유도하도록 수정 + `test_empty_extract_on_korean_falls_back_to_english` 회귀 테스트 추가.
+  3. **교통·주변관광 필드 복원(Amendment 94가 예견한 후속을 이 세션에서 직접 반영)** — 브레인이 두루누비 `courseList` item **전체 필드를 라이브로 재확인**: `travelerinfo`(교통편·시점/종점 텍스트)와 `crsTourInfo`(주변 관광)가 실재. Amendment 94는 라이브 재확인 불가로 이를 제외했으나, 재확인이 된 지금 **`travelerInfo`/`tourInfo` 두 필드를 `TrailDetailResponse`에 추가**(원문 HTML `<br>` 포함, 없으면 null). 스펙 Purpose의 "교통" 요구 충족. **편의시설·화장실·대표이미지는 courseList item에 실제로 필드가 없음을 라이브로 재확인**했으므로 Amendment 94대로 계속 제외(정직·죽은 필드 금지). 테스트 3건(parse full/endpoint contract/not-found) 새 필드로 갱신, 계약 `.team/member.md` §GET /api/trails/detail 반영.
+  - 최종: `just backend-check` 133 passed·10 skipped. 라이브 저어새 요약/썸네일·강화(부산 예시) 코스 travelerInfo/tourInfo/elevationProfile 실데이터 확인. 021(flutter consumer)이 소비할 계약 확정 완료.

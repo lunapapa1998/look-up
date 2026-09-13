@@ -540,3 +540,119 @@ Query: lat (float, -90..90, required), lng (float, -180..180, required) — 누�
 - **이 응답에는 suitability/적합도 점수 필드가 의도적으로 없음.** 탭한 스팟의 현재 시점 적합도가 필요하면 그 스팟의 `coord`로 **기존** `GET /api/suitability?lat&lng&mode`(§8)를 별도 호출해야 함 — 이번 스펙에 새 적합도 엔드포인트는 없음.
 - Verify 명령: `cd apps/backend && uv run pytest tests/observation/ -q`, 그리고 `cd apps/backend && uv run pytest -q`(신규 라이브 테스트가 기본 실행에서 `RUN_LIVE_TESTS` 미설정으로 SKIPPED 뜨는지 확인).
 - **⚠️ 이 런도 role에 Bash 도구가 허용되지 않아(모든 명령이 "requires approval") 위 명령을 실제로 실행하지 못함.** `observation_map.py`(trails.py와 줄 단위 대조)·`main.py` import 순서(ASCII `_` < `s`)·`test_observation_endpoint.py` 5개 테스트(FakeService 반환값 → 라우터 → response_model 직렬화 경로를 손으로 트레이스, 각 `set()` 단언이 실제 fake dict 키와 정확히 일치함을 확인)·`.env.example` 포맷(기존 항목과 동일한 "주석 한 줄 + 변수 한 줄" 패턴)·`test_live.py` 추가분(기존 import/상수/pytestmark 무변경, 신규 함수만 끝에 추가)을 전부 정적 재검증 완료. **다음 엔지니어 또는 오너가 위 두 verify 명령을 실행해서 그린 확인(및 라이브 테스트가 SKIPPED로 표시되는지) 필요.**
+
+## 26. 종 정보(Wikipedia) 프록시 Phase 1 완료(GET /api/species 라이브 엔드포인트 + 오프라인 테스트 + env 문서 + 라이브 스모크) — 계약 publish
+
+**신규 라이브 엔드포인트 — flutter 관찰 지도의 조류 탭 종 상세(사진/요약 설명)가 이제 `GET /api/species`를 mock 대신 직접 호출 가능.**
+
+- 신규 `app/species/__init__.py`(빈 파일), `app/species/wikipedia.py`, `app/species/models.py`, `app/species/service.py`, `app/routers/species.py`, `tests/species/__init__.py`(빈 파일), `tests/species/test_species_parser.py`, `tests/species/test_species_endpoint.py`.
+- `app/suitability/config.py` 끝(기존 6개 config 함수/`validate_coordinates` 전부 무변경)에 `WikipediaConfig(ko_base_url, en_base_url)` + `get_wikipedia_config()` 추가만 함 — `WIKIPEDIA_KO_BASE_URL`(기본 `https://ko.wikipedia.org/api/rest_v1/page/summary`) / `WIKIPEDIA_EN_BASE_URL`(기본 `https://en.wikipedia.org/api/rest_v1/page/summary`), API 키 불필요.
+- 설계: **ko 우선 → en(학명) 폴백**. `wikipedia.fetch_species_summary(name_ko, sci_name, client=None)`는 `name_ko`가 있으면 한국어 위키 REST 요약 API를 먼저 시도하고(404/네트워크 오류/디스앰비규에이션 등 어떤 이유로든 실패하면), `sci_name`이 있을 때만 영어 위키로 재시도한다. 둘 다 실패하거나 둘 다 없으면 `None`을 반환하며 **절대 raise하지 않음**(`app/trails/durunubi.py`와 동일한 client 소유권 + 예외 전면 흡수 패턴: `client=None`이면 `httpx.Client(timeout=10.0)`을 자체 생성해 `finally`에서 close, 주입된 client는 호출부가 소유·닫지 않음).
+- `SpeciesService.get_species(sci, ko)`가 `fetch_species_summary`가 `None`을 반환하면 **결과없음도 200**으로 응답 — `nameKo`/`nameSci`는 요청 파라미터 그대로 echo, `summary`/`thumbnailUrl`/`wikiUrl`은 `null`, `source`는 문자열 `"none"`(404 아님, 항상 200).
+- 라우터는 `sci`/`ko` 둘 다 없을 때만 422(`detail: "either sci or ko query param is required"`)를 던지고, 나머지는 전부 200.
+
+### GET /api/species 계약
+
+```
+Query: sci (string, optional), ko (string, optional) — 최소 하나는 필요, 둘 다 없으면 422.
+
+200 응답 (SpeciesInfo, ko 히트 예시):
+{
+  "nameKo": "저어새",
+  "nameSci": "Platalea minor",
+  "summary": "저어새는 저어새과에 속하는 새이다.",
+  "thumbnailUrl": "https://upload.wikimedia.org/.../thumb.jpg",
+  "wikiUrl": "https://ko.wikipedia.org/wiki/저어새",
+  "source": "ko.wikipedia"   // "ko.wikipedia" | "en.wikipedia" | "none"
+}
+
+200 응답 (결과없음, degrade — 404 아님):
+{
+  "nameKo": "없는새이름",
+  "nameSci": null,
+  "summary": null,
+  "thumbnailUrl": null,
+  "wikiUrl": null,
+  "source": "none"
+}
+
+422 (sci/ko 둘 다 없음):
+{
+  "detail": "either sci or ko query param is required"
+}
+```
+
+- `sci`만 주어지면 ko 시도를 건너뛰고 바로 en 위키로 조회(`nameKo`는 `null`로 echo).
+- **⚠️ 이 런도 role에 Bash 도구가 허용되지 않아(`uv run pytest -q` 포함 모든 실행형 명령이 "requires approval") 테스트를 실제로 실행하지 못함.** 9개 신규/수정 파일 전체를 스펙 요구사항과 줄 단위로 대조해 정적 재검증 완료: `parse_summary_response`(정상/필드누락/disambiguation 3케이스를 로직에 직접 대입), `fetch_species_summary`의 ko→en 폴백 순서와 client 소유권(`durunubi.py`와 나란히 비교), `SpeciesService.get_species`의 None/non-None 분기, 라우터의 422 조건과 `response_model=SpeciesInfo` 직렬화 경로, `main.py` 알파벳 순서(`species` < `suitability`) 삽입, `config.py`/`.env.example`가 기존 내용 끝에만 추가되고 기존 함수/주석 라인은 단 한 글자도 바뀌지 않았음을 재확인, `test_live.py`는 기존 import 그룹에 한 줄만 추가하고 기존 6개 라이브 테스트 함수는 무변경. **다음 엔지니어 또는 오너가 `cd apps/backend && uv run pytest -q`(신규 species 테스트 전부 통과 + 신규 라이브 테스트 1개가 `RUN_LIVE_TESTS` 미설정 시 SKIPPED로 표시되는지 확인) 및 `RUN_LIVE_TESTS=1 uv run pytest -m live -q`(실제 위키 응답 확인)를 실행해서 그린 확인 필요.**
+
+## 27. 두루누비 코스 리치 상세 Phase 2 완료(GET /api/trails/detail 라이브 엔드포인트 + 오프라인 테스트 + 라이브 스모크) — 계약 publish
+
+**신규 라이브 엔드포인트 — 기존 `GET /api/trails` 목록 계약과 그 파서/모델/라우터(`durunubi.py`/`app/trails/models.py`의 기존 클래스/`app/routers/trails.py`)는 전혀 건드리지 않고, 같은 두루누비 `courseList` 응답을 재사용해 코스 상세(설명·테마·시종점명·표고 프로필)를 별도 엔드포인트로 제공.**
+
+- 신규 `app/trails/durunubi_detail.py`(`parse_course_detail_item`, `parse_gpx_elevation_profile`, `fetch_course_detail`), `app/routers/trails_detail.py`(`GET /api/trails/detail`, `get_course_detail_fetcher` DI 훅), `tests/trails/test_course_detail.py`, `tests/trails/test_trails_detail_endpoint.py`. `app/trails/models.py`는 끝에 `ElevationPoint`/`TrailDetailResponse` 클래스 2개 추가만 함(기존 클래스 무변경).
+- 설계: 두루누비에는 상세 전용 API가 없으므로 `fetch_course_detail`이 `courseList`를 다시 조회(`numOfRows=1000&pageNo=1&brdDiv=DNWW`, `durunubi.py`의 `fetch_courses`와 완전히 동일한 client 소유권/파라미터 재사용, `get_trails_config()` 그대로, 신규 config 없음)해 `crsIdx`가 일치하는 raw item을 찾고, 목록 파서(`parse_course_list`)가 버리던 `crsContents`/`crsSummary`/`crsTourInfo`(설명, 첫 비어있지 않은 값), `travelerinfo`(시점·종점 텍스트, 정규식 `시점\s*[:：]\s*([^<\r\n]+)`/`종점\s*[:：]\s*([^<\r\n]+)`로 파싱), `routeIdx`(테마ID)를 뽑아낸다.
+- **화장실/교통/편의시설/대표이미지는 이번 스코프에서 완전히 제외** — 실측으로 확인된 두루누비 응답 필드가 없어서 모델에 그 필드들을 아예 만들지 않았다(없는 걸 항상 null로 내리는 죽은 필드를 피하기 위함). 필요해지면 별도 데이터 소스 조사 후 신규 스펙으로 추가해야 함.
+- `elevationProfile`의 x축이 `distanceKm`(실 km)이 아니라 `positionRatio`(0.0~1.0, GPX trackpoint 인덱스 기반)인 이유: `/api/trails`가 내려주는 `distanceKm`(두루누비 `crsDstnc` 공식 값)과 GPX trackpoint 개수로 역산한 거리가 서로 다른 값이 나올 위험이 있어, 두 수치가 충돌하는 상황 자체를 피하려고 상대 위치 비율만 제공한다. 프론트에서 실제 km축이 필요하면 `distanceKm * positionRatio`로 근사만 가능(정확한 km는 아님을 인지할 것).
+- `found=False`는 "코스ID 자체를 찾지 못함"(API는 정상, `degraded=false`)과 "API 실패/키 미설정/네트워크 오류"(항상 `degraded=true`)를 구분해서 반환 — 프론트가 두 상황을 다르게 다룰 수 있음.
+- GPX 표고 프로필 fetch 실패는 부분 흡수(`elevationProfile=[]`)만 되고 나머지 필드(description/themeId/startName/endName)는 정상 반환됨 — GPX 서버 장애가 코스 상세 전체를 죽이지 않음.
+
+### GET /api/trails/detail 계약
+
+```
+Query: crsIdx (string, required, min_length=1)
+
+200 응답 (TrailDetailResponse, found=true 예시):
+{
+  "crsIdx": "T_CRS_MNG0000005118",
+  "found": true,
+  "description": "남파랑길 3코스는...(crsContents/crsSummary/crsTourInfo 중 첫 비어있지 않은 값)",
+  "themeId": "T_ROUTE_MNG0000000001",
+  "startName": "영도대교 입구(부산 중구 태종로 8)",
+  "endName": "감천사거리(부산 사하구 감천동)",
+  "travelerInfo": "- 시점 : 영도대교 입구(부산 중구 태종로 8)<br>교통편) 지하철 남포역 6번출구 도보 이동<br>- 종점 : 감천사거리...",
+  "tourInfo": "- 부산의 유명한 관광지인 용두산공원, 국제시장, 자갈치 수산시장<br>...(crsTourInfo 원문, HTML <br> 포함)",
+  "elevationProfile": [
+    { "positionRatio": 0.0, "elevationM": 8.102 },
+    { "positionRatio": 0.2, "elevationM": 9.607 },
+    { "positionRatio": 1.0, "elevationM": 16.742 }
+  ],
+  "degraded": false
+}
+// travelerInfo = 두루누비 travelerinfo 원문(교통편·시점/종점 포함, HTML <br> 포함, 없으면 null).
+//   startName/endName은 이 원문에서 정규식 추출한 값이라 중복이나, 원문엔 교통편 등 추가 정보가 있어 함께 노출.
+// tourInfo = 두루누비 crsTourInfo 원문(주변 관광정보, HTML <br> 포함, 없으면 null).
+// 편의시설·화장실·대표이미지는 두루누비 courseList API에 필드 자체가 없어 미노출(정직).
+
+200 응답 (found=false 예시 — 코스ID 없음, API 자체는 정상):
+{
+  "crsIdx": "T_CRS_MNG_NOT_EXIST",
+  "found": false,
+  "description": null,
+  "themeId": null,
+  "startName": null,
+  "endName": null,
+  "travelerInfo": null,
+  "tourInfo": null,
+  "elevationProfile": [],
+  "degraded": false
+}
+// 참고: 키 미설정/네트워크·API 실패로 인한 found=false는 필드 구성은 동일하되 "degraded": true.
+
+422 (crsIdx 쿼리 파라미터 누락, 표준 FastAPI validation error body):
+{
+  "detail": [
+    { "type": "missing", "loc": ["query", "crsIdx"], "msg": "Field required", "input": null }
+  ]
+}
+```
+
+- Verify 명령: `cd apps/backend && uv run pytest tests/trails/test_course_detail.py tests/trails/test_trails_detail_endpoint.py -q`, 그리고 `cd apps/backend && uv run pytest -q`(신규 라이브 테스트 `test_durunubi_course_detail_live_fetch`가 `RUN_LIVE_TESTS` 미설정 시 SKIPPED로 뜨는지 및 기존 트레일/스위터빌리티 테스트가 전혀 안 깨졌는지 확인), 실키 확인은 `RUN_LIVE_TESTS=1 uv run pytest -m live -q`.
+- **이 런은 role에 Bash 실행 권한이 없어(모든 `uv run`/`python3` 등 실행형 명령이 "requires approval") 위 명령들을 실제로 실행하지 못함.** 대신 전체 diff를 스펙 요구사항과 줄 단위로 정적 재검증했습니다: (1) `parse_course_detail_item`을 `test_course_detail.py`의 3개 케이스 입력값에 손으로 대입해 기대 dict와 정확히 일치함을 확인, (2) `parse_gpx_elevation_profile`을 `tests/trails/fixtures/durunubi_course.gpx`의 실제 6개 trkpt(ele=8.102/9.607/10.271/15.042/15.76/16.742)에 트레이스해 `n=6, step=max(1,6//20)=1`이라 6개 전부 살아남고 마지막이 이미 `positionRatio=1.0`이라 중복 추가가 안 됨을 확인(빈 문자열은 `n=0`→`[]`), (3) `fetch_course_detail`의 client 소유권/파라미터/예외 흡수 3분기(config 없음→degraded=True, resultCode≠0000 또는 item 없음/crsIdx 불일치→found=False&degraded=False, GPX fetch 실패→elevationProfile만 빈 배열, 그 외 모든 예외→outer try/except가 degraded=True로 흡수)를 `durunubi.py`의 `fetch_courses`/`fetch_gpx_endpoints`와 나란히 비교, (4) `app/routers/trails_detail.py`의 DI 오버라이드 패턴을 `test_trails_endpoint.py`와 동일 스타일로 작성했는지 확인, (5) `main.py`가 ASCII 정렬 기준 `suitability < trails < trails_detail` 순서를 지키고 기존 5개 라우터 등록 줄·`/api/health`는 한 글자도 안 바뀌었음을 확인, (6) `tests/suitability/test_live.py`는 기존 import 그룹에 import 한 줄, 파일 끝에 함수 하나만 추가하고 기존 내용은 무변경. **다음 엔지니어 또는 오너가 위 verify 명령들을 실행해서 전체 그린(기존 트레일/스위터빌리티 테스트 포함) 및 라이브 테스트 SKIPPED 표시를 최종 확인 필요.**
+
+## 28. 종 정보(Wikipedia) — 크로스모델 검증 FAIL 1건 수정(예외 흡수 범위 버그, 계약 무변경)
+
+- 크로스모델 검증에서 `app/species/wikipedia.py`의 `fetch_species_summary()`가 `get_wikipedia_config()`와 `httpx.Client(timeout=10.0)` 호출을 `try` 블록 **진입 전**에 실행하고 있어, 이 두 호출에서 발생하는 예외가 스펙이 요구하는 대로 `None`으로 흡수되지 않던 버그를 찾음.
+- 수정(이전 세션에서 이미 적용됨, 이번엔 문서화만 함): `owns_client = client is None`은 그대로 `try` 이전에 두되, config 조회와 client 생성 부분을 `try` 블록 **안**으로 이동. `finally`절의 `client.close()` 가드도 `if owns_client and client is not None`으로 변경해, client 생성 자체가 실패해 `client`가 `None`인 경우 `close()`를 호출하지 않도록 함.
+- ko/en 폴백 호출을 감싸는 내부 `try/except`, 그리고 `_fetch_summary`/`parse_summary_response`는 무변경.
+- **`GET /api/species` API 계약(섹션 26의 request/response 스키마)은 전혀 변경되지 않음** — 순수 내부 방어 코드 수정.
+- `just check`를 lead가 직접 실행해 132 passed, 10 skipped, 0 failed, 회귀 없음 확인됨.

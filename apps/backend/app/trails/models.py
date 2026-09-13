@@ -51,3 +51,21 @@ class TrailsResponse(BaseModel):
     region: str
     degraded: bool
     courses: list[TrailCourse]
+
+
+class ElevationPoint(BaseModel):
+    positionRatio: float
+    elevationM: float
+
+
+class TrailDetailResponse(BaseModel):
+    crsIdx: str
+    found: bool
+    description: str | None
+    themeId: str | None
+    startName: str | None
+    endName: str | None
+    travelerInfo: str | None
+    tourInfo: str | None
+    elevationProfile: list[ElevationPoint]
+    degraded: bool

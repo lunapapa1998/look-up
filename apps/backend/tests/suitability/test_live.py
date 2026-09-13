@@ -24,7 +24,9 @@ from app.suitability.providers.astronomy import AstronomyProvider
 from app.suitability.providers.tide import TideProvider
 from app.suitability.providers.weather import WeatherProvider
 from app.suitability.service import SuitabilityService, get_default_providers
+from app.species.wikipedia import fetch_species_summary
 from app.trails.durunubi import fetch_courses, fetch_gpx_endpoints
+from app.trails.durunubi_detail import fetch_course_detail
 from app.trails.service import DEFAULT_REGION_TOKENS, TrailsService
 from app.trails.tourapi import fetch_nearby_food
 
@@ -155,3 +157,30 @@ def test_observation_map_service_live_fetch() -> None:
 
     assert len(star_spots) == 1
     print(f"observation map live fetch: {len(bird_spots)} bird spot(s), {len(heritage_spots)} heritage spot(s)")
+
+
+@pytest.mark.live
+def test_wikipedia_species_summary_live_fetch() -> None:
+    result = fetch_species_summary("저어새", "Platalea minor")
+
+    if result is None:
+        print("wikipedia species summary live fetch: no result (degraded)")
+    else:
+        assert "summary" in result
+
+
+@pytest.mark.live
+def test_durunubi_course_detail_live_fetch() -> None:
+    courses = fetch_courses()
+    if not courses:
+        pytest.skip("no durunubi courses available to fetch course detail for")
+
+    crs_idx = courses[0]["crsIdx"]
+    result = fetch_course_detail(crs_idx)
+
+    assert result["found"] is True
+    assert result["degraded"] is False
+    print(
+        f"durunubi course detail live fetch: description={result['description']!r}, "
+        f"elevationProfile len={len(result['elevationProfile'])}"
+    )
