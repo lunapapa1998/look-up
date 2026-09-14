@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/discovery_providers.dart';
 import '../../utils/relative_time.dart';
 import '../../utils/spot_name.dart';
 import '../observation_spot_sheet.dart';
+import 'conservation_badges.dart';
+import 'today_tides_section.dart';
 
 /// Bird species wiki-detail view (spec 021 Phase 2): the third level of the
 /// sheet's list -> spot detail -> species detail stack, reached by tapping a
@@ -31,6 +34,9 @@ class SpeciesDetail extends ConsumerWidget {
     final now = ref.watch(nowProvider);
     final query = (sci: selection.nameSci, ko: selection.nameKo);
     final infoAsync = ref.watch(speciesInfoProvider(query));
+    final tidesAsync = ref.watch(
+      tideTodayProvider((lat: selection.spotCoord.lat, lng: selection.spotCoord.lng)),
+    );
 
     return ListView(
       controller: scrollController,
@@ -92,6 +98,10 @@ class SpeciesDetail extends ConsumerWidget {
           data: (info) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (info.conservation != null) ...[
+                ConservationBadges(conservation: info.conservation!),
+                const SizedBox(height: 12),
+              ],
               _SpeciesPhotoBox(
                 child: info.thumbnailUrl != null
                     ? Image.network(
@@ -102,17 +112,53 @@ class SpeciesDetail extends ConsumerWidget {
                       )
                     : const _SpeciesPhotoPlaceholder(),
               ),
+              if (info.source.toLowerCase().contains('wikipedia')) ...[
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    '출처: Wikipedia',
+                    textAlign: TextAlign.end,
+                    style: textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
-              Text(info.summary ?? '설명 준비 중이에요'),
+              _WikiSummaryText(
+                text: info.summaryLong ?? info.summary ?? '설명 준비 중이에요',
+              ),
               if (info.wikiUrl != null) ...[
                 const SizedBox(height: 8),
-                SelectableText(info.wikiUrl!),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(44, 44),
+                  ),
+                  onPressed: () {
+                    final url = info.wikiUrl ?? '';
+                    Clipboard.setData(ClipboardData(text: url));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('링크를 복사했어요')),
+                    );
+                  },
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('위키백과에서 보기'),
+                ),
               ],
             ],
           ),
         ),
         const SizedBox(height: 16),
-        if (selection.count != null) Text('관측 ${selection.count}마리'),
+        const Divider(),
+        if (selection.count != null)
+          Text(
+            '관측 ${selection.count}마리',
+            style: textTheme.titleMedium?.copyWith(
+              color: colorScheme.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         Text('관측 ${formatRelativeTime(selection.obsDt, now)}'),
         Text(
           '${shortSpotName(selection.spotName)} '
@@ -135,6 +181,60 @@ class SpeciesDetail extends ConsumerWidget {
             ),
           ),
         ],
+        tidesAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+          error: (_, _) => const SizedBox.shrink(),
+          data: (tides) =>
+              tides.found ? TodayTidesSection(tides: tides) : const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
+/// Collapsible wiki summary paragraph: starts clamped to 4 lines with a
+/// "더보기" toggle, matching long wiki extracts ([SpeciesInfo.summaryLong])
+/// without pushing the rest of the sheet down until the user asks for it.
+class _WikiSummaryText extends StatefulWidget {
+  const _WikiSummaryText({required this.text});
+
+  final String text;
+
+  @override
+  State<_WikiSummaryText> createState() => _WikiSummaryTextState();
+}
+
+class _WikiSummaryTextState extends State<_WikiSummaryText> {
+  bool expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.text,
+          maxLines: expanded ? null : 4,
+          overflow: expanded ? null : TextOverflow.ellipsis,
+        ),
+        Semantics(
+          toggled: expanded,
+          label: expanded ? '요약 접기' : '요약 더보기',
+          child: TextButton(
+            style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
+            onPressed: () => setState(() => expanded = !expanded),
+            child: Text(expanded ? '접기' : '더보기'),
+          ),
+        ),
       ],
     );
   }

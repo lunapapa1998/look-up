@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,8 +8,10 @@ import 'package:lookup/api/gpx_api.dart';
 import 'package:lookup/api/observation_map_api.dart';
 import 'package:lookup/api/species_api.dart';
 import 'package:lookup/api/suitability_api.dart';
+import 'package:lookup/api/tide_api.dart';
 import 'package:lookup/api/trails_api.dart';
 import 'package:lookup/models/species.dart';
+import 'package:lookup/models/tide.dart';
 import 'package:lookup/models/trails.dart';
 import 'package:lookup/screens/observation_map_screen.dart';
 import 'package:lookup/services/location_service.dart';
@@ -15,9 +19,11 @@ import 'package:lookup/state/discovery_providers.dart';
 import 'package:lookup/utils/observation_spot_filter.dart';
 import 'package:lookup/widgets/observation_spot_sheet.dart';
 import 'package:lookup/widgets/spot_detail/bird_spot_detail.dart';
+import 'package:lookup/widgets/spot_detail/conservation_badges.dart';
 import 'package:lookup/widgets/spot_detail/heritage_spot_detail.dart';
 import 'package:lookup/widgets/spot_detail/species_detail.dart';
 import 'package:lookup/widgets/spot_detail/star_spot_detail.dart';
+import 'package:lookup/widgets/spot_detail/today_tides_section.dart';
 import 'package:lookup/widgets/spot_detail/trail_spot_detail.dart';
 
 /// Pumps [ObservationMapScreen] wired with [FakeObservationMapApi]/
@@ -29,12 +35,14 @@ import 'package:lookup/widgets/spot_detail/trail_spot_detail.dart';
 Future<void> _pumpMapScreen(
   WidgetTester tester, {
   SpeciesApi? speciesApi,
+  TideApi? tideApi,
 }) async {
   final container = ProviderContainer(
     overrides: [
       observationMapApiProvider.overrideWithValue(FakeObservationMapApi()),
       suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
       speciesApiProvider.overrideWithValue(speciesApi ?? FakeSpeciesApi()),
+      tideApiProvider.overrideWithValue(tideApi ?? FakeTideApi()),
       locationServiceProvider.overrideWithValue(
         FakeLocationService(
           const ObservationLocation(
@@ -198,6 +206,20 @@ class _TrailSheetHarnessState extends State<_TrailSheetHarness> {
         ),
       ),
     );
+  }
+}
+
+/// [TideApi] fake whose future never completes, mirroring
+/// `_PendingTrailsApi` in trail_spot_detail_rich_test.dart -- proves
+/// [TodayTidesSection]'s loading slot renders without crashing and without
+/// showing the heading text yet.
+class _PendingTideApi implements TideApi {
+  @override
+  Future<TodayTides> fetchTodayTides({
+    required double lat,
+    required double lng,
+  }) {
+    return Completer<TodayTides>().future;
   }
 }
 
@@ -405,6 +427,237 @@ void main() {
           findsNothing,
         );
         expect(find.byType(SpeciesDetail), findsOneWidget);
+      },
+    );
+  });
+
+  group('spec 023 Phase 2a: conservation badges', () {
+    testWidgets(
+      'a SpeciesInfo with all three conservation fields renders '
+      'ConservationBadges with the IUCN EN code mapped to 위기',
+      (tester) async {
+        await _pumpMapScreen(
+          tester,
+          speciesApi: FakeSpeciesApi(
+            response: const SpeciesInfo(
+              nameKo: '저어새',
+              nameSci: 'Platalea minor',
+              summary: '저어새는 저어새과에 속하는 물새다.',
+              thumbnailUrl: null,
+              wikiUrl: 'https://ko.wikipedia.org/wiki/저어새',
+              source: 'ko.wikipedia',
+              conservation: Conservation(
+                naturalMonument: '천연기념물 제205호',
+                koreaEndangered: '멸종위기 야생생물 Ⅰ급',
+                iucn: 'EN',
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ConservationBadges), findsOneWidget);
+        expect(find.text('천연기념물 제205호'), findsOneWidget);
+        expect(find.text('멸종위기 야생생물 Ⅰ급'), findsOneWidget);
+        expect(find.text('위기'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'a SpeciesInfo with conservation null renders no ConservationBadges',
+      (tester) async {
+        await _pumpMapScreen(
+          tester,
+          speciesApi: FakeSpeciesApi(
+            response: const SpeciesInfo(
+              nameKo: '저어새',
+              nameSci: 'Platalea minor',
+              summary: '저어새는 저어새과에 속하는 물새다.',
+              thumbnailUrl: null,
+              wikiUrl: 'https://ko.wikipedia.org/wiki/저어새',
+              source: 'ko.wikipedia',
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ConservationBadges), findsNothing);
+      },
+    );
+  });
+
+  group('spec 023 Phase 2b: wiki summary expand/collapse', () {
+    final longSummary = '저어새는 저어새과에 속하는 대형 물새로 습지와 갯벌에서 서식한다. ' * 20;
+
+    testWidgets(
+      'a long summaryLong starts clamped to 4 lines behind a 더보기 toggle, '
+      'and tapping it expands to unlimited lines and flips the label to 접기',
+      (tester) async {
+        await _pumpMapScreen(
+          tester,
+          speciesApi: FakeSpeciesApi(
+            response: SpeciesInfo(
+              nameKo: '저어새',
+              nameSci: 'Platalea minor',
+              summary: '짧은 요약',
+              summaryLong: longSummary,
+              thumbnailUrl: null,
+              wikiUrl: 'https://ko.wikipedia.org/wiki/저어새',
+              source: 'ko.wikipedia',
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
+        await tester.pumpAndSettle();
+
+        final textFinder = find.text(longSummary);
+        expect(textFinder, findsOneWidget);
+        expect(tester.widget<Text>(textFinder).maxLines, 4);
+        expect(find.text('더보기'), findsOneWidget);
+
+        await tester.tap(find.text('더보기'));
+        await tester.pump();
+
+        expect(tester.widget<Text>(textFinder).maxLines, null);
+        expect(find.text('접기'), findsOneWidget);
+        expect(find.text('더보기'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'no Text under SpeciesDetail ever renders a match-score style value '
+      '(percent sign, Match, 적합도, or 스코어) -- this screen is wiki info only',
+      (tester) async {
+        await _pumpMapScreen(
+          tester,
+          speciesApi: FakeSpeciesApi(
+            response: SpeciesInfo(
+              nameKo: '저어새',
+              nameSci: 'Platalea minor',
+              summary: '짧은 요약',
+              summaryLong: longSummary,
+              thumbnailUrl: null,
+              wikiUrl: 'https://ko.wikipedia.org/wiki/저어새',
+              source: 'ko.wikipedia',
+              conservation: const Conservation(
+                naturalMonument: '천연기념물 제205호',
+                koreaEndangered: '멸종위기 야생생물 Ⅰ급',
+                iucn: 'EN',
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
+        await tester.pumpAndSettle();
+
+        final texts = tester.widgetList<Text>(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.byType(Text),
+          ),
+        );
+        for (final text in texts) {
+          final data = text.data ?? '';
+          expect(data.contains('%'), isFalse, reason: data);
+          expect(data.contains('Match'), isFalse, reason: data);
+          expect(data.contains('적합도'), isFalse, reason: data);
+          expect(data.contains('스코어'), isFalse, reason: data);
+        }
+      },
+    );
+  });
+
+  group('spec 023 Phase 3: today tides section', () {
+    testWidgets(
+      'found tides render the heading, both extreme rows, and a 지금 marker',
+      (tester) async {
+        await _pumpMapScreen(
+          tester,
+          tideApi: FakeTideApi(
+            response: const TodayTides(
+              found: true,
+              degraded: false,
+              stationName: '테스트 관측소',
+              extremes: [
+                TideExtreme(time: '06:00', kind: 'high', levelCm: 500),
+                TideExtreme(time: '18:00', kind: 'low', levelCm: null),
+              ],
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('이 갯벌의 오늘 물때'), findsOneWidget);
+        expect(find.text('06:00  만조 · 조위500cm'), findsOneWidget);
+        expect(find.text('18:00  간조'), findsOneWidget);
+        expect(find.textContaining('지금 '), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'found: false renders no heading and no extreme rows -- the whole '
+      'section is effectively invisible',
+      (tester) async {
+        await _pumpMapScreen(
+          tester,
+          tideApi: FakeTideApi(
+            response: const TodayTides(
+              found: false,
+              degraded: false,
+              stationName: null,
+              extremes: [],
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('이 갯벌의 오늘 물때'), findsNothing);
+        expect(find.byType(TodayTidesSection), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a pending tide fetch shows the compact loading slot without ever '
+      'showing the heading text',
+      (tester) async {
+        await _pumpMapScreen(tester, tideApi: _PendingTideApi());
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
+        await tester.pump();
+
+        expect(find.byType(CircularProgressIndicator), findsWidgets);
+        expect(find.text('이 갯벌의 오늘 물때'), findsNothing);
       },
     );
   });

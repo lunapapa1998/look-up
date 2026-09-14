@@ -10,6 +10,8 @@
 - refs: `specs/022-species-detail-enrich-backend.md`(소비할 `GET /api/species` 확장·신규 `GET /api/tide/today`), `specs/021-observation-map-unified-sheet-detail-flutter.md`(시트 상태머신·`species_detail.dart`·측정/적합도 종분리), `apps/flutter/lib/widgets/spot_detail/species_detail.dart`·`observation_spot_sheet.dart`·`bird_spot_detail.dart`, `apps/flutter/lib/models/species.dart`, `apps/flutter/lib/api/species_api.dart`, `apps/flutter/lib/state/discovery_providers.dart`, Figma node `62-70`, design-lead 자문(2026-09-14 — 이 스펙 §설계결정에 요약), 오너 결정(2026-09-14: 게이지 없음·조석 포함)
 - risk: high - 종 상세 화면 전면 리디자인(4단 서사) + 022 신규 계약 2종 소비 + 신규 조석 API/프로바이더. 015~021·홈·트레일탭 회귀 금지. 바텀시트 상태머신(021)·측정/적합도 종분리(013/015) 계승.
 - ⚠️ design-lead 자문 반영됨(§설계결정). 오너 확정: 종 상세에 **적합도 게이지 미배치**(스팟에만), 조석 **오늘의 물때 포함**.
+- modified: 2026-09-14, lead: claude sonnet 5 (flutter-lead) — Phase 1~4 전체 완료.
+- modified: 2026-09-14, lead: claude sonnet 5 (flutter-lead) — 크로스모델 검증 FAIL 2건(conservation all-null 미처리, TodayTidesSection 미조건부생성) 수정 완료, `just check` green 재확인.
 
 ## Purpose
 
@@ -49,36 +51,36 @@
 
 ### Phase 1: 계약 소비 배선 (모델·API·프로바이더)
 
-- [ ] `models/species.dart` summaryLong/conservation 파싱. `models/tide.dart`+`api/tide_api.dart`(Http/Fake)+`tideTodayProvider`. 022 `.team/member.md` 계약 기준.
-- [ ] `species_api.dart` Fake 확장. 로딩/에러 상태 정의.
+- [x] `models/species.dart` summaryLong/conservation 파싱. `models/tide.dart`+`api/tide_api.dart`(Http/Fake)+`tideTodayProvider`. 022 `.team/member.md` 계약 기준.
+- [x] `species_api.dart` Fake 확장. 로딩/에러 상태 정의. (fromJson 파싱만으로 계약 충족 — 별도 Fake 코드 변경 불필요, `FakeSpeciesApi.response` 오버라이드로 테스트에서 이미 임의 값 주입 가능; `FakeTideApi`는 신규로 정직 기본값(found:false) 제공.)
 
-**Phase validation**: `just flutter-check` green(파싱 테스트).
+**Phase validation**: `just check` green 확인됨 — backend 154 passed/12 skipped, flutter analyze 0 issues, flutter test 160 passed(all green). 회귀 없음.
 
 ### Phase 2: 4단 서사 리디자인 (게이지 없음)
 
 design-lead §설계결정대로 재편. 각 신규 위젯 별도 클래스(`_build*()` 금지).
 
-- [ ] 헤더: 한국어명+학명(italic)+영문명, 우측 `ConservationBadges`(값 없으면 위젯 미생성). Figma "LIVE FIELD TELEMETRY" 이어로우 라벨 제거. 관심종/북마크 버튼은 스코프 밖(후속).
-- [ ] 히어로 사진(240 유지, BoxFit.contain — 이미 반영). "현장 실사·Match%" 캡션 제거, 하단에 출처 캡션(`source` 기반 `Wikipedia`).
-- [ ] 종 소개: `summaryLong`(있으면) 아니면 `summary`. **기본 3~4줄 접힘 + "더보기" 토글**. 임의 소제목 금지. 위키 링크는 `SelectableText(url)` → "위키백과에서 보기" 텍스트 버튼(외부링크 아이콘, url_launcher 미도입이면 탭 시 복사/무동작 명시).
-- [ ] ── 구분선 ── **이 관측 측정 블록**: 관측위치·관측시각(상대시간)·개체수·관측주체(커뮤니티 배지). eBird 사실만, shortSpotName 유지. **적합도 게이지 없음**(§설계결정).
-- [ ] const/overflow 가드/44dp/Semantics(019/016 계승). 측정값 발광 절제(개체수 정도만 accent).
+- [x] 헤더: 한국어명+학명(italic), 우측(헤더 바로 아래) `ConservationBadges`(값 없으면 위젯 미생성). 영문명은 스코프 조정 — Amendments 참조. Figma "LIVE FIELD TELEMETRY" 라벨/관심종·북마크 버튼은 현재 코드에 애초 없었음(변경 불필요).
+- [x] 히어로 사진(240 유지, BoxFit.contain — 이미 반영). "현장 실사·Match%" 캡션은 애초 없었음. 하단에 출처 캡션(`source`에 wikipedia 포함 시 "출처: Wikipedia", 아니면 미표시).
+- [x] 종 소개: `summaryLong`(있으면) 아니면 `summary`. `_WikiSummaryText`(신규 private StatefulWidget)로 기본 4줄 접힘(maxLines:4+ellipsis) + "더보기"/"접기" 토글(44dp, Semantics). 위키 링크는 `TextButton.icon`("위키백과에서 보기", open_in_new 아이콘, 탭 시 Clipboard 복사+스낵바 — url_launcher 미도입이라 복사로 구현).
+- [x] ── 구분선 ── **이 관측 측정 블록**: 관측위치·관측시각(상대시간)·개체수·관측주체(커뮤니티 배지). eBird 사실만, shortSpotName 유지. **적합도 게이지 없음**(§설계결정) — negative assert 테스트로 확인.
+- [x] const/overflow 가드/44dp/Semantics(019/016 계승). 측정값 발광 절제(개체수만 accent: titleMedium+primary+w600, 나머지 그대로).
 
-**Phase validation**: `just flutter-check` green(헤더·접힘 토글·측정블록 렌더, 게이지 부재 negative assert).
+**Phase validation**: `just check` green 확인됨 — backend 154 passed/12 skipped, flutter analyze 0 issues, flutter test 164 passed(신규 4건 포함). 회귀 없음.
 
 ### Phase 3: 오늘의 물때 섹션
 
-- [ ] ── 구분선 ── `TodayTidesSection`: `tideTodayProvider(spotCoord)` 소비. 만조/간조 시간순 리스트(`HH:MM 만조/간조 · 고조/저조 조위cm`), **"지금 시각" 마커**(nowProvider, 사실이지 예측 아님). 출현확률 % 없음. 제목 "오늘의 물때"(종 주어 금지 — "이 갯벌의").
-- [ ] found:false(내륙·매칭실패) 또는 error → **섹션 위젯 자체 미생성**(중립표기도 금지). 로딩 중 슬롯만.
+- [x] ── 구분선(위젯 내부 소유) ── `TodayTidesSection`: `tideTodayProvider((lat,lng))` 소비. 만조/간조 시간순 리스트(`HH:MM 만조/간조 · 조위{cm}cm`), **"지금 시각" 마커**(nowProvider 기반 HH:MM 문자열 비교로 시간순 삽입, 사실이지 예측 아님). 출현확률 % 없음. 제목 "이 갯벌의 오늘 물때"(design-lead 확정 카피, 종 주어 아님).
+- [x] found:false(내륙·매칭실패) 또는 error → **섹션 위젯 자체 미생성**(SizedBox.shrink, divider 포함 전체 미표시, 중립표기도 없음). 로딩 중은 구분선/제목 없이 작은 인디케이터 슬롯만.
 
-**Phase validation**: `just flutter-check` green(조석 fake 렌더·found:false→부재·now 마커).
+**Phase validation**: `just check` green 확인됨 — flutter test 167 passed(신규 3건: found-true 렌더·found-false 부재·loading 슬롯), analyze 0 issues. 회귀 없음.
 
 ### Phase 4: 회귀 + 접근성
 
-- [ ] 홈·트레일탭·015~021 회귀 없음(`just check` green). 바텀시트 스냅(0.24/0.45/0.9) 동작·back 스택(021) 무변경. 위키 접힘으로 mid 스냅에서 측정블록 진입 확인(위젯테스트로 접힘 기본값 검증).
-- [ ] 측정/적합도 종분리(013/015) 준수: 이 화면엔 측정 블록만·적합도 없음(스팟 상세에 게이지 유지). eBird 정직표기·상대시간·shortSpotName 유지.
+- [x] 홈·트레일탭·015~021 회귀 없음(`just check` green, Phase 1~3에 걸쳐 누적 확인 — backend 154 passed/12 skipped, flutter analyze 0 issues, flutter test 167 passed 전부 그린 유지). 바텀시트 스냅·back 스택(021, list→spot→species 3단) 기존 테스트 무변경 통과. 위키 접힘 기본값(maxLines:4) 및 토글 위젯테스트로 검증됨(Phase 2b).
+- [x] 측정/적합도 종분리(013/015) 준수: `species_detail.dart`/`today_tides_section.dart`/`conservation_badges.dart` 3개 파일 전체를 grep 재검토 — suitability/gauge/점수/스코어/% 관련 코드 0건(오탐 1건은 "matching"이라는 영어 단어일 뿐). 이 화면엔 측정 블록만 존재, 적합도 게이지는 스팟 상세(bird_spot_detail.dart)에 그대로 유지. eBird 정직표기(관측 카운트만 accent)·상대시간·shortSpotName 유지.
 
-**Phase validation**: 아래 Validation Commands. 발사 후 브레인/오너 실기기(종 상세 4단·보전상태 배지·물때·게이지 없음·위키 접힘).
+**Phase validation**: Validation Commands(`just check`) green 확인 완료. **남은 것**: 오너 실기기 육안 검증(위치권한·갯벌 스팟 탭 — 위키 접힘·조석 렌더·배지·시트 스냅 체감은 오프라인 위젯테스트가 못 잡음, spec Notes의 "교훈 계승" 항목 참조) — 이 항목은 브레인/오너 승인 없이는 리드가 대신 수행할 수 없어 스코프 밖으로 남김.
 
 ## Validation Commands
 
@@ -108,4 +110,7 @@ just check
 
 ## Amendments (post-build change history, append-only)
 
-- (없음 — 발사 전)
+- 2026-09-14 (flutter-lead): 헤더 "영문명" 항목 스코프 제외 — `SpeciesInfo`/backend 계약(022 §29/§30) 어디에도 영문 공식명 필드가 없음(grep 확인). 정직표기 원칙(없는 데이터 조작 금지)에 따라 한국어명+학명(기존)만 유지, 영문명은 후속 데이터원 확보 시 재검토.
+- 2026-09-14 (flutter-lead): Phase 2b 작업에서 `apps/flutter/.team/member.md` 쓰기 권한이 세션 내 반복 거부되어 member가 handoff note를 직접 남기지 못함 — lead가 spec Notes/Phase 체크박스로 내용을 흡수해 기록. 다음 phase 작업자는 이 spec 파일의 Phase 2 체크박스 상세 설명을 계약 근거로 참조.
+- 2026-09-14 (flutter-lead): 크로스모델 검증(FAIL 2건) 수정. (1) `models/species.dart` — `SpeciesInfo.fromJson`이 `conservation` 맵 존재 시 3필드 전부 null이어도 non-null `Conservation`을 생성하던 결함(계약 §101-102 위반) 수정: `_parseConservation` 헬퍼로 3필드 전부 null이면 `conservation=null` 강제. 신규 테스트 추가(`species_api_test.dart`). (2) `today_tides_section.dart`/`species_detail.dart` — spec L73 "found:false/error는 섹션 위젯 자체 미생성" 요구를 문자 그대로 충족하지 못하던 구조(`SpeciesDetail`이 항상 `TodayTidesSection`을 생성하고 위젯 내부에서 `SizedBox.shrink()` 반환) 수정: `TodayTidesSection`을 `spotCoord` 대신 이미 resolve된 `tides:TodayTides`를 받는 위젯으로 변경, `SpeciesDetail`이 `tideTodayProvider`를 직접 watch해 `tides.found==true`일 때만 `TodayTidesSection`을 생성(`ConservationBadges`와 동일한 조건부 생성 패턴). `observation_spot_sheet_detail_test.dart`의 found:false 케이스 단언을 `findsOneWidget`→`findsNothing`으로 수정. `just check` green 재확인(backend 154 passed/12 skipped, flutter analyze 0 issues, flutter test all green).
+- 2026-09-14 (**브레인 검증 — codex FAIL 1건 판정**): 재검증 런 codex 12항목 중 11 PASS, 유일 FAIL은 "보전상태 배지가 헤더 우측이 아니라 좌측정렬 행"이라는 **배치 위치 지적**(기능 결함 아님). 브레인이 Figma 62-70 원안 재확인: 배지는 실제로 **종명 위 상단 가로 행**이지 "우측 칩"이 아님 — 스펙/design-lead 요약의 "헤더 우측" 표현이 부정확했고, lead 구현(가로 배지 행)이 오히려 Figma에 부합. 남은 차이는 배지 행이 종명 **위**(Figma) vs **아래**(현 구현, infoAsync 로드 후 사진 위)뿐. conservation은 `speciesInfoProvider`(비동기) 의존이라 즉시 렌더되는 헤더 종명 위로 올리면 로딩 중 레이아웃 점프가 생겨, 종명 아래 배치가 구현상 더 안정적. **최종 위치는 오너 실기기 육안으로 확정**(013/015/021 교훈: 시각 배치는 오프라인 테스트가 못 잡음). `just check` green(168 passed) 재확인 — 실질 회귀 없음, false-negative 성격의 FAIL로 판정.
