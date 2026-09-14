@@ -96,7 +96,7 @@ class SpeciesDetail extends ConsumerWidget {
                 child: info.thumbnailUrl != null
                     ? Image.network(
                         info.thumbnailUrl!,
-                        fit: BoxFit.cover,
+                        fit: BoxFit.contain,
                         errorBuilder: (context, error, stackTrace) =>
                             const _SpeciesPhotoPlaceholder(),
                       )
@@ -140,8 +140,9 @@ class SpeciesDetail extends ConsumerWidget {
   }
 }
 
-/// Fixed 160-height photo slot shared by [SpeciesDetail]'s loading/error/data
-/// states, so the layout doesn't jump as [speciesInfoProvider] resolves.
+/// Fixed 240-height photo slot shared by [SpeciesDetail]'s loading/error/data
+/// states, so the layout doesn't jump as [speciesInfoProvider] resolves. Tall
+/// enough that a `BoxFit.contain` wiki thumbnail shows in full without cropping.
 class _SpeciesPhotoBox extends StatelessWidget {
   const _SpeciesPhotoBox({required this.child});
 
@@ -151,7 +152,7 @@ class _SpeciesPhotoBox extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      height: 160,
+      height: 240,
       width: double.infinity,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
