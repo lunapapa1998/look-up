@@ -51,6 +51,8 @@ def test_happy_path_returns_full_contract() -> None:
         "thumbnailUrl",
         "wikiUrl",
         "source",
+        "summaryLong",
+        "conservation",
     }
     assert body["source"] == "ko.wikipedia"
 

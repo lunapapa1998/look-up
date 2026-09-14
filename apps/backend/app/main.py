@@ -6,6 +6,7 @@ from app.routers import (
     observations,
     species,
     suitability,
+    tide,
     trails,
     trails_detail,
 )
@@ -18,6 +19,7 @@ app.include_router(species.router)
 app.include_router(suitability.router)
 app.include_router(trails.router)
 app.include_router(trails_detail.router)
+app.include_router(tide.router)
 app.include_router(observation_map.router)
 
 

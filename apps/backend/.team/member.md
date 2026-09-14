@@ -656,3 +656,128 @@ Query: crsIdx (string, required, min_length=1)
 - ko/en 폴백 호출을 감싸는 내부 `try/except`, 그리고 `_fetch_summary`/`parse_summary_response`는 무변경.
 - **`GET /api/species` API 계약(섹션 26의 request/response 스키마)은 전혀 변경되지 않음** — 순수 내부 방어 코드 수정.
 - `just check`를 lead가 직접 실행해 132 passed, 10 skipped, 0 failed, 회귀 없음 확인됨.
+
+## 29. 종 상세 위키 설명 확장(summaryLong) — GET /api/species 계약 확장
+
+- `GET /api/species` 응답(`SpeciesInfo`)에 nullable 필드 `summaryLong: str | None` 1개가 추가됨 — 기존 6개 필드(`nameKo`, `nameSci`, `summary`, `thumbnailUrl`, `wikiUrl`, `source`)는 전혀 변경되지 않음.
+- `summaryLong`은 `apps/backend/app/species/wikipedia.py`의 신규 함수 `fetch_species_extract()`가 채움. MediaWiki `action=query&prop=extracts&exintro=1&explaintext=1&format=json&titles=...`를 ko.wikipedia.org에 먼저 호출하고 실패 시 en.wikipedia.org로 폴백(기존 짧은 summary와 동일한 ko→en 패턴, 단 독립적인 fetch라 한쪽만 성공하고 다른 쪽은 실패할 수 있음). 결과는 가능하면 문장 경계에서 최대 1500자로 트림되고, 양 언어 모두 실패하거나 어떤 예외가 나도 `None`(never raises, 기존 `summary`/`thumbnailUrl`/`wikiUrl` 필드는 절대 깨지지 않음).
+- 200 응답 예시 (summaryLong populated):
+```json
+{
+  "nameKo": "저어새",
+  "nameSci": "Platalea minor",
+  "summary": "저어새는 저어새과에 속하는 대형 섭금류이다.",
+  "summaryLong": "저어새는 저어새과에 속하는 대형 섭금류로, 부리가 주걱 모양으로 넓적한 것이 특징이다. 한국, 대만, 일본, 중국 연안에서 번식하며 겨울에는 동남아시아로 이동한다.",
+  "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/example.jpg",
+  "wikiUrl": "https://ko.wikipedia.org/wiki/저어새",
+  "source": "wikipedia"
+}
+```
+- 200 응답 예시 (summaryLong이 null이고 다른 필드는 채워진 경우):
+```json
+{
+  "nameKo": "저어새",
+  "nameSci": "Platalea minor",
+  "summary": "저어새는 저어새과에 속하는 대형 섭금류이다.",
+  "summaryLong": null,
+  "thumbnailUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/example.jpg",
+  "wikiUrl": "https://ko.wikipedia.org/wiki/저어새",
+  "source": "wikipedia"
+}
+```
+- Verify 명령: `cd apps/backend && uv run pytest tests/species/test_extract.py tests/species/test_species_endpoint.py -q`
+- `just check`를 lead가 직접 실행해 전체 그린(backend + flutter, 회귀 없음) 확인됨.
+
+DONE: backend-engineer | member.md에 섹션 29(summaryLong 계약) 추가, 기존 섹션 무변경
+
+## 30. 보호종 지정 정보(conservation) — 정적 하드코딩 룩업, 외부 API 없음
+
+- `GET /api/species` 응답(`SpeciesInfo`)에 nullable 필드 `conservation: Conservation | None` 1개가 추가됨 — 기존 8개 필드(`nameKo`/`nameSci`/`summary`/`thumbnailUrl`/`wikiUrl`/`source`/`summaryLong`)는 전혀 변경되지 않음. `Conservation` 모델은 `naturalMonument`/`koreaEndangered`/`iucn` 3개 nullable 필드로만 구성.
+- 신규 `app/species/conservation.py` — 학명(소문자·trim 정규화) 키 10종(저어새/노랑부리백로/황새/두루미/재두루미/흑두루미/검은머리물떼새/알락꼬리마도요/고니/큰고니)만 담은 모듈 레벨 하드코딩 `_SEED` dict. **네트워크 호출도 추론도 없는 순수 dict 룩업**(정확성/anti-hallucination 요구사항 — 이 10종 외에는 절대 값을 만들어내지 않음). `lookup_conservation(sci_name, name_ko)`는 학명을 우선 정규화 매칭하고, 실패 시 국명(`name_ko.strip()`)을 `_SEED`의 `nameKo` 값과 정확히 일치하는 것으로만 폴백 매칭(퍼지 매칭 없음). 둘 다 실패하면 `None`.
+- `service.py`의 `SpeciesService.get_species()`가 `conservation.lookup_conservation(sci, ko)`를 호출해 응답 dict의 `"conservation"` 키를 채움. **3개 필드가 전부 null이면(예: 룩업은 됐지만 값이 비어있는 경우) `"conservation": None`으로 강제**해 프런트가 섹션을 숨기도록 신호. `fetch_species_summary`/`fetch_species_extract` 로직·계약은 전혀 손대지 않음(그대로 유지).
+- 200 응답 예시 (populated — 저어새):
+```json
+{
+  "nameKo": "저어새",
+  "nameSci": "Platalea minor",
+  "summary": "저어새는 저어새과에 속하는 대형 섭금류이다.",
+  "summaryLong": null,
+  "thumbnailUrl": "https://example.com/thumb.jpg",
+  "wikiUrl": "https://ko.wikipedia.org/wiki/저어새",
+  "source": "ko.wikipedia",
+  "conservation": {
+    "naturalMonument": "천연기념물 제205-1호",
+    "koreaEndangered": "멸종위기 I급",
+    "iucn": "EN"
+  }
+}
+```
+- 200 응답 예시 (null — 목록에 없는 종, 예: 까치):
+```json
+{
+  "nameKo": "까치",
+  "nameSci": null,
+  "summary": "...",
+  "summaryLong": null,
+  "thumbnailUrl": null,
+  "wikiUrl": null,
+  "source": "ko.wikipedia",
+  "conservation": null
+}
+```
+- `_SEED`에 있는 `numenius madagascariensis`(알락꼬리마도요)처럼 일부 필드만 값이 있는 경우 `conservation`은 `None`이 아니라 `{"naturalMonument": null, "koreaEndangered": "멸종위기 II급", "iucn": "EN"}` 형태로 채워짐(하나라도 non-null이면 섹션 표시).
+- 신규 `tests/species/test_conservation.py` 5개 테스트: (a) 정확 시드값 매칭, (b) 목록 밖 종 → None, (c) 대소문자/공백 무시 학명 매칭, (d) 부분 필드 종(알락꼬리마도요) naturalMonument만 null, (e) `SpeciesService.get_species()` 실제 conservation 모듈로(모킹 없음) known/unknown 종 각각 populated/None 확인.
+- 기존 `tests/species/test_species_endpoint.py`의 `test_happy_path_returns_full_contract` 키 집합 assertion에 `"conservation"` 1개 추가(응답 필드가 늘어난 데 따른 최소 필수 수정, 섹션 29 때 `summaryLong` 추가와 동일 패턴).
+- Verify 명령: `cd apps/backend && uv run pytest tests/species/ -q`
+- **이 런은 role에 Bash 실행 권한이 없어(`uv run pytest ...` 호출이 "requires approval"로 즉시 거부됨, 재시도하지 않음) 실제로 실행하지 못함.** 대신 5개 테스트 케이스를 `lookup_conservation`/`SpeciesService.get_species` 로직에 직접 손으로 대입해 전부 기대값과 일치함을 확인했습니다: `_normalize("  PLATALEA MINOR  ")` → `"platalea minor"` → `_SEED` 히트, `Corvus corax`/`큰까마귀` → 학명·국명 둘 다 미스 → `None`, `Numenius madagascariensis` → `naturalMonument=None` 나머지 non-null 그대로 반환, service 레이어는 `fetch_species_summary`/`fetch_species_extract`를 람다로 주입하되 `conservation` 모듈은 실제 그대로 사용해 known/unknown 각각 populated/`None`을 확인. **다음 엔지니어 또는 오너가 위 verify 명령을 실행해 전체 그린(회귀 없음) 최종 확인 필요.**
+
+DONE: backend-engineer | app/species/conservation.py 신규(10종 하드코딩 dict 룩업, 네트워크·추론 없음), models.py에 Conservation 모델+conservation 필드 추가, service.py에서 get_species() 응답에 conservation 채움, test_conservation.py 5개 테스트 추가(Bash 미가용으로 수동 트레이스만 완료)
+
+## 31. 좌표 기반 "오늘의 조위 극값" 신규 엔드포인트 — `GET /api/tide/today` publish
+
+**신규 라이브 엔드포인트 — 기존 `GET /api/suitability`의 tide 레이어(§14~16, `app/suitability/providers/tide.py`/`tide_stations.py`)는 코드 한 줄도 건드리지 않고, 그 모듈의 파싱/분류/관측소 헬퍼(`nearest_station`, `_haversine_km`, `_parse_xml_items`, `_classify_extremes`)만 import해서 재사용한 별도 엔드포인트.**
+
+- 신규 `app/species/tide_today.py`(`TideExtreme`/`TideTodayResponse` Pydantic 모델, `fetch_today_tides(lat, lng, client=None) -> dict`), `app/routers/tide.py`(`GET /api/tide/today`, `get_today_tides_fetcher` DI 훅), `tests/tide/__init__.py`(빈 파일), `tests/tide/test_tide_today.py`, `tests/tide/test_tide_today_endpoint.py`.
+- `app/main.py`: import 튜플에 `tide` 1줄 추가(ASCII 정렬상 `suitability`와 `trails` 사이), `app.include_router(tide.router)` 1줄 추가. 위치는 `app.include_router(trails_detail.router)` 바로 다음(기존 `observation_map.router` 등록 줄보다 앞) — 기존 include_router 6줄은 순서·내용 전혀 안 건드림.
+- 설계: `nearest_station(lat,lng)`으로 최근접 관측소를 찾고 `_haversine_km` 거리가 **20km 초과**면 네트워크 호출 없이 즉시 `{found:false, degraded:false}`(내륙/무관 좌표로 판단 — 임계값은 spec 지정값, 36개 관측소 커버리지 기준 임의 상수이므로 추후 조정 여지 있음). 20km 이내면 `get_tide_config()` 확인(키/URL 없으면 `degraded:true`) 후 `tide.py`의 `TideProvider.fetch()`와 동일한 client 소유권 패턴으로 KHOA XML을 가져와 `_parse_xml_items`+`_classify_extremes`(전체 엔트리에 대해 이웃비교 분류 후 오늘 날짜만 필터링, 이 순서가 중요 — 필터링부터 하면 경계의 극값이 이웃을 잃어 오분류될 수 있음)로 오늘(KST) 극값만 추출. KHOA 호출~파싱 전체를 `try/except Exception`으로 감싸 어떤 실패든 `{found:false, degraded:true}`로 흡수(raise 없음).
+- `app/suitability/providers/tide.py`/`tide_stations.py` 자체는 이번 작업에서 **읽기만** 하고 완전히 무변경 — 기존 `GET /api/suitability`의 tide 레이어 동작에 영향 없음.
+
+### `GET /api/tide/today` 계약
+
+```
+Query: lat (float, required), lng (float, required) — 둘 중 하나라도 누락 시 표준 FastAPI 422.
+
+200 응답 (TideTodayResponse, 매칭+정상):
+{
+  "found": true,
+  "degraded": false,
+  "stationName": "인천",
+  "extremes": [
+    { "time": "06:00", "kind": "high", "levelCm": 500 },
+    { "time": "12:00", "kind": "low", "levelCm": 90 }
+  ]
+}
+
+200 응답 (내륙/무관 좌표 — 가장 가까운 관측소도 20km 초과):
+{ "found": false, "degraded": false, "stationName": null, "extremes": [] }
+
+200 응답 (연안 좌표이지만 config 미설정 또는 KHOA 호출/파싱 실패):
+{ "found": false, "degraded": true, "stationName": null, "extremes": [] }
+```
+
+- `found`/`degraded` 의미: `found=false, degraded=false`는 "이 좌표는 조위 데이터 대상이 아님"(내륙, 정상 판단)이고, `found=false, degraded=true`는 "연안 좌표인데 실데이터를 못 가져옴"(설정/네트워크/파싱 실패) — 프론트가 두 경우를 다르게 안내해야 함(전자는 UI 자체를 숨기고, 후자는 "일시적으로 조위 정보를 불러올 수 없습니다" 류 메시지 권장).
+- `extremes[].kind`는 `"high"` | `"low"`, `levelCm`은 반올림된 정수(음수 가능, 원본이 cm 단위 실수).
+- 20km 임계값은 하드코딩 상수(`_MAX_STATION_DISTANCE_KM`) — 필요시 조정 가능하나 이번 스펙 범위에선 고정값.
+- Verify 명령: `cd apps/backend && uv run pytest tests/tide/ -q`, 그리고 `cd apps/backend && uv run pytest -q`(회귀 없음 확인).
+- **이 런은 role에 Bash 실행 권한이 없어(`uv run pytest tests/tide/ -q` 호출이 "requires approval"로 거부됨, `pwd` 등 단순 명령은 통과) 실제로 실행하지 못함.** 대신 5개 오프라인 테스트(정상 매칭+오늘 필터+분류, 내륙좌표 네트워크 미호출, config 미설정 degraded, KHOA HTTP 에러 degraded, malformed XML degraded)와 3개 엔드포인트 테스트(200 직렬화, lat/lng 각각 누락 422)를 `fetch_today_tides` 로직에 직접 손으로 대입해 전부 기대값과 일치함을 확인했습니다(인천 좌표 거리=0, `_classify_extremes([100,500,90,480])` 이웃비교 결과 low/high/low/high 전부 재현). **다음 엔지니어 또는 오너가 위 verify 명령을 실행해 전체 그린(회귀 없음) 최종 확인 필요.**
+
+DONE: backend-engineer | app/species/tide_today.py + app/routers/tide.py 신규(GET /api/tide/today, 기존 tide.py/tide_stations.py는 import만 하고 무변경), main.py에 라우터 등록 2줄 추가, tests/tide/ 5+3개 테스트 추가(Bash 미가용으로 수동 트레이스만 완료)
+
+## 32. 리뷰 결함 2건 수정 — 2026-09-14
+
+- `wikipedia.py`의 `_truncate_extract()`: `window = extract[:_EXTRACT_MAX_LEN + 1]`가 인덱스 1500(1501번째 글자)까지 포함해 그 위치에 문장부호가 있으면 1501자를 반환하던 버그를 `extract[:_EXTRACT_MAX_LEN]`(인덱스 0~1499만)으로 수정. 문장부호 탐색/하드컷 폴백 로직은 무변경. `test_extract.py`에 경계 테스트(`test_long_extract_with_punctuation_exactly_at_cap_boundary_stays_within_limit`) 추가 — 1500번째 인덱스(1501번째 글자)에 정확히 `.`이 오는 입력으로 구버전 코드였다면 1501자가 반환됨을 재현.
+- `tide_today.py`의 `TideExtreme.kind`를 `str` → `Literal["high", "low"]`로 제한(spec 022 §"kind:high|low" 계약 반영). 다른 필드/로직 무변경.
+- Verify 명령: `cd apps/backend && uv run pytest -q`.
+- 이 런도 role에 Bash 실행 권한이 없어(`uv run pytest -q` 등 모든 호출이 "requires approval"로 즉시 거부) 실제 실행 못함. 대신 정적 재검증 완료: (1) 새 window가 인덱스 0~1499만 커버하므로 `last_idx`는 최대 1499, `last_idx+1` 최대 1500 → 출력 길이 항상 ≤1500; 문장부호 미검출 시 하드컷도 정확히 1500자. (2) 신규 테스트를 손으로 트레이스 — `"가"*1500 + "." + "나"*50` 입력 시 window="가"*1500(점 없음) → rfind 전부 -1 → 하드컷 `extract[:1500]`="가"*1500, len=1500, assert 통과(구버전이면 window에 점이 포함되어 1501자 반환 후 실패했을 것). (3) `Literal["high","low"]` 임포트/타입 문법 확인, `fetch_today_tides()`가 채우는 값은 이미 `"high"`/`"low"` 리터럴이라 회귀 없음. **다음 엔지니어 또는 오너가 `cd apps/backend && uv run pytest -q` 실행해 전체 그린(회귀 없음) 최종 확인 필요.**
+
+DONE: backend-engineer | wikipedia.py `_truncate_extract()` off-by-one 수정(window 1501→1500자), tide_today.py `TideExtreme.kind`를 `Literal["high","low"]`로 제한, test_extract.py에 경계 테스트 1건 추가(Bash 미가용으로 수동 트레이스만 완료)
