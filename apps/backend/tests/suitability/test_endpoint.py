@@ -110,6 +110,8 @@ def test_happy_path_returns_full_contract() -> None:
 
     assert isinstance(body["goldenHours"], list)
     assert len(body["goldenHours"]) == 2
+    assert body["goldenHours"][0]["mode"] == "day"
+    assert body["goldenHours"][1]["mode"] == "night"
     for entry in body["goldenHours"]:
         assert set(entry) == {"mode", "label", "timeRange", "description"}
 

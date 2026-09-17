@@ -28,10 +28,15 @@ def test_day_mode_produces_golden_hour_around_daytime_high(tide_items: list[dict
     assert "14:46" in entry["description"]
 
 
-def test_night_mode_never_produces_golden_hours(tide_items: list[dict]) -> None:
+def test_night_mode_still_produces_day_golden_hour_with_lower_sub_score(
+    tide_items: list[dict],
+) -> None:
     reading = TideProvider().parse(tide_items, "night", datetime(2026, 9, 8, 1, 0))
 
-    assert reading.golden_hours == []
+    assert len(reading.golden_hours) == 1
+    entry = reading.golden_hours[0]
+    assert entry["mode"] == "day"
+    assert entry["timeRange"] == "12:46 - 14:46"
     assert reading.sub_score == 70
 
 
@@ -64,7 +69,8 @@ def _make_item(predc_dt: str, level: str) -> dict:
     }
 
 
-def test_day_mode_raises_when_no_daytime_high_tide_exists() -> None:
+@pytest.mark.parametrize("mode", ["day", "night"])
+def test_raises_when_no_daytime_high_tide_exists(mode: str) -> None:
     items = [
         _make_item("2026-09-08 00:10", "700.0"),
         _make_item("2026-09-08 05:30", "200.0"),
@@ -73,7 +79,7 @@ def test_day_mode_raises_when_no_daytime_high_tide_exists() -> None:
     ]
 
     with pytest.raises(ValueError):
-        TideProvider().parse(items, "day", datetime(2026, 9, 8, 1, 0))
+        TideProvider().parse(items, mode, datetime(2026, 9, 8, 1, 0))
 
 
 def test_day_mode_picks_highest_daytime_high_not_first() -> None:

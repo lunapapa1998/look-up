@@ -103,30 +103,26 @@ class TideProvider:
             for (dt, level), high in zip(entries, is_high)
         ]
 
-        golden_hours: list[dict] = []
-        if mode == "day":
-            daytime_highs = [
-                extreme
-                for extreme in extremes
-                if extreme.is_high and _DAY_START_HOUR <= extreme.dt.hour < _DAY_END_HOUR
-            ]
-            if not daytime_highs:
-                raise ValueError("no daytime high tide in KHOA response")
+        daytime_highs = [
+            extreme
+            for extreme in extremes
+            if extreme.is_high and _DAY_START_HOUR <= extreme.dt.hour < _DAY_END_HOUR
+        ]
+        if not daytime_highs:
+            raise ValueError("no daytime high tide in KHOA response")
 
-            golden_high = max(daytime_highs, key=lambda extreme: extreme.level)
-            sub_score = _DAY_GOLDEN_SUB_SCORE
-            start = (golden_high.dt - timedelta(hours=2)).strftime("%H:%M")
-            end = golden_high.dt.strftime("%H:%M")
-            golden_hours = [
-                {
-                    "mode": "day",
-                    "label": "낮 · 탐조 골든타임",
-                    "timeRange": f"{start} - {end}",
-                    "description": f"만조 {end} · 2시간 전 갯벌 유입 피크",
-                }
-            ]
-        else:
-            sub_score = _NIGHT_SUB_SCORE
+        golden_high = max(daytime_highs, key=lambda extreme: extreme.level)
+        sub_score = _DAY_GOLDEN_SUB_SCORE if mode == "day" else _NIGHT_SUB_SCORE
+        start = (golden_high.dt - timedelta(hours=2)).strftime("%H:%M")
+        end = golden_high.dt.strftime("%H:%M")
+        golden_hours = [
+            {
+                "mode": "day",
+                "label": "낮 · 탐조 골든타임",
+                "timeRange": f"{start} - {end}",
+                "description": f"만조 {end} · 2시간 전 갯벌 유입 피크",
+            }
+        ]
 
         next_extreme = next((extreme for extreme in extremes if extreme.dt >= now), extremes[-1])
         label = "만조" if next_extreme.is_high else "간조"
@@ -151,16 +147,14 @@ class TideProvider:
         )
 
     def _stub_reading(self, mode: str, reason: str) -> LayerReading:
-        golden_hours = []
-        if mode == "day":
-            golden_hours = [
-                {
-                    "mode": "day",
-                    "label": "낮 · 탐조 골든타임",
-                    "timeRange": "14:00 - 17:30",
-                    "description": "만조 2시간 전 갯벌 유입 피크 (스텁 데이터)",
-                }
-            ]
+        golden_hours = [
+            {
+                "mode": "day",
+                "label": "낮 · 탐조 골든타임",
+                "timeRange": "14:00 - 17:30",
+                "description": "만조 2시간 전 갯벌 유입 피크 (스텁 데이터)",
+            }
+        ]
 
         return LayerReading(
             key=self.key,

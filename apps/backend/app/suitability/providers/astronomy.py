@@ -74,20 +74,6 @@ class AstronomyProvider:
 
         twilight_raw = riseset_item.get("aste") if isinstance(riseset_item, dict) else None
 
-        if mode == "day":
-            return LayerReading(
-                key=self.key,
-                status="live",
-                sub_score=_DAY_SUB_SCORE,
-                telemetry=[],
-                golden_hours=[],
-                evidence={
-                    "lunarAgeDays": lun_age,
-                    "illuminationPct": illumination_pct,
-                    "aste": twilight_raw if isinstance(twilight_raw, str) else None,
-                },
-            )
-
         try:
             start_hour, start_minute = _parse_hhmm(twilight_raw)
         except (TypeError, ValueError) as exc:
@@ -102,7 +88,7 @@ class AstronomyProvider:
         end_hour, end_minute = _add_minutes(start_hour, start_minute, _GOLDEN_WINDOW_MINUTES)
         end_str = _format_hhmm(end_hour, end_minute)
 
-        sub_score = max(0, min(100, 100 - illumination_pct))
+        sub_score = _DAY_SUB_SCORE if mode == "day" else max(0, min(100, 100 - illumination_pct))
 
         return LayerReading(
             key=self.key,

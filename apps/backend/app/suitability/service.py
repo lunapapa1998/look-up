@@ -48,6 +48,7 @@ class SuitabilityService:
             reading = readings[key]
             telemetry.extend(TelemetryReading(**item) for item in reading.telemetry)
             golden_hours.extend(GoldenHour(**item) for item in reading.golden_hours)
+        golden_hours.sort(key=lambda g: 0 if g.mode == "day" else 1)
 
         light_pollution_evidence = readings["lightPollution"].evidence
         sqm_value = light_pollution_evidence.get("sqmValue", 0.0)
