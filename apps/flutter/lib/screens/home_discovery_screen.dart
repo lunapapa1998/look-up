@@ -244,6 +244,7 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                   ),
                   child: overviewAsync.when(
                     data: (overview) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (overview.degraded)
                           Container(
@@ -506,10 +507,12 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                         _StaggerReveal(
                           controller: _staggerController,
                           startMs: 160,
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
                               for (
                                 var i = 0;
                                 i < overview.telemetry.length;
@@ -565,7 +568,8 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                     ],
                                   ),
                                 ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ],
