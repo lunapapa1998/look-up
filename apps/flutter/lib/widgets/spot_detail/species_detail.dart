@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/species.dart';
 import '../../state/discovery_providers.dart';
 import '../../utils/relative_time.dart';
 import '../../utils/spot_name.dart';
@@ -29,174 +30,386 @@ class SpeciesDetail extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
     final now = ref.watch(nowProvider);
     final query = (sci: selection.nameSci, ko: selection.nameKo);
     final infoAsync = ref.watch(speciesInfoProvider(query));
+    final conservation = infoAsync.valueOrNull?.conservation;
+    final isProtectedSpecies = conservation != null &&
+        (conservation.koreaEndangered != null ||
+            conservation.naturalMonument != null);
     final tidesAsync = ref.watch(
       tideTodayProvider((lat: selection.spotCoord.lat, lng: selection.spotCoord.lng)),
     );
 
     return ListView(
       controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: EdgeInsets.zero,
       children: [
-        Row(
-          children: [
-            IconButton(
-              key: const Key('obsmap_detail_back_button'),
-              icon: const Icon(Icons.arrow_back),
-              tooltip: '뒤로 가기',
-              onPressed: onBack,
-            ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    selection.nameKo,
-                    style: textTheme.titleLarge,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    selection.nameSci,
-                    style: textTheme.bodyMedium?.copyWith(
-                      fontStyle: FontStyle.italic,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
+        _SpeciesHero(
+          selection: selection,
+          infoAsync: infoAsync,
+          onBack: onBack,
+          onRetry: () => ref.invalidate(speciesInfoProvider(query)),
         ),
-        const SizedBox(height: 12),
-        infoAsync.when(
-          loading: () => const _SpeciesPhotoBox(
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          error: (_, _) => _SpeciesPhotoBox(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('정보를 불러오지 못했어요'),
-                  const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: () =>
-                        ref.invalidate(speciesInfoProvider(query)),
-                    child: const Text('다시 시도'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          data: (info) => Column(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (info.conservation != null) ...[
-                ConservationBadges(conservation: info.conservation!),
-                const SizedBox(height: 12),
-              ],
-              _SpeciesPhotoBox(
-                child: info.thumbnailUrl != null
-                    ? Image.network(
-                        info.thumbnailUrl!,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const _SpeciesPhotoPlaceholder(),
-                      )
-                    : const _SpeciesPhotoPlaceholder(),
+              infoAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
+                data: (info) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _WikiSummaryText(
+                      text: info.summaryLong ?? info.summary ?? '설명 준비 중이에요',
+                    ),
+                    if (info.wikiUrl != null) ...[
+                      const SizedBox(height: 8),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(44, 44),
+                        ),
+                        onPressed: () {
+                          final url = info.wikiUrl ?? '';
+                          Clipboard.setData(ClipboardData(text: url));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('링크를 복사했어요')),
+                          );
+                        },
+                        icon: const Icon(Icons.open_in_new),
+                        label: const Text('위키백과에서 보기'),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              if (info.source.toLowerCase().contains('wikipedia')) ...[
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    '출처: Wikipedia',
-                    textAlign: TextAlign.end,
-                    style: textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+              const SizedBox(height: 16),
+              _ObservationCard(
+                selection: selection,
+                now: now,
+                isProtectedSpecies: isProtectedSpecies,
+              ),
+              tidesAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
                 ),
-              ],
-              const SizedBox(height: 12),
-              _WikiSummaryText(
-                text: info.summaryLong ?? info.summary ?? '설명 준비 중이에요',
+                error: (_, _) => const SizedBox.shrink(),
+                data: (tides) => tides.found
+                    ? TodayTidesSection(tides: tides)
+                    : const SizedBox.shrink(),
               ),
-              if (info.wikiUrl != null) ...[
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(44, 44),
-                  ),
-                  onPressed: () {
-                    final url = info.wikiUrl ?? '';
-                    Clipboard.setData(ClipboardData(text: url));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('링크를 복사했어요')),
-                    );
-                  },
-                  icon: const Icon(Icons.open_in_new),
-                  label: const Text('위키백과에서 보기'),
-                ),
-              ],
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        const Divider(),
-        if (selection.count != null)
-          Text(
-            '관측 ${selection.count}마리',
-            style: textTheme.titleMedium?.copyWith(
-              color: colorScheme.primary,
-              fontWeight: FontWeight.w600,
+      ],
+    );
+  }
+}
+
+/// Observation-facts card (spec 029 Phase 2) replacing the old divider-plus-
+/// text block: the same real data (headcount/relative-time/spot+coords),
+/// now icon-prefixed and boxed in a single [colorScheme.surfaceContainer]
+/// card, with the community badge and a conditional protected-species notice
+/// kept inside.
+class _ObservationCard extends StatelessWidget {
+  const _ObservationCard({
+    required this.selection,
+    required this.now,
+    required this.isProtectedSpecies,
+  });
+
+  final SelectedSpecies selection;
+  final DateTime now;
+  final bool isProtectedSpecies;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (selection.count != null) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.groups, color: colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(
+                  '관측 ${selection.count}마리',
+                  style: textTheme.titleMedium?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 8),
+          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.schedule, color: colorScheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Text('관측 ${formatRelativeTime(selection.obsDt, now)}'),
+            ],
           ),
-        Text('관측 ${formatRelativeTime(selection.obsDt, now)}'),
-        Text(
-          '${shortSpotName(selection.spotName)} '
-          '(${selection.spotCoord.lat.toStringAsFixed(4)}, '
-          '${selection.spotCoord.lng.toStringAsFixed(4)})',
-        ),
-        if (selection.status == 'community') ...[
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.place, color: colorScheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${shortSpotName(selection.spotName)} '
+                  '(${selection.spotCoord.lat.toStringAsFixed(4)}, '
+                  '${selection.spotCoord.lng.toStringAsFixed(4)})',
+                ),
+              ),
+            ],
+          ),
+          if (selection.status == 'community') ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '커뮤니티 관측',
+                style: textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
-            child: Text(
-              '커뮤니티 관측',
+          ],
+          if (isProtectedSpecies) ...[
+            const SizedBox(height: 8),
+            Text(
+              '법정 보호종 — 접근·촬영 시 거리 유지',
               style: textTheme.labelSmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-          ),
+          ],
         ],
-        tidesAsync.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
+      ),
+    );
+  }
+}
+
+/// Full-bleed 240-height hero banner (spec 029 Phase 1) replacing the old
+/// small centered photo card: a fixed-size [Stack] so the loading/error/photo
+/// backgrounds never shift layout, with the species name/sci-name/badges
+/// overlaid at the bottom and the back button always pinned top-left.
+class _SpeciesHero extends StatefulWidget {
+  const _SpeciesHero({
+    required this.selection,
+    required this.infoAsync,
+    required this.onBack,
+    required this.onRetry,
+  });
+
+  final SelectedSpecies selection;
+  final AsyncValue<SpeciesInfo> infoAsync;
+  final VoidCallback onBack;
+  final VoidCallback onRetry;
+
+  @override
+  State<_SpeciesHero> createState() => _SpeciesHeroState();
+}
+
+class _SpeciesHeroState extends State<_SpeciesHero> {
+  bool _imageLoadFailed = false;
+
+  @override
+  void didUpdateWidget(_SpeciesHero oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.infoAsync.valueOrNull?.thumbnailUrl !=
+        widget.infoAsync.valueOrNull?.thumbnailUrl) {
+      _imageLoadFailed = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selection = widget.selection;
+    final infoAsync = widget.infoAsync;
+    final onBack = widget.onBack;
+    final onRetry = widget.onRetry;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final info = infoAsync.valueOrNull;
+    final hasPhoto = info?.thumbnailUrl != null && !_imageLoadFailed;
+
+    return SizedBox(
+      height: 240,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (hasPhoto)
+            Image.network(
+              info!.thumbnailUrl!,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+              errorBuilder: (context, error, stackTrace) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && !_imageLoadFailed) {
+                    setState(() => _imageLoadFailed = true);
+                  }
+                });
+                return const _SpeciesPhotoPlaceholder();
+              },
+            )
+          else if (infoAsync.isLoading)
+            Container(
+              color: colorScheme.surfaceContainer,
+              child: const Center(child: CircularProgressIndicator()),
+            )
+          else if (infoAsync.hasError)
+            Container(
+              color: colorScheme.surfaceContainer,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('정보를 불러오지 못했어요'),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: onRetry,
+                      child: const Text('다시 시도'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            const _SpeciesPhotoPlaceholder(),
+          if (hasPhoto)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 40, 16, 12),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0xD9000000)],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      selection.nameKo,
+                      style: textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      selection.nameSci,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: Colors.white70,
+                        fontStyle: FontStyle.italic,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (info!.conservation != null) ...[
+                      const SizedBox(height: 8),
+                      ConservationBadges(conservation: info.conservation!),
+                    ],
+                    if (info.source.toLowerCase().contains('wikipedia')) ...[
+                      const SizedBox(height: 4),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          '출처: Wikipedia',
+                          textAlign: TextAlign.end,
+                          style: textTheme.labelSmall
+                              ?.copyWith(color: Colors.white60),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            )
+          else
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      selection.nameKo,
+                      style: textTheme.titleLarge,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      selection.nameSci,
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontStyle: FontStyle.italic,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (info?.conservation != null) ...[
+                      const SizedBox(height: 8),
+                      ConservationBadges(conservation: info!.conservation!),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          Positioned(
+            top: 8,
+            left: 8,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.35),
+              shape: const CircleBorder(),
+              child: IconButton(
+                key: const Key('obsmap_detail_back_button'),
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                tooltip: '뒤로 가기',
+                onPressed: onBack,
               ),
             ),
           ),
-          error: (_, _) => const SizedBox.shrink(),
-          data: (tides) =>
-              tides.found ? TodayTidesSection(tides: tides) : const SizedBox.shrink(),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -236,30 +449,6 @@ class _WikiSummaryTextState extends State<_WikiSummaryText> {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Fixed 240-height photo slot shared by [SpeciesDetail]'s loading/error/data
-/// states, so the layout doesn't jump as [speciesInfoProvider] resolves. Tall
-/// enough that a `BoxFit.contain` wiki thumbnail shows in full without cropping.
-class _SpeciesPhotoBox extends StatelessWidget {
-  const _SpeciesPhotoBox({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      height: 240,
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: child,
     );
   }
 }

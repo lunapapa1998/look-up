@@ -42,12 +42,12 @@ Figma 62-35는 화려하지만 약 절반(음성 파형·AI Match·연령분해�
 
 카드형 사진(`_SpeciesPhotoBox`, 240h contain 카드)을 히어로로 격상한다.
 
-- [ ] 사진 슬롯을 **시트 좌우 꽉 채우는 풀블리드**로(현재 `ListView` 16px 수평 패딩 바깥으로 확장 — 히어로만 `padding: 0`으로 빼거나 `Transform`/`OverflowBox` 대신 ListView children 구조를 재편해 히어로는 전폭). 높이 220~260 고정(로딩/에러/데이터 공통 슬롯 유지, 레이아웃 점프 방지).
-- [ ] 이미지 `BoxFit.cover` + `Alignment.topCenter`(새 머리 상단 보존). **후속 검수 플래그**: 위키 썸네일 종횡비 편차로 잘림 가능 → Phase 검증에서 실제 종 5~6개 스크린샷 확인.
-- [ ] 하단 **그래디언트 스크림**(중립 흑색 알파, 하단 ~45% 어둡게 — 밤 모드 적색필터와 충돌 없게 청록/유채색 금지). 스크림 위에 **종명(titleLarge)·학명(italic)·`ConservationBadges`** 오버레이. 오버레이 텍스트 대비 WCAG AA(4.5:1) 확보.
-- [ ] "출처: Wikipedia" 캡션은 이미지 우하단 초소형 라벨.
-- [ ] `thumbnailUrl` null/로드 실패 → `_SpeciesPhotoPlaceholder` 폴백(히어로 높이 유지). 폴백 시 오버레이 텍스트는 스크림 없이 플레이스홀더 하단 일반 배치.
-- [ ] 뒤로가기 버튼(`obsmap_detail_back_button` key 유지)은 이미지 위 좌상단 오버레이로 이동(또는 시트 grabber 옆). 터치타깃 44pt.
+- [x] 사진 슬롯을 **시트 좌우 꽉 채우는 풀블리드**로(현재 `ListView` 16px 수평 패딩 바깥으로 확장 — 히어로만 `padding: 0`으로 빼거나 `Transform`/`OverflowBox` 대신 ListView children 구조를 재편해 히어로는 전폭). 높이 220~260 고정(로딩/에러/데이터 공통 슬롯 유지, 레이아웃 점프 방지).
+- [x] 이미지 `BoxFit.cover` + `Alignment.topCenter`(새 머리 상단 보존). **후속 검수 플래그**: 위키 썸네일 종횡비 편차로 잘림 가능 → Phase 검증에서 실제 종 5~6개 스크린샷 확인.
+- [x] 하단 **그래디언트 스크림**(중립 흑색 알파, 하단 ~45% 어둡게 — 밤 모드 적색필터와 충돌 없게 청록/유채색 금지). 스크림 위에 **종명(titleLarge)·학명(italic)·`ConservationBadges`** 오버레이. 오버레이 텍스트 대비 WCAG AA(4.5:1) 확보.
+- [x] "출처: Wikipedia" 캡션은 이미지 우하단 초소형 라벨.
+- [x] `thumbnailUrl` null/로드 실패 → `_SpeciesPhotoPlaceholder` 폴백(히어로 높이 유지). 폴백 시 오버레이 텍스트는 스크림 없이 플레이스홀더 하단 일반 배치.
+- [x] 뒤로가기 버튼(`obsmap_detail_back_button` key 유지)은 이미지 위 좌상단 오버레이로 이동(또는 시트 grabber 옆). 터치타깃 44pt.
 
 **Phase validation**: 사진이 전폭 히어로로 뜨고 종명·학명·배지가 이미지 위 오버레이로 읽힌다. 실제 종 몇 개로 잘림/대비 스크린샷 확인. null 폴백 정상.
 
@@ -55,19 +55,19 @@ Figma 62-35는 화려하지만 약 절반(음성 파형·AI Match·연령분해�
 
 divider 텍스트 나열을 카드로 묶는다. 가짜 필드는 넣지 않는다.
 
-- [ ] 현재 `Divider` + 관측 텍스트 3줄(개체수/시각/위치)을 **단일 `surfaceContainer` 카드**(radius 12, padding 16)로 감싼다. 각 행에 아이콘 병기: 개체수(예 `Icons.groups`)/시각(`Icons.schedule`)/위치(`Icons.place`). 값은 기존 데이터 그대로(`count`마리, `formatRelativeTime`, `shortSpotName`+좌표).
-- [ ] `status == 'community'` 배지는 카드 내부 하단에 유지.
-- [ ] **금지**: 성조/유조 연령분해, 안전 관찰 거리, 군집 규모 등 데이터 없는 필드 추가 금지(`count`는 "관측 마릿수"지 군집규모 아님).
-- [ ] **조건부 보호종 안내**: `conservation.koreaEndangered != null || conservation.naturalMonument != null`이면 "법정 보호종 — 접근·촬영 시 거리 유지" 한 줄 안내를 배지 옆 또는 관측 카드 하단에 표시(conservation 실데이터 기반이라 가짜 아님).
+- [x] 현재 `Divider` + 관측 텍스트 3줄(개체수/시각/위치)을 **단일 `surfaceContainer` 카드**(radius 12, padding 16)로 감싼다. 각 행에 아이콘 병기: 개체수(예 `Icons.groups`)/시각(`Icons.schedule`)/위치(`Icons.place`). 값은 기존 데이터 그대로(`count`마리, `formatRelativeTime`, `shortSpotName`+좌표).
+- [x] `status == 'community'` 배지는 카드 내부 하단에 유지.
+- [x] **금지**: 성조/유조 연령분해, 안전 관찰 거리, 군집 규모 등 데이터 없는 필드 추가 금지(`count`는 "관측 마릿수"지 군집규모 아님).
+- [x] **조건부 보호종 안내**: `conservation.koreaEndangered != null || conservation.naturalMonument != null`이면 "법정 보호종 — 접근·촬영 시 거리 유지" 한 줄 안내를 배지 옆 또는 관측 카드 하단에 표시(conservation 실데이터 기반이라 가짜 아님).
 
 **Phase validation**: 관측 정보가 아이콘 카드로 묶여 보이고, 보호종일 때만 안내 한 줄이 뜬다. 없는 데이터 필드는 어디에도 없다.
 
 ### Phase 3: 물때·위키 유지 + 회귀
 
-- [ ] `_WikiSummaryText`(더보기) + 위키 링크 버튼 현행 유지(히어로 아래 배치).
-- [ ] `TodayTidesSection` 현행 유지(`found==true`만 렌더, 미근접 스팟엔 미표시).
-- [ ] 제외 확정(넣지 말 것): 음성 파형/재생, AI Match, 출현예측%, 관찰장비·에티켓, 시민과학 리워드/배지, 관심종 버튼, GPX 내비, KOBIS 기록 CTA.
-- [ ] 기존 위젯 테스트(`observation_spot_sheet_detail_test.dart` 등 종 상세 관련) 갱신·통과. 히어로 구조 변경으로 사진 관련 assertion이 있으면 갱신.
+- [x] `_WikiSummaryText`(더보기) + 위키 링크 버튼 현행 유지(히어로 아래 배치).
+- [x] `TodayTidesSection` 현행 유지(`found==true`만 렌더, 미근접 스팟엔 미표시).
+- [x] 제외 확정(넣지 말 것): 음성 파형/재생, AI Match, 출현예측%, 관찰장비·에티켓, 시민과학 리워드/배지, 관심종 버튼, GPX 내비, KOBIS 기록 CTA.
+- [x] 기존 위젯 테스트(`observation_spot_sheet_detail_test.dart` 등 종 상세 관련) 갱신·통과. 히어로 구조 변경으로 사진 관련 assertion이 있으면 갱신.
 
 **Phase validation**: `just check` 통과. 위키·물때·상태 처리 회귀 없음.
 
@@ -83,6 +83,7 @@ just check
 - **공유 버튼(선택)**: design-lead는 `share_plus`로 종명·스팟·좌표 텍스트 공유는 실동작이라 채택 가능하다고 봄. 단 새 패키지 의존이라 이번 스코프에서는 **보류**(원하면 별도 추가). 관심종/GPX/KOBIS는 미구축이라 UI 자체를 두지 않음(죽은 버튼 금지).
 - **사진 출처**: 현재 Wikipedia 썸네일. eBird는 사진 API 없음. 더 나은 실사가 필요하면 iNaturalist를 species provider 2차 소스로 추가하는 별도 backend 스펙(030) 가능 — 이 flutter 스펙과 도메인 안 겹쳐 병렬 가능. 이번 히어로는 기존 `thumbnailUrl`로 성립.
 - **선행 의존**: flutter 팀 단일 레인 — 026(홈)·028(텔레메트리 칩) 이후 순차. 파일은 다르지만 같은 팀이라 병렬 불가.
+- **구현 완료(2026-09-18)**: `species_detail.dart` 전면 재구성 — `_SpeciesHero`(240 고정 높이 Stack: 사진/로딩/에러/placeholder 공통 슬롯, 사진 있을 때만 하단 그래디언트 스크림+흰 텍스트 오버레이, 사진 없을 때는 스크림 없이 평문 오버레이, 뒤로가기 버튼 항상 좌상단 반투명 원형), `_ObservationCard`(아이콘 행 3개+커뮤니티 배지+조건부 보호종 안내). `just check` 그린(백엔드 pytest 156 passed, flutter analyze 이슈 없음, flutter test 166 passed) — 기존 종 상세 테스트는 수정 없이 그대로 통과(사진/이름/배지/보호종 관련 assertion이 새 구조와 우연히 호환됨).
 
 ## 후속 UX 부채 (이번 스코프 밖)
 1. 관찰장비·에티켓 → 상위 `BirdSpotDetail` 또는 관찰 시작 플로우로 배치(종별 아님).
@@ -92,4 +93,8 @@ just check
 
 ## Amendments (post-build change history, append-only)
 
-- (없음)
+- 2026-09-18: 스크림 "하단 ~45% 어둡게"는 문자열 높이 비율이 아니라 그래디언트(투명→흑색 alpha ~0.85, topCenter→bottomCenter)로 구현 — 텍스트 WCAG AA 대비 확보가 목적이라 시각적으로 동등, 별도 재작업 불필요.
+- 2026-09-18: "출처: Wikipedia" 우하단 라벨은 별도 Positioned 코너 라벨이 아니라 스크림 오버레이 Column 안 마지막 줄에 우측 정렬로 배치 — 결과적으로 이미지 우하단에 렌더되어 의도와 동일.
+- 2026-09-18: 크로스모델 검증(codex)에서 49번 항목 회귀 발견 — 썸네일 `Image.network`가 `errorBuilder`로 실패해도 `hasPhoto` 플래그가 갱신되지 않아 스크림 오버레이가 계속 렌더되던 버그. `_SpeciesHero`를 `StatefulWidget`으로 전환해 로드 실패를 `_imageLoadFailed` 상태로 추적, `hasPhoto = info?.thumbnailUrl != null && !_imageLoadFailed`로 재계산하도록 수정(species_detail.dart). `just check` 재검증 그린(backend pytest 156 passed/12 skipped, flutter analyze 0 issues, flutter test 166 passed).
+
+- modified: 2026-09-18, lead: sonnet
