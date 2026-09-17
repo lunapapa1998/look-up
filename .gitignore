@@ -10,3 +10,6 @@ factory/logs/
 # Python bytecode
 __pycache__/
 *.pyc
+
+# factory run logs
+.runs/

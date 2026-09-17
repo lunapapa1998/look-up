@@ -20,6 +20,10 @@ default:
 backend-check:
     cd apps/backend && uv run pytest -q
 
+# backend deploy: build the Cloud Run container image locally (needs docker). See docs/deploy/backend-cloudrun.md.
+docker-build-backend:
+    cd apps/backend && docker build -t lookup-backend:local .
+
 # suitability engine live smoke: hits real OWM/KASI APIs (needs repo-root .env keys + network).
 # Excluded from `check`/`backend-check` (marker-gated) so the pipeline stays deterministic/offline.
 suitability-live:
