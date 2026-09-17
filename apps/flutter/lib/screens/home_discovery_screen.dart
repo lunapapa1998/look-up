@@ -527,22 +527,22 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                     horizontal: 10,
                                     vertical: 6,
                                   ),
-                                  child: Row(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(
-                                        _iconForTelemetryKind(
-                                          overview.telemetry[i].kind,
-                                        ),
-                                        size: 16,
-                                        color: colorScheme.outline,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                      Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
+                                          Icon(
+                                            _iconForTelemetryKind(
+                                              overview.telemetry[i].kind,
+                                            ),
+                                            size: 14,
+                                            color: colorScheme.outline,
+                                          ),
+                                          const SizedBox(width: 6),
                                           Text(
                                             overview.telemetry[i].label,
                                             style: textTheme.bodySmall
@@ -551,17 +551,16 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                                       .onSurfaceVariant,
                                                 ),
                                           ),
-                                          Text(
-                                            overview.telemetry[i].value,
-                                            style: textTheme.labelMedium
-                                                ?.copyWith(
-                                                  color:
-                                                      colorScheme.onSurface,
-                                                  fontWeight:
-                                                      FontWeight.bold,
-                                                ),
-                                          ),
                                         ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        overview.telemetry[i].value,
+                                        style: textTheme.labelMedium
+                                            ?.copyWith(
+                                              color: colorScheme.onSurface,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                       ),
                                     ],
                                   ),

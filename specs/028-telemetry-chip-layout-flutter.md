@@ -8,6 +8,7 @@
 - modified: 2026-09-18 <brain>
 - refs: specs/025-home-suitability-card-redesign-flutter.md, specs/026-home-mode-switcher-relocate-flutter.md, Figma node 19-3382
 - risk: low
+- modified: 2026-09-18, lead: sonnet
 
 ## Purpose
 
@@ -35,11 +36,11 @@
 
 ### Phase 1: 칩 내부 세로 배치
 
-- [ ] 각 칩 `Container`(surfaceContainerHigh, radius 8~12, padding ~10, minHeight 44 유지)의 child를 `Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: min)`로 변경.
-- [ ] Column 1행: `Row(mainAxisSize: min)[ Icon(_iconForTelemetryKind, size ~14, color onSurfaceVariant/outline), SizedBox(width 6), Text(label, onSurfaceVariant 12px) ]`.
-- [ ] Column 2행(gap 4): `Text(value, onSurface bold ~14px)` — 칩 좌측 끝에서 시작(아이콘 들여쓰기 없음).
-- [ ] 색은 앱 다크 테마 토큰 유지: 라벨 `onSurfaceVariant`, 값 `onSurface`. Figma의 라이트 hex(#EBF0EE/#554336/#0F172A)는 쓰지 않는다.
-- [ ] 독립 칩 + `Wrap`(spacing/runSpacing 8) 배치 유지. 3칩 한 줄, 4개+ 2줄 폴백 유지.
+- [x] 각 칩 `Container`(surfaceContainerHigh, radius 8~12, padding ~10, minHeight 44 유지)의 child를 `Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: min)`로 변경.
+- [x] Column 1행: `Row(mainAxisSize: min)[ Icon(_iconForTelemetryKind, size ~14, color onSurfaceVariant/outline), SizedBox(width 6), Text(label, onSurfaceVariant 12px) ]`.
+- [x] Column 2행(gap 4): `Text(value, onSurface bold ~14px)` — 칩 좌측 끝에서 시작(아이콘 들여쓰기 없음).
+- [x] 색은 앱 다크 테마 토큰 유지: 라벨 `onSurfaceVariant`, 값 `onSurface`. Figma의 라이트 hex(#EBF0EE/#554336/#0F172A)는 쓰지 않는다.
+- [x] 독립 칩 + `Wrap`(spacing/runSpacing 8) 배치 유지. 3칩 한 줄, 4개+ 2줄 폴백 유지.
 
 **Phase validation**: 각 칩이 아이콘+라벨(상단) / 값(하단) 2줄, 좌측 정렬로 렌더. 스크린샷으로 Figma 19-3382 배치와 대조.
 
