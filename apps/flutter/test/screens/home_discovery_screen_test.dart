@@ -117,67 +117,16 @@ void main() {
 
     expect(container.read(obsModeProvider).mode, ObsMode.day);
 
-    // Collapsed toggle is only hit-testable once the header is actually
-    // collapsed (see the crossfade IgnorePointer gating below) — scroll it
-    // into its interactive state before tapping.
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -2000));
-    await tester.pump();
+    await tester.dragUntilVisible(
+      find.byKey(const Key('focusModeNightSegment')),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
 
-    await tester.tap(find.byKey(const Key('modeToggleNightCollapsed')));
+    await tester.tap(find.byKey(const Key('focusModeNightSegment')));
     await tester.pump();
     await tester.pump();
 
     expect(container.read(obsModeProvider).mode, ObsMode.night);
-  });
-
-  testWidgets('collapsing header shows only one mode control layer at a time', (
-    tester,
-  ) async {
-    final container = ProviderContainer(
-      overrides: [
-        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
-        locationServiceProvider.overrideWithValue(
-          FakeLocationService(
-            const ObservationLocation(
-              lat: 37.5921,
-              lng: 126.3984,
-              placeName: null,
-              isFallback: true,
-            ),
-          ),
-        ),
-        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
-      ),
-    );
-    await tester.pump();
-
-    final expandedOpacity = tester.widget<Opacity>(
-      find.byKey(const Key('modeHeaderExpandedLayerOpacity')),
-    );
-    final collapsedOpacity = tester.widget<Opacity>(
-      find.byKey(const Key('modeHeaderCollapsedLayerOpacity')),
-    );
-    expect(expandedOpacity.opacity, 1.0);
-    expect(collapsedOpacity.opacity, 0.0);
-
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -2000));
-    await tester.pump();
-
-    final expandedOpacityAfter = tester.widget<Opacity>(
-      find.byKey(const Key('modeHeaderExpandedLayerOpacity')),
-    );
-    final collapsedOpacityAfter = tester.widget<Opacity>(
-      find.byKey(const Key('modeHeaderCollapsedLayerOpacity')),
-    );
-    expect(expandedOpacityAfter.opacity, 0.0);
-    expect(collapsedOpacityAfter.opacity, 1.0);
   });
 }

@@ -64,13 +64,13 @@ void main() {
     expect(find.text('88'), findsOneWidget);
     expect(find.text('매우 쾌적 (Prime)'), findsOneWidget);
 
-    // Collapsed toggle is only hit-testable once the header is actually
-    // collapsed (crossfade IgnorePointer gating) — scroll it into its
-    // interactive state before tapping.
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -150));
-    await tester.pump();
+    await tester.dragUntilVisible(
+      find.byKey(const Key('focusModeNightSegment')),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
 
-    await tester.tap(find.byKey(const Key('modeToggleNightCollapsed')));
+    await tester.tap(find.byKey(const Key('focusModeNightSegment')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
@@ -122,13 +122,13 @@ void main() {
       expect(fetchCount, 1);
       expect(find.text('88'), findsOneWidget);
 
-      // Collapsed toggle is only hit-testable once the header is actually
-      // collapsed (crossfade IgnorePointer gating) — scroll it into its
-      // interactive state before tapping.
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -150));
-      await tester.pump();
+      await tester.dragUntilVisible(
+        find.byKey(const Key('focusModeNightSegment')),
+        find.byType(CustomScrollView),
+        const Offset(0, -200),
+      );
 
-      await tester.tap(find.byKey(const Key('modeToggleNightCollapsed')));
+      await tester.tap(find.byKey(const Key('focusModeNightSegment')));
       await tester.pump();
       await tester.pump();
       await tester.pump();
@@ -136,14 +136,26 @@ void main() {
       expect(fetchCount, 2);
       expect(find.text('92'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('modeToggleDayCollapsed')));
+      await tester.dragUntilVisible(
+        find.byKey(const Key('focusModeDaySegment')),
+        find.byType(CustomScrollView),
+        const Offset(0, -200),
+      );
+
+      await tester.tap(find.byKey(const Key('focusModeDaySegment')));
       await tester.pump();
 
       expect(fetchCount, 2);
       expect(find.text('88'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
 
-      await tester.tap(find.byKey(const Key('modeToggleNightCollapsed')));
+      await tester.dragUntilVisible(
+        find.byKey(const Key('focusModeNightSegment')),
+        find.byType(CustomScrollView),
+        const Offset(0, -200),
+      );
+
+      await tester.tap(find.byKey(const Key('focusModeNightSegment')));
       await tester.pump();
 
       expect(fetchCount, 2);

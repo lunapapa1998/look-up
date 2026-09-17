@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config.dart';
 import '../models/discovery.dart';
 import '../state/discovery_providers.dart';
-import '../widgets/mode_header.dart';
 import '../widgets/score_gauge.dart';
 
 class HomeDiscoveryScreen extends ConsumerStatefulWidget {
@@ -83,154 +82,69 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
             pinned: true,
             floating: false,
             snap: false,
-            toolbarHeight: 52,
-            expandedHeight: 160,
-            flexibleSpace: Builder(
-              builder: (context) {
-                final settings = context
-                    .dependOnInheritedWidgetOfExactType<
-                      FlexibleSpaceBarSettings
-                    >()!;
-                final extentRange = settings.maxExtent - settings.minExtent;
-                final collapseFraction = extentRange <= 0
-                    ? 0.0
-                    : ((settings.maxExtent - settings.currentExtent) /
-                              extentRange)
-                          .clamp(0.0, 1.0)
-                          .toDouble();
-
-                return SafeArea(
-                  bottom: false,
-                  child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    IgnorePointer(
-                      ignoring: collapseFraction >= 0.5,
-                      child: Opacity(
-                        key: const Key('modeHeaderExpandedLayerOpacity'),
-                        opacity: 1.0 - collapseFraction,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.visibility_outlined,
-                                    size: 28,
-                                    color: colorScheme.secondary,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '위를 봐요',
-                                        style: textTheme.headlineSmall,
-                                      ),
-                                      Text(
-                                        'LOOK UP',
-                                        style: textTheme.labelSmall?.copyWith(
-                                          color: colorScheme.secondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const Spacer(),
-                                  Flexible(
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color:
-                                            colorScheme.surfaceContainerHigh,
-                                        borderRadius: BorderRadius.circular(
-                                          20,
-                                        ),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.explore,
-                                            size: 16,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Flexible(
-                                            child: Text(
-                                              locationLabel,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          const Icon(
-                                            Icons.keyboard_arrow_down,
-                                            size: 16,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const CircleAvatar(
-                                    child: Icon(Icons.person),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              ModeHeader(
-                                state: modeState,
-                                collapsed: false,
-                                onModeChanged: ref
-                                    .read(obsModeProvider.notifier)
-                                    .setManual,
-                                onResetToAuto: ref
-                                    .read(obsModeProvider.notifier)
-                                    .resetToAuto,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: 52,
-                      child: IgnorePointer(
-                        ignoring: collapseFraction < 0.5,
-                        child: Opacity(
-                          key: const Key('modeHeaderCollapsedLayerOpacity'),
-                          opacity: collapseFraction,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                            ),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: ModeHeader(
-                                state: modeState,
-                                collapsed: true,
-                                onModeChanged: ref
-                                    .read(obsModeProvider.notifier)
-                                    .setManual,
-                                onResetToAuto: ref
-                                    .read(obsModeProvider.notifier)
-                                    .resetToAuto,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+            toolbarHeight: 64,
+            titleSpacing: 0,
+            automaticallyImplyLeading: false,
+            title: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.visibility_outlined,
+                    size: 28,
+                    color: colorScheme.secondary,
                   ),
-                );
-              },
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '위를 봐요',
+                        style: textTheme.headlineSmall,
+                      ),
+                      Text(
+                        'LOOK UP',
+                        style: textTheme.labelSmall?.copyWith(
+                          color: colorScheme.secondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Flexible(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHigh,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.explore, size: 16),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              locationLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Icon(Icons.keyboard_arrow_down, size: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const CircleAvatar(
+                    child: Icon(Icons.person),
+                  ),
+                ],
+              ),
             ),
           ),
           SliverPadding(
@@ -372,6 +286,8 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                             children: [
                               ScoreGauge(
                                 score: overview.suitabilityIndex.score,
+                                size: 56,
+                                scoreFontSize: 20,
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -485,35 +401,29 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                         top: i == 0 ? 0 : 8,
                                       ),
                                       child: Container(
-                                        padding: const EdgeInsets.all(12),
+                                        padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(
                                           color: colorScheme
-                                              .surfaceContainerHigh,
+                                              .surfaceContainerLow
+                                              .withValues(alpha: 0.9),
                                           borderRadius:
-                                              BorderRadius.circular(10),
+                                              BorderRadius.circular(8),
                                         ),
                                         child: Row(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Container(
-                                              width: 44,
-                                              height: 44,
-                                              alignment: Alignment.center,
-                                              decoration: BoxDecoration(
-                                                color: accent.withValues(
-                                                  alpha: 0.12,
-                                                ),
-                                                shape: BoxShape.circle,
-                                              ),
+                                            SizedBox(
+                                              width: 27,
                                               child: Icon(
                                                 isDay
                                                     ? Icons.forest
                                                     : Icons.dark_mode,
                                                 color: accent,
+                                                size: 28,
                                               ),
                                             ),
-                                            const SizedBox(width: 12),
+                                            const SizedBox(width: 8),
                                             Expanded(
                                               child: Column(
                                                 crossAxisAlignment:
@@ -521,19 +431,6 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                                 children: [
                                                   Row(
                                                     children: [
-                                                      Container(
-                                                        width: 6,
-                                                        height: 6,
-                                                        decoration:
-                                                            BoxDecoration(
-                                                              color: accent,
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                            ),
-                                                      ),
-                                                      const SizedBox(
-                                                        width: 4,
-                                                      ),
                                                       Flexible(
                                                         child: Text(
                                                           gh.label,
@@ -545,24 +442,39 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                                               .labelSmall
                                                               ?.copyWith(
                                                                 color: accent,
+                                                                fontSize: 12,
+                                                                height:
+                                                                    16 / 12,
                                                               ),
                                                         ),
                                                       ),
                                                       const SizedBox(
-                                                        width: 8,
+                                                        width: 4,
                                                       ),
-                                                      Text(
-                                                        gh.timeRange,
-                                                        style: textTheme
-                                                            .labelMedium
-                                                            ?.copyWith(
+                                                      Container(
+                                                        width: 6,
+                                                        height: 6,
+                                                        decoration:
+                                                            BoxDecoration(
                                                               color: accent,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold,
+                                                              shape: BoxShape
+                                                                  .circle,
                                                             ),
                                                       ),
                                                     ],
+                                                  ),
+                                                  Text(
+                                                    gh.timeRange,
+                                                    style: textTheme
+                                                        .labelMedium
+                                                        ?.copyWith(
+                                                          color: colorScheme
+                                                              .onSurface,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          fontSize: 14,
+                                                          height: 18 / 14,
+                                                        ),
                                                   ),
                                                   Text(
                                                     gh.description,
@@ -570,6 +482,8 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                                         ?.copyWith(
                                                           color: colorScheme
                                                               .onSurfaceVariant,
+                                                          fontSize: 13,
+                                                          height: 18 / 13,
                                                         ),
                                                     maxLines: 1,
                                                     overflow: TextOverflow
@@ -690,22 +604,71 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                   children: [
                     Text('지금 시선의 초점', style: textTheme.headlineSmall),
                     const Spacer(),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.tune,
-                          size: 16,
-                          color: colorScheme.secondary,
+                    _buildFocusModeSourceBadge(colorScheme, modeState),
+                    const SizedBox(width: 8),
+                    Semantics(
+                      label: '자동 모드로 되돌립니다',
+                      button: true,
+                      container: true,
+                      excludeSemantics: true,
+                      onTap: () =>
+                          ref.read(obsModeProvider.notifier).resetToAuto(),
+                      child: GestureDetector(
+                        key: const Key('focusModeResetAffordance'),
+                        onTap: () =>
+                            ref.read(obsModeProvider.notifier).resetToAuto(),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.tune,
+                              size: 16,
+                              color: colorScheme.secondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '필터 맞춤 설정',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.secondary,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '필터 맞춤 설정',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.secondary,
-                          ),
-                        ),
-                      ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _FocusModeSegmentButton(
+                        buttonKey: const Key('focusModeDaySegment'),
+                        icon: Icons.light_mode,
+                        label: '낮의 새를 찾아서 (탐조)',
+                        active: currentMode == ObsMode.day,
+                        activeBackground: colorScheme.tertiary,
+                        activeForeground: colorScheme.onTertiary,
+                        semanticsLabel: '낮 모드로 전환합니다',
+                        onTap: () => ref
+                            .read(obsModeProvider.notifier)
+                            .setManual(ObsMode.day),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _FocusModeSegmentButton(
+                        buttonKey: const Key('focusModeNightSegment'),
+                        icon: Icons.nightlight_round,
+                        label: '밤의 별을 보러 (천체관측)',
+                        active: currentMode == ObsMode.night,
+                        activeBackground: colorScheme.secondary,
+                        activeForeground: colorScheme.onSecondary,
+                        semanticsLabel: '밤 모드로 전환합니다',
+                        onTap: () => ref
+                            .read(obsModeProvider.notifier)
+                            .setManual(ObsMode.night),
+                      ),
                     ),
                   ],
                 ),
@@ -1022,6 +985,129 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFocusModeSourceBadge(
+    ColorScheme colorScheme,
+    ObsModeState modeState,
+  ) {
+    if (modeState.source == ObsModeSource.auto) {
+      return Semantics(
+        label: '자동 모드입니다',
+        container: true,
+        excludeSemantics: true,
+        child: Container(
+          key: const Key('focusModeSourceBadgeAuto'),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            border: Border.all(color: colorScheme.outline),
+            borderRadius: BorderRadius.circular(9999),
+          ),
+          child: Text(
+            'AUTO',
+            style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
+          ),
+        ),
+      );
+    }
+
+    return Semantics(
+      label: '수동 모드입니다. 탭하면 자동 모드로 돌아갑니다.',
+      container: true,
+      excludeSemantics: true,
+      onTap: () => ref.read(obsModeProvider.notifier).resetToAuto(),
+      child: GestureDetector(
+        key: const Key('focusModeSourceBadgeManual'),
+        onTap: () => ref.read(obsModeProvider.notifier).resetToAuto(),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: colorScheme.secondary,
+            borderRadius: BorderRadius.circular(9999),
+          ),
+          child: Text(
+            'MANUAL',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSecondary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-width day/night focus-mode segment button, shown in pairs below the
+/// suitability card. Active state uses a filled accent background (not color
+/// alone) so it stays legible without relying on hue perception.
+class _FocusModeSegmentButton extends StatelessWidget {
+  const _FocusModeSegmentButton({
+    required this.buttonKey,
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.activeBackground,
+    required this.activeForeground,
+    required this.semanticsLabel,
+    required this.onTap,
+  });
+
+  final Key buttonKey;
+  final IconData icon;
+  final String label;
+  final bool active;
+  final Color activeBackground;
+  final Color activeForeground;
+  final String semanticsLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final background = active ? activeBackground : colorScheme.surfaceContainerHigh;
+    final foreground = active ? activeForeground : colorScheme.onSurfaceVariant;
+
+    return Semantics(
+      label: semanticsLabel,
+      button: true,
+      selected: active,
+      container: true,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        key: buttonKey,
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: foreground),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                    color: foreground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:lookup/api/suitability_api.dart';
 import 'package:lookup/models/discovery.dart';
-import 'package:lookup/screens/home_discovery_screen.dart';
-import 'package:lookup/services/location_service.dart';
 import 'package:lookup/state/discovery_providers.dart';
 import 'package:lookup/theme/app_theme.dart';
 import 'package:lookup/widgets/mode_header.dart';
@@ -154,51 +151,6 @@ void main() {
 
     expect(find.byKey(const Key('modeManualHint')), findsOneWidget);
   });
-
-  testWidgets(
-    'pinned collapsed ModeHeader toggle survives scrolling far down',
-    (tester) async {
-      final container = ProviderContainer(
-        overrides: [
-          suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
-          locationServiceProvider.overrideWithValue(
-            FakeLocationService(
-              const ObservationLocation(
-                lat: 37.5921,
-                lng: 126.3984,
-                placeName: null,
-                isFallback: true,
-              ),
-            ),
-          ),
-          nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            home: HomeDiscoveryScreen(onViewMapPressed: () {}),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      await tester.drag(
-        find.byType(CustomScrollView),
-        const Offset(0, -2000),
-      );
-      await tester.pump();
-
-      expect(find.byKey(const Key('modeToggleDayCollapsed')), findsOneWidget);
-      expect(
-        find.byKey(const Key('modeToggleNightCollapsed')),
-        findsOneWidget,
-      );
-    },
-  );
 
   testWidgets('toggles and badges expose semantics labels for screen readers', (
     tester,
