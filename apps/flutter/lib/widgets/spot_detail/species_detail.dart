@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/species.dart';
@@ -108,30 +107,44 @@ class SpeciesDetail extends ConsumerWidget {
               infoAsync.when(
                 loading: () => const SizedBox.shrink(),
                 error: (_, _) => const SizedBox.shrink(),
-                data: (info) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _WikiSummaryText(
-                      text: info.summaryLong ?? info.summary ?? '설명 준비 중이에요',
-                    ),
-                    if (info.wikiUrl != null) ...[
-                      const SizedBox(height: 8),
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          minimumSize: const Size(44, 44),
-                        ),
-                        onPressed: () {
-                          final url = info.wikiUrl ?? '';
-                          Clipboard.setData(ClipboardData(text: url));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('링크를 복사했어요')),
-                          );
-                        },
-                        icon: const Icon(Icons.open_in_new),
-                        label: const Text('위키백과에서 보기'),
+                data: (info) => Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
-                  ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '정보',
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        info.summaryLong ?? info.summary ?? '설명 준비 중이에요',
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -465,45 +478,6 @@ class _SpeciesMediaCardState extends State<_SpeciesMediaCard> {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Collapsible wiki summary paragraph: starts clamped to 4 lines with a
-/// "더보기" toggle, matching long wiki extracts ([SpeciesInfo.summaryLong])
-/// without pushing the rest of the sheet down until the user asks for it.
-class _WikiSummaryText extends StatefulWidget {
-  const _WikiSummaryText({required this.text});
-
-  final String text;
-
-  @override
-  State<_WikiSummaryText> createState() => _WikiSummaryTextState();
-}
-
-class _WikiSummaryTextState extends State<_WikiSummaryText> {
-  bool expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.text,
-          maxLines: expanded ? null : 4,
-          overflow: expanded ? null : TextOverflow.ellipsis,
-        ),
-        Semantics(
-          toggled: expanded,
-          label: expanded ? '요약 접기' : '요약 더보기',
-          child: TextButton(
-            style: TextButton.styleFrom(minimumSize: const Size(44, 44)),
-            onPressed: () => setState(() => expanded = !expanded),
-            child: Text(expanded ? '접기' : '더보기'),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -6,12 +6,11 @@ import '../../models/trails.dart';
 import '../../state/discovery_providers.dart';
 import '../../utils/relative_time.dart';
 import '../../utils/spot_name.dart';
-import '../observation_spot_detail.dart';
 import '../observation_spot_sheet.dart';
 
 /// Bird spot detail body for the observation sheet's detail view: back
-/// header, species measurement list, then the shared [SuitabilityBlock] --
-/// the bird branch of [ObservationSpotDetail]'s kind switch.
+/// header + species chips (the score gauge was removed per owner request) --
+/// the bird branch of the observation spot detail's kind switch.
 class BirdSpotDetail extends ConsumerWidget {
   const BirdSpotDetail({
     super.key,
@@ -59,8 +58,6 @@ class BirdSpotDetail extends ConsumerWidget {
           now: now,
           onSpeciesTap: onSpeciesTap,
         ),
-        const Divider(height: 32),
-        SuitabilityBlock(spot: spot),
       ],
     );
   }
@@ -126,34 +123,47 @@ class _BirdMeasurement extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        for (final species in birds.topSpecies.take(5))
-          Semantics(
-            label: species.nameKo,
-            child: InkWell(
-              key: Key('obsmap_species_item_${species.speciesCode}'),
-              onTap: () => onSpeciesTap((
-                nameKo: species.nameKo,
-                nameSci: species.nameSci,
-                count: species.count,
-                obsDt: species.obsDt,
-                spotName: spotName,
-                spotCoord: spotCoord,
-                status: birds.status,
-              )),
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 44),
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Text(
-                  species.count != null
-                      ? '${species.nameKo} · ${species.count}마리'
-                      : species.nameKo,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final species in birds.topSpecies.take(5))
+              Semantics(
+                label: species.nameKo,
+                child: InkWell(
+                  key: Key('obsmap_species_item_${species.speciesCode}'),
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => onSpeciesTap((
+                    nameKo: species.nameKo,
+                    nameSci: species.nameSci,
+                    count: species.count,
+                    obsDt: species.obsDt,
+                    spotName: spotName,
+                    spotCoord: spotCoord,
+                    status: birds.status,
+                  )),
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      species.count != null
+                          ? '${species.nameKo} · ${species.count}마리'
+                          : species.nameKo,
+                      style: textTheme.labelLarge,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
+          ],
+        ),
       ],
     );
   }

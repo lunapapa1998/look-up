@@ -140,7 +140,10 @@ class ObservationSpotSheet extends StatelessWidget {
       snapSizes: const [kObsSheetPeek, 0.45, 0.9],
       builder: (context, scrollController) {
         return Material(
-          color: colorScheme.surfaceContainer,
+          // Sheet sits one elevation below its cards so the rounded card
+          // sections (오늘의 물때 / 최근 관측 정보 = surfaceContainer) stay
+          // visible against it -- matching Figma's darker-panel hierarchy.
+          color: colorScheme.surfaceContainerLowest,
           clipBehavior: Clip.antiAlias,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: Column(
@@ -163,26 +166,27 @@ class ObservationSpotSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '관찰 스팟 ${spots.length}곳',
-                            style: textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '조류 ${_countKind('bird')} · 별 ${_countKind('star')} · '
-                            '노포 ${_countKind('heritage')}',
-                            style: textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                    if (!isDetail)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '관찰 스팟 ${spots.length}곳',
+                              style: textTheme.titleMedium,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Text(
+                              '조류 ${_countKind('bird')} · 별 ${_countKind('star')} · '
+                              '노포 ${_countKind('heritage')}',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

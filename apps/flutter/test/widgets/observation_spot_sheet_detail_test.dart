@@ -726,8 +726,8 @@ void main() {
     final longSummary = '저어새는 저어새과에 속하는 대형 물새로 습지와 갯벌에서 서식한다. ' * 20;
 
     testWidgets(
-      'a long summaryLong starts clamped to 4 lines behind a 더보기 toggle, '
-      'and tapping it expands to unlimited lines and flips the label to 접기',
+      'the long summary renders in full inside a rounded 정보 section card -- '
+      'no 더보기/접기 clamp toggle (owner: show it all)',
       (tester) async {
         await _pumpMapScreen(
           tester,
@@ -750,17 +750,19 @@ void main() {
         await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
         await tester.pumpAndSettle();
 
+        // '정보' section header + full (unclamped) summary, no toggle.
+        expect(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text('정보'),
+          ),
+          findsOneWidget,
+        );
         final textFinder = find.text(longSummary);
         expect(textFinder, findsOneWidget);
-        expect(tester.widget<Text>(textFinder).maxLines, 4);
-        expect(find.text('더보기'), findsOneWidget);
-
-        await tester.tap(find.text('더보기'));
-        await tester.pump();
-
-        expect(tester.widget<Text>(textFinder).maxLines, null);
-        expect(find.text('접기'), findsOneWidget);
+        expect(tester.widget<Text>(textFinder).maxLines, isNull);
         expect(find.text('더보기'), findsNothing);
+        expect(find.text('접기'), findsNothing);
       },
     );
 

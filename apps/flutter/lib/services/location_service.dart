@@ -1,6 +1,3 @@
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
-
 import '../config.dart';
 
 /// Resolved observation location, either from device GPS + reverse geocoding
@@ -43,71 +40,22 @@ String? assemblePlaceName(List<String?> rawParts) {
   return capped.join('·');
 }
 
-/// [LocationService] backed by `geolocator`/`geocoding`. Never throws — any
-/// failure (service disabled, permission denied, timeout, geocoding error)
-/// resolves to the fixed fallback coordinates from `config.dart`.
+/// Production [LocationService]. Owner override: the app's data (birds/trails/
+/// tides/suitability) is curated around the Ganghwa tidal flats, so the
+/// observation location is fixed there instead of the device GPS fix -- a real
+/// GPS fix elsewhere would surface empty/irrelevant results. GPS is bypassed
+/// on purpose; tests inject [FakeLocationService], so this only affects real
+/// devices. `isFallback` is false because Ganghwa is the intended location.
 class GeolocatorLocationService implements LocationService {
-  static const _fallback = ObservationLocation(
+  static const _ganghwa = ObservationLocation(
     lat: defaultObservationLat,
     lng: defaultObservationLng,
-    placeName: null,
-    isFallback: true,
+    placeName: '강화도',
+    isFallback: false,
   );
 
   @override
-  Future<ObservationLocation> currentLocation() async {
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        return _fallback;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return _fallback;
-      }
-    } catch (_) {
-      return _fallback;
-    }
-
-    final Position position;
-    try {
-      position = await Geolocator.getCurrentPosition();
-    } catch (_) {
-      return _fallback;
-    }
-
-    final List<Placemark> placemarks;
-    try {
-      placemarks = await Geocoding().placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-    } catch (_) {
-      return _fallback;
-    }
-    if (placemarks.isEmpty) {
-      return _fallback;
-    }
-
-    final placemark = placemarks.first;
-    final placeName = assemblePlaceName([
-      placemark.administrativeArea,
-      placemark.locality,
-      placemark.subLocality,
-    ]);
-
-    return ObservationLocation(
-      lat: position.latitude,
-      lng: position.longitude,
-      placeName: placeName,
-      isFallback: false,
-    );
-  }
+  Future<ObservationLocation> currentLocation() async => _ganghwa;
 }
 
 /// In-memory implementation of [LocationService] for tests. No network or
