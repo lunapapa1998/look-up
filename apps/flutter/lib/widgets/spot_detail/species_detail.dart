@@ -40,13 +40,39 @@ class SpeciesDetail extends ConsumerWidget {
     final tidesAsync = ref.watch(
       tideTodayProvider((lat: selection.spotCoord.lat, lng: selection.spotCoord.lng)),
     );
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListView(
       controller: scrollController,
       padding: EdgeInsets.zero,
       children: [
-        _SpeciesHero(
-          selection: selection,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (conservation != null) ...[
+                ConservationBadges(conservation: conservation),
+                const SizedBox(height: 8),
+              ],
+              Text(
+                selection.nameKo,
+                style: textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              Text(
+                selection.nameSci,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+        _SpeciesMediaCard(
           infoAsync: infoAsync,
           onBack: onBack,
           onRetry: () => ref.invalidate(speciesInfoProvider(query)),
@@ -56,6 +82,29 @@ class SpeciesDetail extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _ObservationCard(
+                selection: selection,
+                now: now,
+                isProtectedSpecies: isProtectedSpecies,
+              ),
+              const SizedBox(height: 16),
+              tidesAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+                error: (_, _) => const SizedBox.shrink(),
+                data: (tides) => tides.found
+                    ? TodayTidesSection(tides: tides)
+                    : const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 16),
               infoAsync.when(
                 loading: () => const SizedBox.shrink(),
                 error: (_, _) => const SizedBox.shrink(),
@@ -84,28 +133,6 @@ class SpeciesDetail extends ConsumerWidget {
                     ],
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              _ObservationCard(
-                selection: selection,
-                now: now,
-                isProtectedSpecies: isProtectedSpecies,
-              ),
-              tidesAsync.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Center(
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                ),
-                error: (_, _) => const SizedBox.shrink(),
-                data: (tides) => tides.found
-                    ? TodayTidesSection(tides: tides)
-                    : const SizedBox.shrink(),
               ),
             ],
           ),
@@ -216,32 +243,31 @@ class _ObservationCard extends StatelessWidget {
   }
 }
 
-/// Full-bleed 240-height hero banner (spec 029 Phase 1) replacing the old
-/// small centered photo card: a fixed-size [Stack] so the loading/error/photo
-/// backgrounds never shift layout, with the species name/sci-name/badges
-/// overlaid at the bottom and the back button always pinned top-left.
-class _SpeciesHero extends StatefulWidget {
-  const _SpeciesHero({
-    required this.selection,
+/// Padded rounded media card (spec 031: Figma 62-35 visual hierarchy) that
+/// replaces the old full-bleed hero: a fixed 176-height photo/loading/error
+/// [Stack] so nothing ever shifts layout, with the species name/sci-name/
+/// badges living only in the header above -- this card carries just the
+/// photo, an optional Wikipedia source caption, and the pinned back button.
+class _SpeciesMediaCard extends StatefulWidget {
+  const _SpeciesMediaCard({
     required this.infoAsync,
     required this.onBack,
     required this.onRetry,
   });
 
-  final SelectedSpecies selection;
   final AsyncValue<SpeciesInfo> infoAsync;
   final VoidCallback onBack;
   final VoidCallback onRetry;
 
   @override
-  State<_SpeciesHero> createState() => _SpeciesHeroState();
+  State<_SpeciesMediaCard> createState() => _SpeciesMediaCardState();
 }
 
-class _SpeciesHeroState extends State<_SpeciesHero> {
+class _SpeciesMediaCardState extends State<_SpeciesMediaCard> {
   bool _imageLoadFailed = false;
 
   @override
-  void didUpdateWidget(_SpeciesHero oldWidget) {
+  void didUpdateWidget(_SpeciesMediaCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.infoAsync.valueOrNull?.thumbnailUrl !=
         widget.infoAsync.valueOrNull?.thumbnailUrl) {
@@ -251,7 +277,6 @@ class _SpeciesHeroState extends State<_SpeciesHero> {
 
   @override
   Widget build(BuildContext context) {
-    final selection = widget.selection;
     final infoAsync = widget.infoAsync;
     final onBack = widget.onBack;
     final onRetry = widget.onRetry;
@@ -260,35 +285,43 @@ class _SpeciesHeroState extends State<_SpeciesHero> {
     final info = infoAsync.valueOrNull;
     final hasPhoto = info?.thumbnailUrl != null && !_imageLoadFailed;
 
-    return SizedBox(
-      height: 240,
-      width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (hasPhoto)
-            Image.network(
-              info!.thumbnailUrl!,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              errorBuilder: (context, error, stackTrace) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && !_imageLoadFailed) {
-                    setState(() => _imageLoadFailed = true);
-                  }
-                });
-                return const _SpeciesPhotoPlaceholder();
-              },
-            )
-          else if (infoAsync.isLoading)
-            Container(
-              color: colorScheme.surfaceContainer,
-              child: const Center(child: CircularProgressIndicator()),
-            )
-          else if (infoAsync.hasError)
-            Container(
-              color: colorScheme.surfaceContainer,
-              child: Center(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        height: 176,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (hasPhoto)
+              Image.network(
+                info!.thumbnailUrl!,
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                errorBuilder: (context, error, stackTrace) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !_imageLoadFailed) {
+                      setState(() => _imageLoadFailed = true);
+                    }
+                  });
+                  return const _SpeciesPhotoPlaceholder();
+                },
+              )
+            else if (infoAsync.isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (infoAsync.hasError)
+              Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -300,115 +333,42 @@ class _SpeciesHeroState extends State<_SpeciesHero> {
                     ),
                   ],
                 ),
-              ),
-            )
-          else
-            const _SpeciesPhotoPlaceholder(),
-          if (hasPhoto)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 40, 16, 12),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Color(0xD9000000)],
+              )
+            else
+              const _SpeciesPhotoPlaceholder(),
+            if (hasPhoto && info!.source.toLowerCase().contains('wikipedia'))
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Text(
+                    '출처: Wikipedia',
+                    style: textTheme.labelSmall?.copyWith(
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      selection.nameKo,
-                      style: textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      selection.nameSci,
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: Colors.white70,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (info!.conservation != null) ...[
-                      const SizedBox(height: 8),
-                      ConservationBadges(conservation: info.conservation!),
-                    ],
-                    if (info.source.toLowerCase().contains('wikipedia')) ...[
-                      const SizedBox(height: 4),
-                      SizedBox(
-                        width: double.infinity,
-                        child: Text(
-                          '출처: Wikipedia',
-                          textAlign: TextAlign.end,
-                          style: textTheme.labelSmall
-                              ?.copyWith(color: Colors.white60),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
               ),
-            )
-          else
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      selection.nameKo,
-                      style: textTheme.titleLarge,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      selection.nameSci,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontStyle: FontStyle.italic,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (info?.conservation != null) ...[
-                      const SizedBox(height: 8),
-                      ConservationBadges(conservation: info!.conservation!),
-                    ],
-                  ],
+              top: 8,
+              left: 8,
+              child: Material(
+                color: Colors.black.withValues(alpha: 0.35),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  key: const Key('obsmap_detail_back_button'),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  tooltip: '뒤로 가기',
+                  onPressed: onBack,
                 ),
               ),
             ),
-          Positioned(
-            top: 8,
-            left: 8,
-            child: Material(
-              color: Colors.black.withValues(alpha: 0.35),
-              shape: const CircleBorder(),
-              child: IconButton(
-                key: const Key('obsmap_detail_back_button'),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                tooltip: '뒤로 가기',
-                onPressed: onBack,
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

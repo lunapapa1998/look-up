@@ -465,6 +465,27 @@ void main() {
         expect(find.text('천연기념물 제205호'), findsOneWidget);
         expect(find.text('멸종위기 야생생물 Ⅰ급'), findsOneWidget);
         expect(find.text('위기'), findsOneWidget);
+
+        // spec 031 (Figma 62-35): badges/name header sits above the photo
+        // card, not overlaid on top of it -- assert the vertical order.
+        final badgesDy =
+            tester.getTopLeft(find.byType(ConservationBadges)).dy;
+        final nameDy = tester
+            .getTopLeft(
+              find.descendant(
+                of: find.byType(SpeciesDetail),
+                matching: find.text('저어새'),
+              ),
+            )
+            .dy;
+        final photoDy =
+            tester.getTopLeft(find.byIcon(Icons.image_outlined)).dy;
+        expect(badgesDy, lessThan(nameDy));
+        expect(nameDy, lessThan(photoDy));
+
+        // The Wikipedia source caption only overlays an actual photo; with
+        // thumbnailUrl null (placeholder shown instead) it must not render.
+        expect(find.text('출처: Wikipedia'), findsNothing);
       },
     );
 

@@ -1,0 +1,9 @@
+# spot_detail — flutter-engineer handoff
+
+- Reworked `species_detail.dart` (spec 031, Figma 62-35): removed the full-bleed `_SpeciesHero`/`_SpeciesHeroState` hero entirely.
+- New header (first `ListView` child): `Padding(fromLTRB(20,16,20,12))` → optional `ConservationBadges` (only when `conservation` non-null, no reserved space otherwise) → `nameKo` (headlineSmall/w700) → `nameSci` (bodyMedium italic, onSurfaceVariant). No bookmark/favorite icon (Figma shows one but it has no wired action yet).
+- New `_SpeciesMediaCard` (StatefulWidget, replaces hero): horizontally padded (16), fixed-176-height rounded card (`radius 16`, `surfaceContainer`, soft shadow) holding only the photo/loading/error/placeholder Stack + back button (`obsmap_detail_back_button`, unchanged) + a bottom Wikipedia source caption shown only when a photo is displayed. Ported the `_imageLoadFailed` tracking + postFrameCallback `setState` from the old hero verbatim.
+- Trailing Column reorder: `_ObservationCard` → tides `.when` block → wiki `_WikiSummaryText`/link block (now last, was first). No internals of `_ObservationCard`, `_WikiSummaryText`, `_SpeciesPhotoPlaceholder` changed.
+- Contract: no backend contract touched — this is a pure presentation reshuffle of already-fetched `speciesInfoProvider`/`tideTodayProvider` data.
+- `flutter analyze` could not be run (Bash not approved in this session); reviewed the diff statically — no unused imports, no undefined symbols, `_SpeciesHero`/`_SpeciesHeroState` fully removed, back-button key appears exactly once.
+- Added a structural regression test in `test/widgets/observation_spot_sheet_detail_test.dart` (spec 023 Phase 2a group, IUCN EN test): asserts `getTopLeft(...).dy` ordering `ConservationBadges` < `nameKo` text < `Icons.image_outlined` placeholder (proves header-above-photo per spec 031/Figma 62-35, not the old overlay), plus `find.text('출처: Wikipedia')` findsNothing when `thumbnailUrl` is null.
