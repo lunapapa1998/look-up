@@ -142,11 +142,12 @@ class SpeciesDetail extends ConsumerWidget {
   }
 }
 
-/// Observation-facts card (spec 029 Phase 2) replacing the old divider-plus-
-/// text block: the same real data (headcount/relative-time/spot+coords),
-/// now icon-prefixed and boxed in a single [colorScheme.surfaceContainer]
-/// card, with the community badge and a conditional protected-species notice
-/// kept inside.
+/// Observation-facts card (spec 033: Figma 62-153 header-plus-2-column-grid)
+/// replacing the old icon-prefixed [Column] of [Row]s: a "최근 관측 텔레메트리"
+/// header above a 2-column grid of label/value/subtitle cells (spot+coords,
+/// relative-time, and an optional headcount cell), boxed in a single
+/// [colorScheme.surfaceContainer] card with the community badge and a
+/// conditional protected-species notice kept below the grid.
 class _ObservationCard extends StatelessWidget {
   const _ObservationCard({
     required this.selection,
@@ -158,6 +159,41 @@ class _ObservationCard extends StatelessWidget {
   final DateTime now;
   final bool isProtectedSpecies;
 
+  static Widget _cell(
+    BuildContext context, {
+    required String label,
+    required String value,
+    String? subtitle,
+  }) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -167,51 +203,68 @@ class _ObservationCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (selection.count != null) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.groups, color: colorScheme.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Text(
-                  '관측 ${selection.count}마리',
-                  style: textTheme.titleMedium?.copyWith(
-                    color: colorScheme.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.schedule, color: colorScheme.onSurfaceVariant),
+              Icon(Icons.sensors, color: colorScheme.onSurfaceVariant),
               const SizedBox(width: 8),
-              Text('관측 ${formatRelativeTime(selection.obsDt, now)}'),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.place, color: colorScheme.onSurfaceVariant),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${shortSpotName(selection.spotName)} '
-                  '(${selection.spotCoord.lat.toStringAsFixed(4)}, '
-                  '${selection.spotCoord.lng.toStringAsFixed(4)})',
+              Text(
+                '최근 관측 텔레메트리',
+                style: textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _cell(
+                  context,
+                  label: '관측 위치',
+                  value: shortSpotName(selection.spotName),
+                  subtitle: '${selection.spotCoord.lat.toStringAsFixed(4)}, '
+                      '${selection.spotCoord.lng.toStringAsFixed(4)}',
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _cell(
+                  context,
+                  label: '관측 시각',
+                  value: formatRelativeTime(selection.obsDt, now),
+                ),
+              ),
+            ],
+          ),
+          if (selection.count != null) ...[
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _cell(
+                    context,
+                    label: '군집 규모',
+                    value: '${selection.count} 개체',
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (selection.status == 'community') ...[
             const SizedBox(height: 8),
             Container(

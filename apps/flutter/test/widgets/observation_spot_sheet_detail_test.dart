@@ -431,6 +431,111 @@ void main() {
     );
   });
 
+  group('spec 033: observation card grid (_ObservationCard rewrite)', () {
+    testWidgets(
+      'the header-plus-grid card shows location, time, group-size cells '
+      'and the community badge, with no leftover old-layout copy anywhere',
+      (tester) async {
+        await _pumpMapScreen(tester);
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
+        await tester.pumpAndSettle();
+
+        final coordText = '37.6010, 126.4120';
+        final countText = '24 개체';
+
+        expect(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text('관측 위치'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text('관측 시각'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text('군집 규모'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text('강화도 동막갯벌'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text(coordText),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text(countText),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text('커뮤니티 관측'),
+          ),
+          findsOneWidget,
+        );
+
+        for (final forbidden in const [
+          '안전 관찰',
+          '성조',
+          '유조',
+          '피크',
+          '국립생태원',
+          'NIE',
+          '섭식',
+        ]) {
+          expect(
+            find.descendant(
+              of: find.byType(SpeciesDetail),
+              matching: find.textContaining(forbidden),
+            ),
+            findsNothing,
+          );
+        }
+      },
+    );
+
+    testWidgets(
+      'a species with a null count renders no 군집 규모 cell but keeps the '
+      'location and time cells',
+      (tester) async {
+        await _pumpMapScreen(tester);
+        await tester.pump();
+
+        await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('obsmap_species_item_eurost')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('군집 규모'), findsNothing);
+        expect(find.text('관측 위치'), findsOneWidget);
+        expect(find.text('관측 시각'), findsOneWidget);
+      },
+    );
+  });
+
   group('spec 023 Phase 2a: conservation badges', () {
     testWidgets(
       'a SpeciesInfo with all three conservation fields renders '
