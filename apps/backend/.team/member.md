@@ -835,3 +835,68 @@ DONE: backend-engineer | astronomy.py `parse()`의 moonrise/moonset 자정-넘�
 - Verify: `cd apps/backend && uv run pytest -q` — 이 런도 Bash 실행 권한 없음(`uv run pytest` "requires approval"로 거부). 대신 각 분기의 f-string을 손으로 값 대입해 재확인(예: illumination_pct=18 → `'달 밝기 18%'`가 `test_missing_astm_falls_back_to_fixed_window`의 exact-match와 일치). **다음 엔지니어/오너가 `cd apps/backend && uv run pytest -q`로 실제 그린 확인 필요.**
 
 DONE: backend-engineer | astronomy.py의 밤 골든타임 description 4곳을 월령/광도 전문용어에서 쉬운 한국어 문구로 교체하고 미사용 `_format_age` 삭제, test_astronomy_provider.py의 관련 assertion 7곳 갱신(Bash 미가용으로 수동 검증만 완료)
+
+## 39. golden hour description에서 '· 달 밝기 N%' 제거 + `_moon_phase_name()` 순수 헬퍼 신설 (아직 미사용)
+
+- `astronomy.py`의 `parse()` description 4곳에서 `illumination_pct` 참조를 제거하고 고정 문자열로 교체: fixedFallback → `'하늘이 어두운 시간대'`, observation_limited → `'달이 밤새 떠 있어 어두운 별은 보기 어려워요'`, moon_unknown+밝은달 → `'하늘이 완전히 어두운 시간'`, 기본(darkSky+무월광 구간) → `'달빛 방해 없는 시간대'`. golden_start/golden_end/start_str/end_str/window_source/sub_score/evidence/day 모드 로직은 전부 무변경.
+- 신규 모듈 레벨 순수 함수 `_moon_phase_name(lun_age: float) -> str`(`_format_minute_of_day` 바로 다음)을 추가: lun_age(0~29.53) 구간을 삭/초승달/상현 반달/차오르는 달/보름달/기우는 달/하현 반달/그믐달/삭(마지막 구간)으로 매핑. 지시된 9개 경계값을 그대로 구현. **이번 태스크에서는 아직 어디서도 호출하지 않음**(다음 단계에서 `service.py`가 import해서 사용 예정) — import 경로는 `app.suitability.providers.astronomy._moon_phase_name`.
+- `evidence`/`illuminationPct` 키 자체는 그대로 유지(문자열 조립에서만 뺐을 뿐, 값 계산·evidence dict 저장은 무변경) — consumer가 `evidence.illuminationPct`로 광도값을 읽는 경로는 안 깨짐.
+- 지시에 따라 `tests/suitability/test_astronomy_provider.py`는 이번 태스크에서 건드리지 않음 — 기존 description 관련 assertion 7곳(§38에서 추가된 것)이 지금 깨져 있는 상태(다음 태스크에서 갱신 예정).
+- Verify: 파일 저장 후 들여쓰기/콜론 등 문법을 직접 재확인함(이 런도 Bash 실행 권한 없음, `python3 -m py_compile` 포함 전부 "requires approval"로 거부). **다음 엔지니어/오너가 `cd apps/backend && uv run pytest tests/suitability/test_astronomy_provider.py -q`(현재 FAIL 예상, 다음 태스크에서 갱신 대상)와 `_moon_phase_name` import 연결 후 `uv run pytest -q` 그린 확인 필요.**
+
+DONE: backend-engineer | astronomy.py의 golden hour description 4곳에서 '· 달 밝기 N%' 표기 제거(고정 문구로 교체), 신규 순수 헬퍼 `_moon_phase_name(lun_age)` 추가(아직 미호출, 다음 태스크에서 service.py가 사용 예정) — test_astronomy_provider.py는 지시에 따라 이번엔 미수정(다음 태스크에서 갱신)
+
+## 40. `models.py`에 `Moon` 스키마 신설 + `SuitabilityResponse.moon` optional 필드 추가
+
+- `app/suitability/models.py`만 수정(지시대로). `GoldenHour` 다음, `TelemetryReading` 앞에 신규 `Moon(BaseModel)` 추가: `illumination: int`(0~100%), `phaseName: str`(한글 위상명, `_moon_phase_name`(§39, 아직 미연결) 출력과 짝맞출 예정), `moonrise: str | None`/`moonset: str | None`('HH:MM' 또는 파싱 실패 시 None), `status: str`(`'live'|'approx'|'unavailable'`).
+- `SuitabilityResponse`의 마지막 필드 `layers` 다음에 `moon: Moon | None = None` 추가(default None이라 기존 소비자/테스트가 `moon`을 안 넘겨도 안 깨짐). 다른 기존 필드/클래스는 전부 무변경.
+- 아직 `service.py`/`app/routers/suitability.py`에서 `moon` 필드를 채우는 로직은 없음(스키마만 추가) — `GET /api/suitability` 응답에 `moon` 키가 아직 나타나지 않거나 항상 `null`. 다음 태스크에서 astronomy provider의 `_moon_phase_name`/moonrise·moonset 파싱 결과를 여기에 연결해야 실제 값이 채워짐.
+- Verify: `cd apps/backend && uv run pytest -q` — 이 런도 Bash 실행 권한 없음("requires approval"로 즉시 거부). 대신 `models.py` 전체를 다시 읽어 문법·들여쓰기·클래스 순서·필드 default를 직접 재확인함. 기존 클래스 바디는 문자 그대로 보존, 추가만 했으므로 기존 테스트(예: `test_endpoint.py`의 `SuitabilityResponse` 스키마 검증)는 `moon` 필드가 optional이라 회귀 없을 것으로 예상. **다음 엔지니어/오너가 위 verify 명령으로 실제 그린 확인 필요.**
+
+DONE: backend-engineer | app/suitability/models.py에 Moon(BaseModel) 신규 추가(illumination/phaseName/moonrise/moonset/status) 및 SuitabilityResponse.moon: Moon | None = None optional 필드 추가, 다른 파일/필드는 무변경(Bash 미가용으로 수동 검증만 완료)
+
+## 41. `service.py`에서 astronomy evidence로부터 `SuitabilityResponse.moon` 조립
+
+- `app/suitability/service.py`만 수정(지시대로). import에 `Moon`(models)과 `_format_hhmm`/`_moon_phase_name`/`_parse_hhmm`(§39/§40에서 이미 만들어진 astronomy 순수 헬퍼)을 추가.
+- `get_suitability()`에서 `light_pollution_evidence` 조립 직후, `astronomy_reading = readings["astronomy"]`를 읽어 moon 조립: `status != "live"`면 `moon = None`; `"live"`면 `evidence["lunarAgeDays"]`로 `_moon_phase_name`, `evidence["moonrise"]`/`evidence["moonset"]`을 각각 `_parse_hhmm` → 성공 시 `_format_hhmm`으로 `'HH:MM'`, `ValueError`/`TypeError` 시 `None`으로 개별 처리, `evidence["illuminationPct"]`를 `illumination`에 그대로 사용해 `Moon(status="live", ...)` 생성. `evidence`에 `lunarAgeDays`/`illuminationPct` 키가 없는 방어적 예외 상황은 바깥 `try/except KeyError`로 감싸 `moon = None`으로 안전 처리.
+- `SuitabilityResponse(...)` 생성자 호출 마지막에 `moon=moon` 인자만 추가 — 다른 인자 순서/값, `LAYER_KEYS`/`fuse`/telemetry·golden_hours 조립/`sqm_value`·`sky_class`/`get_default_providers()`/`get_suitability_service()`는 전부 무변경.
+- 결과: `GET /api/suitability` 응답에 `moon` 필드가 실제로 채워짐 — astronomy layer가 `live`면 `{illumination, phaseName, moonrise, moonset, status:"live"}`, `unavailable`(또는 그 외 non-live status)이면 `moon: null`.
+- Verify: `cd apps/backend && uv run pytest -q` — 이 런도 Bash 샌드박스에서 `uv run pytest`가 매번 "requires approval"로 즉시 거부되어 실행 불가(단순 `wc -l` 등은 통과했으나 uv 명령만 막힘). 대신 수정된 `service.py` 전체를 다시 읽어 import·들여쓰기·try/except 구조·`SuitabilityResponse` 인자 목록을 직접 재확인함. **다음 엔지니어/오너가 위 verify 명령과 특히 `tests/suitability/test_endpoint.py`(astronomy live/unavailable 케이스가 있다면)로 실제 그린 확인 필요.**
+
+DONE: backend-engineer | app/suitability/service.py만 수정 — astronomy reading evidence(lunarAgeDays/illuminationPct/moonrise/moonset)로부터 Moon을 조립해 SuitabilityResponse(moon=moon)로 응답에 채움(astronomy unavailable/non-live 시 moon=None), 기존 fuse/telemetry/golden_hours/sqm/sky_class 로직은 무변경(Bash 미가용으로 수동 검증만 완료)
+
+## 42. `test_endpoint.py`에 §41 moon 조립 로직 커버 테스트 2개 신규 추가
+
+- `apps/backend/tests/suitability/test_endpoint.py`만 수정(지시대로). 기존 테스트/헬퍼/fixture는 전부 무변경.
+- `test_happy_path_moon_is_none_when_astronomy_evidence_lacks_moon_fields`: 기존 `_healthy_providers()`의 astronomy fixture는 evidence 없이 `status='live'`이므로, `moon` 조립이 `KeyError`로 `None`이 되는 케이스를 검증(`body["moon"] is None`).
+- `test_astronomy_live_with_full_evidence_populates_moon`: `_healthy_providers()`의 `astronomy` 항목을 `evidence={'lunarAgeDays': 14.0, 'illuminationPct': 96, 'moonrise': '1832', 'moonset': '0512'}`를 채운 `FakeProvider`로 교체해 `_install()`, night 모드로 호출 후 `moon`이 `{illumination:96, phaseName:'보름달', moonrise:'18:32', moonset:'05:12', status:'live'}`로 채워짐을 검증(`_moon_phase_name(14.0)`은 `[12.92,16.61)` 구간이라 '보름달').
+- Verify: 이번 런도 Bash에서 `uv run pytest` 계열 명령이 전부 "requires approval"로 거부되어 실행 불가 — `_moon_phase_name`/`_parse_hhmm`/`_format_hhmm`/`Moon` 모델 필드명을 직접 읽고 손으로 트레이스하여 정합성만 확인함. **다음 엔지니어/오너가 `cd apps/backend && uv run pytest -q`로 그린 확인 필요.**
+
+DONE: backend-engineer | apps/backend/tests/suitability/test_endpoint.py만 수정 — moon 관련 테스트 2개 신규 추가(evidence 없을 때 moon=None, evidence 있을 때 moon 전체 필드 조립 검증), 기존 5개 테스트는 무변경(Bash 미가용으로 수동 검증만 완료)
+
+## 43. Moon contract publish for consumer flutter 039
+
+`SuitabilityResponse.moon` is `Moon | null` — `null` whenever the `astronomy` layer's `status` is not `"live"` (e.g. `"unavailable"`).
+
+| Field | Type | Notes |
+|---|---|---|
+| illumination | int | 0–100 (percent illuminated) |
+| phaseName | string | one of the 9 Korean phase names from `_moon_phase_name`: `삭`, `초승달`, `상현 반달`, `차오르는 달`, `보름달`, `기우는 달`, `하현 반달`, `그믐달`, `삭` (boundary wraps back to `삭`) |
+| moonrise | string \| null | `"HH:MM"`, or `null` if unparseable |
+| moonset | string \| null | `"HH:MM"`, or `null` if unparseable |
+| status | string | one of `"live"` \| `"approx"` \| `"unavailable"` |
+
+Example populated `moon` object:
+```json
+{
+  "illumination": 96,
+  "phaseName": "보름달",
+  "moonrise": "18:32",
+  "moonset": "05:12",
+  "status": "live"
+}
+```
+
+Consumer of this contract: **flutter spec 039** (오늘의 달 섹션 / today moon section).
+
+DONE: backend-engineer | (1) models.py: Moon.illumination now Field(ge=0,le=100), Moon.status now Literal["live","approx","unavailable"] (Literal+Field imports added); (2) test_astronomy_provider.py: 2 substring assertions on the moon-up-all-night description tightened to exact-match; (3) test_endpoint.py: added test_astronomy_unavailable_status_yields_moon_none covering the unavailable-status → moon=None path; (4) this section publishing the Moon contract for flutter 039

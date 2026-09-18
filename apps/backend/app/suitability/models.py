@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ObsMode(str, Enum):
@@ -20,6 +21,14 @@ class GoldenHour(BaseModel):
     label: str
     timeRange: str
     description: str
+
+
+class Moon(BaseModel):
+    illumination: int = Field(ge=0, le=100)
+    phaseName: str
+    moonrise: str | None
+    moonset: str | None
+    status: Literal["live", "approx", "unavailable"]
 
 
 class TelemetryReading(BaseModel):
@@ -46,3 +55,4 @@ class SuitabilityResponse(BaseModel):
     goldenHours: list[GoldenHour]
     telemetry: list[TelemetryReading]
     layers: list[LayerScore]
+    moon: Moon | None = None

@@ -37,6 +37,27 @@ def _format_minute_of_day(total_minutes: int) -> str:
     return _format_hhmm(*divmod(total_minutes % (24 * 60), 60))
 
 
+def _moon_phase_name(lun_age: float) -> str:
+    if 0 <= lun_age < 1.85:
+        return "삭"
+    elif 1.85 <= lun_age < 5.54:
+        return "초승달"
+    elif 5.54 <= lun_age < 9.23:
+        return "상현 반달"
+    elif 9.23 <= lun_age < 12.92:
+        return "차오르는 달"
+    elif 12.92 <= lun_age < 16.61:
+        return "보름달"
+    elif 16.61 <= lun_age < 20.30:
+        return "기우는 달"
+    elif 20.30 <= lun_age < 23.99:
+        return "하현 반달"
+    elif 23.99 <= lun_age < 27.68:
+        return "그믐달"
+    elif 27.68 <= lun_age <= 29.53:
+        return "삭"
+
+
 def _moonless_segments(
     window_start: int, window_end: int, moon_start: int, moon_end: int
 ) -> list[tuple[int, int]]:
@@ -124,7 +145,7 @@ class AstronomyProvider:
             golden_start, golden_end = dark_start, dark_end
             start_str = _format_minute_of_day(golden_start)
             end_str = _format_minute_of_day(golden_end)
-            description = f"달 밝기 {illumination_pct}%"
+            description = "하늘이 어두운 시간대"
         else:
             try:
                 moonrise_hour, moonrise_minute = _parse_hhmm(moonrise_raw)
@@ -155,11 +176,11 @@ class AstronomyProvider:
             end_str = _format_minute_of_day(golden_end)
 
             if observation_limited:
-                description = f"달이 밤새 떠 있어 어두운 별은 보기 어려워요 · 달 밝기 {illumination_pct}%"
+                description = "달이 밤새 떠 있어 어두운 별은 보기 어려워요"
             elif moon_unknown and illumination_pct >= _MOON_BRIGHT_PCT:
-                description = "하늘이 완전히 어두운 시간 · 달 정보 확인 중"
+                description = "하늘이 완전히 어두운 시간"
             else:
-                description = f"달빛 방해 적은 시간대 · 달 밝기 {illumination_pct}%"
+                description = "달빛 방해 없는 시간대"
 
         return LayerReading(
             key=self.key,

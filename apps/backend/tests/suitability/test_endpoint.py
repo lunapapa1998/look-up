@@ -176,3 +176,60 @@ def test_missing_mode_returns_422() -> None:
 def test_lng_out_of_range_returns_422() -> None:
     response = client.get("/api/suitability", params={"lat": 37.5, "lng": 200, "mode": "day"})
     assert response.status_code == 422
+
+
+def test_happy_path_moon_is_none_when_astronomy_evidence_lacks_moon_fields() -> None:
+    response = client.get("/api/suitability", params={"lat": 37.5, "lng": 127.0, "mode": "day"})
+    body = response.json()
+    assert body["moon"] is None
+
+
+def test_astronomy_live_with_full_evidence_populates_moon() -> None:
+    providers = _healthy_providers()
+    providers["astronomy"] = FakeProvider(
+        "astronomy",
+        LayerReading(
+            key="astronomy",
+            status="live",
+            sub_score=85,
+            golden_hours=[
+                {
+                    "mode": "night",
+                    "label": "밤 · 천체 골든타임",
+                    "timeRange": "21:40 - 01:20",
+                    "description": "월령 12% 삭 근처 · 운량 0%",
+                }
+            ],
+            evidence={"lunarAgeDays": 14.0, "illuminationPct": 96, "moonrise": "1832", "moonset": "0512"},
+        ),
+    )
+    _install(providers)
+
+    response = client.get("/api/suitability", params={"lat": 37.5, "lng": 127.0, "mode": "night"})
+    body = response.json()
+
+    moon = body["moon"]
+    assert moon is not None
+    assert moon["illumination"] == 96
+    assert moon["phaseName"] == "보름달"
+    assert moon["moonrise"] == "18:32"
+    assert moon["moonset"] == "05:12"
+    assert moon["status"] == "live"
+
+
+def test_astronomy_unavailable_status_yields_moon_none() -> None:
+    providers = _healthy_providers()
+    providers["astronomy"] = FakeProvider(
+        "astronomy",
+        LayerReading(
+            key="astronomy",
+            status="unavailable",
+            sub_score=0,
+        ),
+    )
+    _install(providers)
+
+    response = client.get("/api/suitability", params={"lat": 37.5, "lng": 127.0, "mode": "night"})
+    body = response.json()
+
+    assert body["moon"] is None
