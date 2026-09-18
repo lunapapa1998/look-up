@@ -227,3 +227,7 @@
 ## 참고 (본사 세션에서 한 작업)
 
 이 준비(부트스트랩·스펙·justfile)는 `pi-agent-expert` 세션에서 두뇌 역할로 수행했다. 관련 메모리는 본사 memory에 있음(`lookup-app-project`, `factory-repo-lineage-and-sync`). 앞으로 lookup 프로덕트 작업은 **이 폴더에서 세션을 열어** 진행한다.
+
+## 백로그 (2026-09-18)
+
+- **지도 KakaoMap 전환 (보류)** — 공모전 입상 가점 목적(규정 강제 아님). 다른 UI 먼저 진행 후 착수. 채택 후보 = `kakao_map_sdk` v1.3.1(**네이티브 PlatformView 래퍼**, WebView 아님). 범위·리스크(조류 산포 리빌은 정적 Poi로 단순화)·셋업 요건(네이티브 앱 키·키해시·번들 등록, iOS 시뮬레이터 미지원 가능→실기기)·PoC 우선 계획 전부: [`docs/backlog/kakao-map-migration.md`](docs/backlog/kakao-map-migration.md).
