@@ -16,6 +16,7 @@ from app.suitability.providers.base import LayerReading
 
 _GOLDEN_WINDOW_MINUTES = 3 * 60 + 40
 _DAY_SUB_SCORE = 75
+_MOON_BRIGHT_PCT = 50
 
 
 def _parse_hhmm(value: object) -> tuple[int, int]:
@@ -32,9 +33,28 @@ def _format_hhmm(hour: int, minute: int) -> str:
     return f"{hour:02d}:{minute:02d}"
 
 
-def _add_minutes(hour: int, minute: int, delta_minutes: int) -> tuple[int, int]:
-    total = (hour * 60 + minute + delta_minutes) % (24 * 60)
-    return total // 60, total % 60
+def _format_minute_of_day(total_minutes: int) -> str:
+    return _format_hhmm(*divmod(total_minutes % (24 * 60), 60))
+
+
+def _moonless_segments(
+    window_start: int, window_end: int, moon_start: int, moon_end: int
+) -> list[tuple[int, int]]:
+    """Subtract [moon_start, moon_end) from [window_start, window_end); pure, no I/O."""
+    if moon_end <= window_start or moon_start >= window_end:
+        return [(window_start, window_end)]
+
+    overlap_start = max(window_start, moon_start)
+    overlap_end = min(window_end, moon_end)
+    if overlap_start <= window_start and overlap_end >= window_end:
+        return []
+
+    segments: list[tuple[int, int]] = []
+    if overlap_start > window_start:
+        segments.append((window_start, overlap_start))
+    if overlap_end < window_end:
+        segments.append((overlap_end, window_end))
+    return segments
 
 
 def _format_age(age: float) -> str:
@@ -84,11 +104,74 @@ class AstronomyProvider:
                 evidence={"reason": f"aste missing/unparseable: {exc}"},
             )
 
-        start_str = _format_hhmm(start_hour, start_minute)
-        end_hour, end_minute = _add_minutes(start_hour, start_minute, _GOLDEN_WINDOW_MINUTES)
-        end_str = _format_hhmm(end_hour, end_minute)
+        dark_start = start_hour * 60 + start_minute
+
+        astm_raw = riseset_item.get("astm")
+        moonrise_raw = riseset_item.get("moonrise")
+        moonset_raw = riseset_item.get("moonset")
+
+        try:
+            astm_hour, astm_minute = _parse_hhmm(astm_raw)
+            astm_parsed = True
+        except (TypeError, ValueError):
+            astm_parsed = False
+
+        if astm_parsed:
+            window_source = "darkSky"
+            dark_end_raw = astm_hour * 60 + astm_minute
+            dark_end = dark_end_raw if dark_end_raw > dark_start else dark_end_raw + 1440
+        else:
+            window_source = "fixedFallback"
+            dark_end = dark_start + _GOLDEN_WINDOW_MINUTES
 
         sub_score = _DAY_SUB_SCORE if mode == "day" else max(0, min(100, 100 - illumination_pct))
+
+        if window_source == "fixedFallback":
+            golden_start, golden_end = dark_start, dark_end
+            start_str = _format_minute_of_day(golden_start)
+            end_str = _format_minute_of_day(golden_end)
+            description = f"{_format_age(lun_age)} · 광도 {illumination_pct}%"
+        else:
+            try:
+                moonrise_hour, moonrise_minute = _parse_hhmm(moonrise_raw)
+                moonset_hour, moonset_minute = _parse_hhmm(moonset_raw)
+                moon_parsed = True
+            except (TypeError, ValueError):
+                moon_parsed = False
+
+            observation_limited = False
+            moon_unknown = not moon_parsed
+            if moon_unknown or illumination_pct < _MOON_BRIGHT_PCT:
+                golden_start, golden_end = dark_start, dark_end
+            else:
+                moonrise_norm = moonrise_hour * 60 + moonrise_minute
+                moonset_raw_minutes = moonset_hour * 60 + moonset_minute
+                moonset_norm = (
+                    moonset_raw_minutes if moonset_raw_minutes > moonrise_norm else moonset_raw_minutes + 1440
+                )
+
+                segments = _moonless_segments(dark_start, dark_end, moonrise_norm, moonset_norm)
+                if segments:
+                    golden_start, golden_end = max(segments, key=lambda segment: segment[1] - segment[0])
+                else:
+                    golden_start, golden_end = dark_start, dark_end
+                    observation_limited = True
+
+            start_str = _format_minute_of_day(golden_start)
+            end_str = _format_minute_of_day(golden_end)
+
+            if observation_limited:
+                description = (
+                    f"{_format_age(lun_age)} · 광도 {illumination_pct}%"
+                    " · 무월광 시간대 없음(달이 밤새 떠 있어 관측 제한)"
+                )
+            elif moon_unknown and illumination_pct >= _MOON_BRIGHT_PCT:
+                description = (
+                    f"{_format_age(lun_age)} · 광도 {illumination_pct}%"
+                    f" · 월출몰 정보 없음 · 전체 암천 {start_str}~{end_str}"
+                )
+            else:
+                description = f"{_format_age(lun_age)} · 광도 {illumination_pct}% · 무월광 {start_str}~{end_str}"
 
         return LayerReading(
             key=self.key,
@@ -100,13 +183,17 @@ class AstronomyProvider:
                     "mode": "night",
                     "label": "밤 · 천체 골든타임",
                     "timeRange": f"{start_str} - {end_str}",
-                    "description": f"{_format_age(lun_age)} · 광도 {illumination_pct}%",
+                    "description": description,
                 }
             ],
             evidence={
                 "lunarAgeDays": lun_age,
                 "illuminationPct": illumination_pct,
                 "aste": twilight_raw,
+                "windowSource": window_source,
+                "astm": astm_raw,
+                "moonrise": moonrise_raw,
+                "moonset": moonset_raw,
             },
         )
 

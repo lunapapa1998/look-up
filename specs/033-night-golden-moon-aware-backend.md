@@ -9,6 +9,8 @@
 - modified: 2026-09-18 brain/session
 - refs: 005-suitability-engine-backend.md, 027-golden-hours-both-modes-backend.md, apps/backend/app/suitability/providers/astronomy.py
 - risk: medium
+- modified: 2026-09-18, lead: claude-sonnet-5
+- modified: 2026-09-18, lead: claude-sonnet-5 (cross-model fix round)
 
 ## Purpose
 
@@ -42,9 +44,9 @@
 
 riseset 응답에서 월출·월몰·아침 박명을 파싱하고, 저녁 박명~아침 박명의 암천 창(자정 넘김 처리)을 계산한다.
 
-- [ ] `moonrise`·`moonset`·`astm`(아침 천문박명) 파싱 헬퍼 추가 (기존 `aste`와 동일한 HHMM 파서 재사용)
-- [ ] 암천 창 = `aste` → 다음날 `astm` 로 구성, 자정 넘김을 분(minute) 축으로 정규화해 계산
-- [ ] 파싱 실패/필드 결측 시 기존 고정 창(aste + 220분)으로 폴백하고 그 사실을 evidence에 기록
+- [x] `moonrise`·`moonset`·`astm`(아침 천문박명) 파싱 헬퍼 추가 (기존 `aste`와 동일한 HHMM 파서 재사용)
+- [x] 암천 창 = `aste` → 다음날 `astm` 로 구성, 자정 넘김을 분(minute) 축으로 정규화해 계산
+- [x] 파싱 실패/필드 결측 시 기존 고정 창(aste + 220분)으로 폴백하고 그 사실을 evidence에 기록
 
 **Phase validation**: 대표 fixture로 암천 창 길이가 계절에 따라 달라지고, 자정 넘김 케이스가 올바른 분 구간으로 나옴을 단위 테스트로 확인.
 
@@ -52,10 +54,10 @@ riseset 응답에서 월출·월몰·아침 박명을 파싱하고, 저녁 박�
 
 광도에 따라 달이 떠 있는 구간을 제외하고 가장 긴 무월광 창을 골든타임으로 선택한다.
 
-- [ ] 암천 창 내에서 달-존재 구간(moonrise~moonset, 자정 넘김 포함)을 뺀 잔여 구간들 계산
-- [ ] 광도 임계값(config 상수, 예: `_MOON_BRIGHT_PCT`)로 분기: 저광도면 암천 창 전체, 고광도면 최장 무월광 구간을 golden으로 채택
-- [ ] 달이 암천 창 내내 떠 있고 고광도면 → "관측 제한" 성격을 description에 명시(무월광 창 없음), 창은 축소/생략 규칙 정의
-- [ ] `description`에 달 맥락 부가(예: "월령 N일 · 광도 M% · 무월광 HH:MM~HH:MM")
+- [x] 암천 창 내에서 달-존재 구간(moonrise~moonset, 자정 넘김 포함)을 뺀 잔여 구간들 계산
+- [x] 광도 임계값(config 상수, 예: `_MOON_BRIGHT_PCT`)로 분기: 저광도면 암천 창 전체, 고광도면 최장 무월광 구간을 golden으로 채택
+- [x] 달이 암천 창 내내 떠 있고 고광도면 → "관측 제한" 성격을 description에 명시(무월광 창 없음), 창은 축소/생략 규칙 정의
+- [x] `description`에 달 맥락 부가(예: "월령 N일 · 광도 M% · 무월광 HH:MM~HH:MM")
 
 **Phase validation**: (a) 저광도 초승 무렵=암천 창 전체, (b) 보름 상시존재=무월광 없음 처리, (c) 부분 월출입=최장 무월광 구간 선택이 각각 테스트로 검증.
 
@@ -63,9 +65,9 @@ riseset 응답에서 월출·월몰·아침 박명을 파싱하고, 저녁 박�
 
 `golden_hours` 항목 스키마(mode/label/timeRange/description)를 유지해 flutter 소비자 무변경을 보장한다.
 
-- [ ] `mode="night"`, `label="밤 · 천체 골든타임"` 유지, `timeRange`는 "HH:MM - HH:MM" 포맷 유지
-- [ ] 기존 통과 테스트가 여전히 녹색인지 확인, 폴백 경로가 이전 동작과 동치인지 회귀 테스트
-- [ ] 낮 골든타임(tide) 및 sub_score 로직은 미변경 확인
+- [x] `mode="night"`, `label="밤 · 천체 골든타임"` 유지, `timeRange`는 "HH:MM - HH:MM" 포맷 유지
+- [x] 기존 통과 테스트가 여전히 녹색인지 확인, 폴백 경로가 이전 동작과 동치인지 회귀 테스트
+- [x] 낮 골든타임(tide) 및 sub_score 로직은 미변경 확인
 
 **Phase validation**: `just check` 통과, golden_hours 계약 필드/포맷 불변.
 
@@ -95,3 +97,5 @@ just check
 ## Amendments (post-build change history, append-only)
 
 - 2026-09-18: 최초 작성 (brain). 밤 골든타임을 달·박명 인지 실암천 창 계산으로 개선, 계약/낮로직/점수 불변 유지.
+- 2026-09-18: 구현 완료 (backend-lead, member 1회 위임). `astronomy.py`에 `_MOON_BRIGHT_PCT=50` 상수, `_format_minute_of_day`/`_moonless_segments` 헬퍼 추가; `parse()`를 darkSky(aste~astm 정규화)/fixedFallback(astm 결측 시 기존 aste+220분) 2경로로 분기하고, darkSky 경로에서 광도<50%면 창 전체, ≥50%면 moonrise~moonset 정규화 구간을 빼고 남은 무월광 구간 중 최장 구간을 채택(전부 덮이면 창 전체 유지 + "관측 제한" 문구)하도록 구현. evidence에 `windowSource`/`astm`/`moonrise`/`moonset` 4개 키 추가. 픽스처 5개·테스트 5개 신규(기존 4개 테스트 무변경). member는 Bash 미가용으로 손 트레이스만 하고 DONE 라인만 남겼으나, lead가 직접 `just check` 실행해 backend 161 passed/12 skipped, flutter suite 전부 green으로 최종 검증함(스펙 규칙 7 — 클레임을 신뢰하지 않고 직접 확인).
+- 2026-09-18: 크로스모델 검증(FAIL) 대응 수정 완료 (backend-lead, member 1회 재위임). 검증기가 지적한 실결함 확인: moonrise/moonset을 각각 `dark_start`와 독립 비교해 1440분을 더하던 정규화가, 달이 저녁 박명 시작 전에 이미 떠서(moonrise<aste) 박명 이후에 지는(moonset>aste) 경우 겹침을 전혀 감지하지 못해 창 전체를 오답으로 "무월광"/"관측 제한" 처리하는 버그였음. 수정: `moonrise_norm`은 절대 보정하지 않고, `moonset_norm`은 (raw)moonset이 moonrise_norm보다 크지 않을 때만(moonrise 기준 자정 넘김) +1440. 부가로 moonrise/moonset 필드 자체가 결측인데 광도≥50%인 경우 기존엔 "무월광"을 잘못 단언했던 것을, "월출몰 정보 없음 · 전체 암천 HH:MM~HH:MM" 문구로 교체(windowSource 라우팅은 무변경 — astm 결측만 fixedFallback을 트리거하는 기존 회귀 테스트 유지). 픽스처 2개(`kasi_riseset_moon_risen_before_twilight.json`, `kasi_riseset_moon_allnight_offset.json`)·테스트 3개 신규 추가. member는 Bash 미가용으로 손 트레이스만 하고 DONE 라인만 남겼으나, lead가 직접 파일 diff 검사 + `just check` 실행해 backend 164 passed/12 skipped(신규 3건 포함, 회귀 없음) 확인. flutter suite의 `trails_wiring_test.dart` IndexError 1건은 apps/flutter 미변경·astronomy.py와 무관한 기존 실패로 이번 스펙 범위 밖(별도 flutter 팀 확인 필요).
