@@ -1,108 +1,462 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/trails.dart';
+import '../theme/layout_tokens.dart';
 import '../state/discovery_providers.dart';
 import '../widgets/course_card.dart';
+import '../utils/trail_format.dart';
 import 'course_detail_screen.dart';
+import 'trail_route_screen.dart';
 
-class TrailsCatalogScreen extends ConsumerWidget {
+class TrailsCatalogScreen extends ConsumerStatefulWidget {
   const TrailsCatalogScreen({super.key});
+  @override
+  ConsumerState<TrailsCatalogScreen> createState() =>
+      _TrailsCatalogScreenState();
+}
+
+class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
+  String? _region;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final trailsAsync = ref.watch(trailsProvider);
-
+  Widget build(BuildContext context) {
+    final trails = ref.watch(trailsProvider);
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('트레일·노포')),
-      body: trailsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, st) => _ErrorState(
-          onRetry: () => ref.invalidate(trailsProvider),
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        toolbarHeight: 64,
+        title: Row(
+          children: [
+            Icon(Icons.visibility_outlined, color: colors.secondary),
+            const SizedBox(width: AppSpacing.sm),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('위를 봐요', style: text.titleMedium),
+                Text(
+                  'LOOK UP',
+                  style: text.labelSmall?.copyWith(
+                    color: colors.secondary,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            Flexible(
+              child: Text(
+                trails.valueOrNull?.region ?? '트레일·노포',
+                style: text.labelMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
-        data: (response) {
-          final courses = response.courses;
-          if (!response.degraded && courses.isEmpty) {
-            return const _EmptyState();
-          }
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              if (response.degraded)
-                _DegradedBanner(onRetry: () => ref.invalidate(trailsProvider)),
-              if (courses.isNotEmpty)
-                ..._buildCatalogContent(context, response),
-            ],
-          );
-        },
+      ),
+      body: SafeArea(
+        top: false,
+        child: trails.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, st) =>
+              _ErrorState(onRetry: () => ref.invalidate(trailsProvider)),
+          data: (response) {
+            final regions = response.courses
+                .map((c) => c.sigun)
+                .toSet()
+                .toList();
+            final selected = regions.contains(_region) ? _region : null;
+            final courses = response.courses
+                .where((c) => selected == null || c.sigun == selected)
+                .toList();
+            final eats = <String, (HeritageEat, TrailCourse)>{};
+            for (final course in courses) {
+              for (final eat in course.heritageEats) {
+                final id = eat.contentId.isEmpty
+                    ? '${eat.name}-${eat.lat}-${eat.lng}'
+                    : eat.contentId;
+                final existing = eats[id];
+                if (existing == null || eat.distanceM < existing.$1.distanceM) {
+                  eats[id] = (eat, course);
+                }
+              }
+            }
+            final nearby = eats.values.toList()
+              ..sort((a, b) => a.$1.distanceM.compareTo(b.$1.distanceM));
+            return CustomScrollView(
+              key: const Key('trails_catalog_scroll'),
+              slivers: [
+                const SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.page,
+                    AppSpacing.sm,
+                    AppSpacing.page,
+                    AppSpacing.lg,
+                  ),
+                  sliver: SliverToBoxAdapter(child: _CatalogIntro()),
+                ),
+                if (response.degraded)
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.page,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: _DegradedBanner(
+                        onRetry: () => ref.invalidate(trailsProvider),
+                      ),
+                    ),
+                  ),
+                if (regions.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.page,
+                      ),
+                      child: Row(
+                        children: [
+                          for (final region in [null, ...regions])
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                right: AppSpacing.sm,
+                              ),
+                              child: ChoiceChip(
+                                key: Key('trail_region_${region ?? 'all'}'),
+                                label: Text(region ?? '전체 권역'),
+                                selected: selected == region,
+                                selectedColor: colors.secondary,
+                                labelStyle: text.labelMedium?.copyWith(
+                                  color: selected == region
+                                      ? colors.onSecondary
+                                      : colors.onSurfaceVariant,
+                                ),
+                                onSelected: (_) =>
+                                    setState(() => _region = region),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (courses.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyState(),
+                  ),
+                if (courses.isNotEmpty) ...[
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.page,
+                      AppSpacing.lg,
+                      AppSpacing.page,
+                      0,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '밤하늘이 가장 어두운 순서예요',
+                            style: text.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          CourseCard(
+                            course: courses.first,
+                            featured: true,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    CourseDetailScreen(course: courses.first),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          _RouteStops(course: courses.first),
+                          const SizedBox(height: AppSpacing.md),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              key: const Key('trail_gpx_open'),
+                              onPressed: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      TrailRouteScreen(course: courses.first),
+                                ),
+                              ),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 14),
+                                child: Text('GPX 코스 지도 보기'),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xl),
+                          const _SectionTitle(
+                            eyebrow: 'LOCAL HERITAGE',
+                            title: '관찰 후 들르는 지역 노포',
+                            description: '코스 종점 주변, 함께 둘러보기 좋은 곳',
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          if (nearby.isEmpty)
+                            const Text('이 코스 주변에는 아직 등록된 노포가 없어요'),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.page,
+                    ),
+                    sliver: SliverList.builder(
+                      itemCount: nearby.length,
+                      itemBuilder: (context, i) => Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: _HeritageCard(
+                          eat: nearby[i].$1,
+                          course: nearby[i].$2,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (courses.length > 1) ...[
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.page,
+                        AppSpacing.xl,
+                        AppSpacing.page,
+                        AppSpacing.md,
+                      ),
+                      sliver: SliverToBoxAdapter(
+                        child: Text(
+                          '이 권역의 다른 코스 · ${courses.length - 1}개',
+                          style: text.titleMedium,
+                        ),
+                      ),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.page,
+                      ),
+                      sliver: SliverList.builder(
+                        itemCount: courses.length - 1,
+                        itemBuilder: (context, i) => Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                          child: CourseCard(
+                            course: courses[i + 1],
+                            featured: false,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    CourseDetailScreen(course: courses[i + 1]),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: AppSpacing.xxl),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
       ),
     );
   }
+}
 
-  List<Widget> _buildCatalogContent(
-    BuildContext context,
-    TrailsResponse response,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final courses = response.courses;
-    final remaining = courses.sublist(1);
-
-    return [
-      Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(20),
+class _CatalogIntro extends StatelessWidget {
+  const _CatalogIntro();
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'DURUNUBI × ECO-OBSERVATORY',
+          style: text.labelSmall?.copyWith(
+            color: colors.secondary,
+            letterSpacing: 0.55,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text('두루누비 코리아둘레길', style: text.headlineSmall),
+        Text(
+          '생태 관찰 트레일',
+          style: text.headlineSmall?.copyWith(color: colors.secondary),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          '낮에는 숲과 바다의 새소리를 걷고, 밤에는 별빛 아래 쉬어가는 저탄소 도보길',
+          style: text.bodySmall?.copyWith(
+            color: colors.onSurfaceVariant,
+            height: 1.6,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({
+    required this.eyebrow,
+    required this.title,
+    required this.description,
+  });
+  final String eyebrow;
+  final String title;
+  final String description;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          eyebrow,
+          style: text.labelSmall?.copyWith(
+            color: colors.tertiary,
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(title, style: text.titleLarge),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          description,
+          style: text.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+}
+
+class _RouteStops extends StatelessWidget {
+  const _RouteStops({required this.course});
+  final TrailCourse course;
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final colors = Theme.of(context).colorScheme;
+    final stops = [('출발 지점', course.start), ('도착 · 밤하늘 관측 지점', course.end)];
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('코스 주요 지점', style: text.titleSmall),
+          const SizedBox(height: AppSpacing.md),
+          for (var i = 0; i < stops.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 12,
+                    backgroundColor: colors.surfaceContainerHigh,
+                    child: Text(
+                      '${i + 1}',
+                      style: text.labelSmall?.copyWith(color: colors.secondary),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(stops[i].$1, style: text.bodyMedium),
+                        Text(
+                          '${stops[i].$2.lat.toStringAsFixed(4)}, ${stops[i].$2.lng.toStringAsFixed(4)}',
+                          style: text.labelSmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeritageCard extends StatelessWidget {
+  const _HeritageCard({required this.eat, required this.course});
+  final HeritageEat eat;
+  final TrailCourse course;
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: Key('trail_heritage_${eat.contentId}'),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => TrailRouteScreen(course: course, eat: eat),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.location_on, size: 16, color: colorScheme.secondary),
-              const SizedBox(width: 4),
-              Text(response.region, style: textTheme.labelMedium),
+              Container(
+                width: 56,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(Icons.storefront, color: colors.tertiary, size: 28),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '종점에서 ${formatDistanceM(eat.distanceM)}',
+                      style: text.labelSmall?.copyWith(color: colors.tertiary),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(eat.name, style: text.titleMedium),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      eat.addr,
+                      style: text.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Icon(Icons.chevron_right, color: colors.onSurfaceVariant),
             ],
           ),
         ),
       ),
-      const SizedBox(height: 12),
-      Text(
-        '밤하늘이 가장 어두운 순서예요',
-        style: textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        ),
-      ),
-      const SizedBox(height: 12),
-      CourseCard(
-        course: courses.first,
-        featured: true,
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => CourseDetailScreen(course: courses.first),
-          ),
-        ),
-      ),
-      const SizedBox(height: 20),
-      Text(
-        '이 권역의 다른 코스 · ${remaining.length}개',
-        style: textTheme.titleSmall,
-      ),
-      const SizedBox(height: 12),
-      for (final course in remaining) ...[
-        CourseCard(
-          course: course,
-          featured: false,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => CourseDetailScreen(course: course),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-      ],
-    ];
+    );
   }
 }
 
@@ -121,8 +475,11 @@ class _DegradedBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: colorScheme.errorContainer,
         borderRadius: BorderRadius.circular(8),
@@ -175,7 +532,7 @@ class _EmptyState extends StatelessWidget {
       color: colorScheme.surfaceContainer,
       alignment: Alignment.center,
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -184,7 +541,7 @@ class _EmptyState extends StatelessWidget {
               size: 48,
               color: colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             Text(
               '이 권역에는 아직 등록된 코스가 없어요',
               textAlign: TextAlign.center,
@@ -213,7 +570,7 @@ class _ErrorState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('트레일 정보를 불러오지 못했어요', style: textTheme.bodyMedium),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           ElevatedButton(onPressed: onRetry, child: const Text('다시 시도')),
         ],
       ),

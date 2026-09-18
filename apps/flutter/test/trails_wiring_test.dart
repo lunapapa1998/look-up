@@ -55,9 +55,7 @@ class _EmptyTrailsApi implements TrailsApi {
   }
 
   @override
-  Future<TrailDetailResponse> fetchTrailDetail({
-    required String crsIdx,
-  }) async {
+  Future<TrailDetailResponse> fetchTrailDetail({required String crsIdx}) async {
     return TrailDetailResponse(
       crsIdx: crsIdx,
       found: false,
@@ -75,7 +73,7 @@ class _EmptyTrailsApi implements TrailsApi {
 
 void main() {
   testWidgets(
-    'data state: featured course card renders both suitability gauge labels and a heritage preview line',
+    'data state: featured course card renders both suitability labels and a heritage preview line',
     (tester) async {
       await _pumpTrails(tester, api: FakeTrailsApi());
       await tester.pump();
@@ -96,26 +94,37 @@ void main() {
   );
 
   testWidgets(
-    'data state: non-featured course card renders its NightSkyTag, and only the featured card shows the day-gauge label',
+    'data state: non-featured course card renders its NightSkyTag, and only the featured card shows the day suitability label',
     (tester) async {
       await _pumpTrails(tester, api: FakeTrailsApi());
       await tester.pump();
 
+      expect(find.text('낮 적합도'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('trail_course_T_CRS_MNG0000008888')),
+        400,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const Key('trails_catalog_scroll')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       expect(find.text('SQM 18.20'), findsOneWidget);
       expect(find.text('Class 4 도시외곽 다크스카이'), findsOneWidget);
-      expect(find.text('낮 적합도'), findsOneWidget);
     },
   );
 
-  testWidgets('degraded state: shows the partial-data banner and a retry button', (
-    tester,
-  ) async {
-    await _pumpTrails(tester, api: FakeTrailsApi(degraded: true));
-    await tester.pump();
+  testWidgets(
+    'degraded state: shows the partial-data banner and a retry button',
+    (tester) async {
+      await _pumpTrails(tester, api: FakeTrailsApi(degraded: true));
+      await tester.pump();
 
-    expect(find.text('일부 데이터를 불러오지 못했어요'), findsOneWidget);
-    expect(find.text('다시 시도'), findsOneWidget);
-  });
+      expect(find.text('일부 데이터를 불러오지 못했어요'), findsOneWidget);
+      expect(find.text('다시 시도'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'empty state: shows the empty-state text and icon, and never the degraded-banner styling',
@@ -131,23 +140,25 @@ void main() {
     },
   );
 
-  testWidgets('loading state: shows CircularProgressIndicator before the fetch resolves', (
-    tester,
-  ) async {
-    await _pumpTrails(tester, api: FakeTrailsApi());
+  testWidgets(
+    'loading state: shows CircularProgressIndicator before the fetch resolves',
+    (tester) async {
+      await _pumpTrails(tester, api: FakeTrailsApi());
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-  });
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    },
+  );
 
-  testWidgets('error state: shows the fixed Korean error copy and a retry button', (
-    tester,
-  ) async {
-    await _pumpTrails(tester, api: FakeTrailsApi(shouldThrow: true));
-    await tester.pump();
+  testWidgets(
+    'error state: shows the fixed Korean error copy and a retry button',
+    (tester) async {
+      await _pumpTrails(tester, api: FakeTrailsApi(shouldThrow: true));
+      await tester.pump();
 
-    expect(find.text('트레일 정보를 불러오지 못했어요'), findsOneWidget);
-    expect(find.text('다시 시도'), findsOneWidget);
-  });
+      expect(find.text('트레일 정보를 불러오지 못했어요'), findsOneWidget);
+      expect(find.text('다시 시도'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'navigation: featured card opens its detail with heritage eat + gauges; non-featured card opens its detail with the neutral caption',
@@ -176,7 +187,21 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(CourseCard).at(1));
+      final secondCourse = find.byKey(
+        const Key('trail_course_T_CRS_MNG0000008888'),
+      );
+      for (
+        var i = 0;
+        i < 20 && secondCourse.hitTestable().evaluate().isEmpty;
+        i++
+      ) {
+        await tester.drag(
+          find.byKey(const Key('trails_catalog_scroll')),
+          const Offset(0, -250),
+        );
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(secondCourse);
       await tester.pumpAndSettle();
 
       final secondDetail = find.byType(CourseDetailScreen);
