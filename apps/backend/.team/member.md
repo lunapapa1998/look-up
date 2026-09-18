@@ -827,3 +827,11 @@ DONE: backend-engineer | astronomy.py `parse()`의 밤 골든타임을 aste+고�
 - Verify: `cd apps/backend && uv run pytest tests/suitability/test_astronomy_provider.py -q` — 이 런도 role에 Bash 실행 권한이 없어(`uv run pytest`, `uv run --directory ... pytest`, `.venv/bin/pytest` 직접 호출 모두 "requires approval"로 즉시 거부) 실제 실행하지 못함. 대신 신규 3개 + 기존 §36의 5개 테스트 전부를 `parse()`에 값을 분 단위로 대입해 손으로 트레이스 완료(§36 절 본문 참고 형식과 동일). API 계약(엔드포인트 경로/스키마) 변경 없음 — `evidence` 딕셔너리 키 구성도 무변경, description 문자열 내용만 일부 케이스에서 달라짐. **다음 엔지니어/오너가 위 verify 명령과 `cd apps/backend && uv run pytest -q`(전체 스위트)를 실행해 실제 그린(회귀 없음) 최종 확인 필요.**
 
 DONE: backend-engineer | astronomy.py `parse()`의 moonrise/moonset 자정-넘김 정규화 버그 수정(dark_start 대신 moonrise 기준으로 moonset만 보정), moon-data-missing+밝은달 케이스에 새 description 문구 추가, 픽스처 2개·테스트 3개 신규 추가(Bash 미가용으로 수동 트레이스만 완료)
+
+## 38. 밤 골든타임 description 문구 단순화 — 월령/광도 용어 제거, 쉬운 한국어로 교체
+
+- `astronomy.py`의 `parse()` 내 description 조립 4곳 교체(로직/분기/golden_hours/evidence/sub_score 무변경): fixedFallback → `'달 밝기 {pct}%'`, observation_limited → `'달이 밤새 떠 있어 어두운 별은 보기 어려워요 · 달 밝기 {pct}%'`, moon_unknown+밝은달 → `'하늘이 완전히 어두운 시간 · 달 정보 확인 중'`(더 이상 start_str/end_str 안 씀, 다른 분기에선 계속 사용), 기본(darkSky+무월광 구간) → `'달빛 방해 적은 시간대 · 달 밝기 {pct}%'`. 더 이상 호출되지 않는 `_format_age` 헬퍼 삭제.
+- `test_astronomy_provider.py`의 구 문구(월령/광도/무월광/관측 제한/월출몰 정보 없음) assertion 7곳을 새 문구 기준으로 교체. `timeRange`/`windowSource`/`illuminationPct`/`sub_score`/`mode`/`label` assertion은 무변경.
+- Verify: `cd apps/backend && uv run pytest -q` — 이 런도 Bash 실행 권한 없음(`uv run pytest` "requires approval"로 거부). 대신 각 분기의 f-string을 손으로 값 대입해 재확인(예: illumination_pct=18 → `'달 밝기 18%'`가 `test_missing_astm_falls_back_to_fixed_window`의 exact-match와 일치). **다음 엔지니어/오너가 `cd apps/backend && uv run pytest -q`로 실제 그린 확인 필요.**
+
+DONE: backend-engineer | astronomy.py의 밤 골든타임 description 4곳을 월령/광도 전문용어에서 쉬운 한국어 문구로 교체하고 미사용 `_format_age` 삭제, test_astronomy_provider.py의 관련 assertion 7곳 갱신(Bash 미가용으로 수동 검증만 완료)

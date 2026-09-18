@@ -82,7 +82,8 @@ def test_dark_sky_window_with_dim_moon_uses_full_twilight_span(riseset_item: dic
     assert reading.evidence["illuminationPct"] < 50
     entry = reading.golden_hours[0]
     assert entry["timeRange"] == "20:21 - 04:38"
-    assert "무월광 20:21~04:38" in entry["description"]
+    assert "달빛 방해 적은 시간대" in entry["description"]
+    assert "달 밝기 18%" in entry["description"]
 
 
 def test_missing_astm_falls_back_to_fixed_window(lunar_item: dict) -> None:
@@ -94,7 +95,7 @@ def test_missing_astm_falls_back_to_fixed_window(lunar_item: dict) -> None:
     entry = reading.golden_hours[0]
     # aste=20:21 + fixed 220 minutes (3h40m) = 00:01 next day
     assert entry["timeRange"] == "20:21 - 00:01"
-    assert entry["description"] == "월령 26.8일 · 광도 18%"
+    assert entry["description"] == "달 밝기 18%"
 
 
 def test_bright_full_moon_covering_entire_window_limits_observation() -> None:
@@ -107,7 +108,7 @@ def test_bright_full_moon_covering_entire_window_limits_observation() -> None:
     assert reading.evidence["illuminationPct"] >= 50
     entry = reading.golden_hours[0]
     assert entry["timeRange"] == "20:21 - 04:38"
-    assert "관측 제한" in entry["description"]
+    assert "달이 밤새 떠 있어" in entry["description"]
     assert len(reading.golden_hours) == 1
     assert _TIME_RANGE_RE.match(entry["timeRange"])
 
@@ -124,7 +125,7 @@ def test_bright_moon_mid_window_picks_longer_moonless_segment() -> None:
     # dark window 20:21-04:38 (1221-1718min); moon up 23:00-01:00 (1380-1500min)
     # segments: 20:21-23:00 (159min) and 01:00-04:38 (218min) -> longer segment wins
     assert entry["timeRange"] == "01:00 - 04:38"
-    assert "무월광 01:00~04:38" in entry["description"]
+    assert "달빛 방해 적은 시간대" in entry["description"]
     assert len(reading.golden_hours) == 1
     assert _TIME_RANGE_RE.match(entry["timeRange"])
 
@@ -151,7 +152,7 @@ def test_bright_moon_risen_before_twilight_picks_post_moonset_segment() -> None:
     assert reading.evidence["windowSource"] == "darkSky"
     entry = reading.golden_hours[0]
     assert entry["timeRange"] == "23:00 - 04:38"
-    assert "무월광 23:00~04:38" in entry["description"]
+    assert "달빛 방해 적은 시간대" in entry["description"]
 
 
 def test_bright_moon_allnight_with_offset_endpoints_limits_observation() -> None:
@@ -163,7 +164,7 @@ def test_bright_moon_allnight_with_offset_endpoints_limits_observation() -> None
     assert reading.evidence["windowSource"] == "darkSky"
     entry = reading.golden_hours[0]
     assert entry["timeRange"] == "20:21 - 04:38"
-    assert "관측 제한" in entry["description"]
+    assert "달이 밤새 떠 있어" in entry["description"]
 
 
 def test_missing_moon_fields_with_bright_illumination_does_not_claim_moonless() -> None:
@@ -176,4 +177,4 @@ def test_missing_moon_fields_with_bright_illumination_does_not_claim_moonless() 
     entry = reading.golden_hours[0]
     assert entry["timeRange"] == "20:21 - 04:38"
     assert "무월광" not in entry["description"]
-    assert "월출몰 정보 없음" in entry["description"]
+    assert "달 정보 확인 중" in entry["description"]

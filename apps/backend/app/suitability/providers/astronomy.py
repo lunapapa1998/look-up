@@ -57,12 +57,6 @@ def _moonless_segments(
     return segments
 
 
-def _format_age(age: float) -> str:
-    if age == int(age):
-        return f"월령 {int(age)}일"
-    return f"월령 {age:.1f}일"
-
-
 def _unwrap_item(payload: dict) -> dict:
     item = payload["response"]["body"]["items"]["item"]
     if isinstance(item, list):
@@ -130,7 +124,7 @@ class AstronomyProvider:
             golden_start, golden_end = dark_start, dark_end
             start_str = _format_minute_of_day(golden_start)
             end_str = _format_minute_of_day(golden_end)
-            description = f"{_format_age(lun_age)} · 광도 {illumination_pct}%"
+            description = f"달 밝기 {illumination_pct}%"
         else:
             try:
                 moonrise_hour, moonrise_minute = _parse_hhmm(moonrise_raw)
@@ -161,17 +155,11 @@ class AstronomyProvider:
             end_str = _format_minute_of_day(golden_end)
 
             if observation_limited:
-                description = (
-                    f"{_format_age(lun_age)} · 광도 {illumination_pct}%"
-                    " · 무월광 시간대 없음(달이 밤새 떠 있어 관측 제한)"
-                )
+                description = f"달이 밤새 떠 있어 어두운 별은 보기 어려워요 · 달 밝기 {illumination_pct}%"
             elif moon_unknown and illumination_pct >= _MOON_BRIGHT_PCT:
-                description = (
-                    f"{_format_age(lun_age)} · 광도 {illumination_pct}%"
-                    f" · 월출몰 정보 없음 · 전체 암천 {start_str}~{end_str}"
-                )
+                description = "하늘이 완전히 어두운 시간 · 달 정보 확인 중"
             else:
-                description = f"{_format_age(lun_age)} · 광도 {illumination_pct}% · 무월광 {start_str}~{end_str}"
+                description = f"달빛 방해 적은 시간대 · 달 밝기 {illumination_pct}%"
 
         return LayerReading(
             key=self.key,
