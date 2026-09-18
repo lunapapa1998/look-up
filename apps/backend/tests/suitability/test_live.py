@@ -95,7 +95,8 @@ def test_suitability_service_live_end_to_end() -> None:
     assert len(result.layers) == 4
 
     layers_by_key = {layer.key: layer for layer in result.layers}
-    assert layers_by_key["lightPollution"].status == "approx"
+    # Will become "approx" once the real grid is bundled at app/suitability/data/kr_light_pollution_grid.json
+    assert layers_by_key["lightPollution"].status == "stub"
     assert layers_by_key["tide"].status in ("live", "stub")
 
 

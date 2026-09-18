@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import unquote
 
 from dotenv import find_dotenv, load_dotenv
@@ -92,6 +93,18 @@ def get_observation_config() -> ObservationConfig:
     return ObservationConfig(
         ebird_token=os.getenv("EBIRD_API_TOKEN", ""),
         ebird_base_url=os.getenv("EBIRD_API_BASE_URL", "https://api.ebird.org/v2"),
+    )
+
+
+@dataclass(frozen=True)
+class LightPollutionConfig:
+    grid_path: str
+
+
+def get_light_pollution_config() -> LightPollutionConfig:
+    default_grid_path = Path(__file__).parent / "data" / "kr_light_pollution_grid.json"
+    return LightPollutionConfig(
+        grid_path=os.getenv("LIGHT_POLLUTION_GRID_PATH", str(default_grid_path)),
     )
 
 
