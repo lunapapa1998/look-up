@@ -17,6 +17,7 @@ import 'package:lookup/screens/observation_map_screen.dart';
 import 'package:lookup/services/location_service.dart';
 import 'package:lookup/state/discovery_providers.dart';
 import 'package:lookup/utils/observation_spot_filter.dart';
+import 'package:lookup/utils/relative_time.dart';
 import 'package:lookup/widgets/observation_spot_sheet.dart';
 import 'package:lookup/widgets/spot_detail/bird_spot_detail.dart';
 import 'package:lookup/widgets/spot_detail/conservation_badges.dart';
@@ -492,7 +493,7 @@ void main() {
         expect(
           find.descendant(
             of: find.byType(SpeciesDetail),
-            matching: find.text('커뮤니티 관측'),
+            matching: find.text('eBird 관측'),
           ),
           findsOneWidget,
         );
@@ -514,6 +515,105 @@ void main() {
             findsNothing,
           );
         }
+
+        // Figma 62-154: each cell carries its own dark background box, not
+        // just the outer card.
+        final colorScheme =
+            Theme.of(tester.element(find.byType(SpeciesDetail))).colorScheme;
+
+        final locationCellContainer = tester.widget<Container>(
+          find
+              .ancestor(
+                of: find.text('관측 위치'),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        expect(
+          (locationCellContainer.decoration as BoxDecoration).color,
+          colorScheme.surfaceContainerHigh,
+        );
+
+        final timeCellContainer = tester.widget<Container>(
+          find
+              .ancestor(
+                of: find.text('관측 시각'),
+                matching: find.byType(Container),
+              )
+              .first,
+        );
+        expect(
+          (timeCellContainer.decoration as BoxDecoration).color,
+          colorScheme.surfaceContainerHigh,
+        );
+
+        // Figma 62-154: the coordinate subtitle carries the teal accent.
+        final coordTextWidget = tester.widget<Text>(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text(coordText),
+          ),
+        );
+        expect(coordTextWidget.style?.color, colorScheme.secondary);
+
+        // Figma 62-154: 관측 시각 now shows an absolute formatObservedAt
+        // string, and none of the old relative-only phrasing survives.
+        final expectedObservedAt = formatObservedAt(
+          '2026-09-09 07:12',
+          DateTime.now(),
+        );
+        expect(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text(expectedObservedAt),
+          ),
+          findsOneWidget,
+        );
+        for (final relativeFragment in const ['분 전', '시간 전', '일 전', '방금']) {
+          expect(
+            find.descendant(
+              of: find.byType(SpeciesDetail),
+              matching: find.textContaining(relativeFragment),
+            ),
+            findsNothing,
+          );
+        }
+
+        // Figma 62-154: 군집 규모 renders as one Text.rich with a large teal
+        // count span and a plain onSurface "개체" span.
+        final countRichTextFinder = find.descendant(
+          of: find.byType(SpeciesDetail),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is RichText && widget.text.toPlainText() == countText,
+          ),
+        );
+        expect(countRichTextFinder, findsOneWidget);
+
+        // Text.rich wraps the supplied TextSpan in an extra style-only
+        // TextSpan layer (see Text.build's `effectiveTextSpan`), so walk the
+        // span tree recursively rather than assuming a fixed nesting depth.
+        TextSpan? findSpan(InlineSpan span, bool Function(String) matches) {
+          if (span is TextSpan) {
+            if (span.text != null && matches(span.text!)) return span;
+            for (final child in span.children ?? const <InlineSpan>[]) {
+              final found = findSpan(child, matches);
+              if (found != null) return found;
+            }
+          }
+          return null;
+        }
+
+        final countRootSpan =
+            tester.widget<RichText>(countRichTextFinder).text;
+        final countNumberSpan =
+            findSpan(countRootSpan, (text) => text == '24')!;
+        final countUnitSpan =
+            findSpan(countRootSpan, (text) => text.contains('개체'))!;
+
+        expect(countNumberSpan.style?.color, colorScheme.secondary);
+        expect(countNumberSpan.style?.fontSize, greaterThanOrEqualTo(18));
+        expect(countUnitSpan.style?.color, colorScheme.onSurface);
       },
     );
 
@@ -736,10 +836,11 @@ void main() {
         await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
         await tester.pumpAndSettle();
 
-        expect(find.text('이 갯벌의 오늘 물때'), findsOneWidget);
-        expect(find.text('06:00  만조 · 조위500cm'), findsOneWidget);
-        expect(find.text('18:00  간조'), findsOneWidget);
-        expect(find.textContaining('지금 '), findsOneWidget);
+        expect(find.text('오늘의 물때'), findsOneWidget);
+        expect(find.text('06:00 · 만조'), findsOneWidget);
+        expect(find.text('조위 500cm'), findsOneWidget);
+        expect(find.text('18:00 · 간조'), findsOneWidget);
+        expect(find.textContaining('지금'), findsOneWidget);
       },
     );
 
@@ -765,7 +866,7 @@ void main() {
         await tester.tap(find.byKey(const Key('obsmap_species_item_blbspo1')));
         await tester.pumpAndSettle();
 
-        expect(find.text('이 갯벌의 오늘 물때'), findsNothing);
+        expect(find.text('오늘의 물때'), findsNothing);
         expect(find.byType(TodayTidesSection), findsNothing);
       },
     );
@@ -783,7 +884,7 @@ void main() {
         await tester.pump();
 
         expect(find.byType(CircularProgressIndicator), findsWidgets);
-        expect(find.text('이 갯벌의 오늘 물때'), findsNothing);
+        expect(find.text('오늘의 물때'), findsNothing);
       },
     );
   });

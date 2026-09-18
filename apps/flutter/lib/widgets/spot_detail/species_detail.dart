@@ -142,11 +142,11 @@ class SpeciesDetail extends ConsumerWidget {
   }
 }
 
-/// Observation-facts card (spec 033: Figma 62-153 header-plus-2-column-grid)
-/// replacing the old icon-prefixed [Column] of [Row]s: a "최근 관측 텔레메트리"
-/// header above a 2-column grid of label/value/subtitle cells (spot+coords,
-/// relative-time, and an optional headcount cell), boxed in a single
-/// [colorScheme.surfaceContainer] card with the community badge and a
+/// Observation-facts card (Figma 62-154 dark-cell restyle) replacing the old
+/// borderless flat grid: a "최근 관측 정보" header above a 2-column grid of
+/// [colorScheme.surfaceContainerHigh] cell boxes (spot+coords, observed-at
+/// time, and an optional headcount cell with a teal accent), boxed in a
+/// single [colorScheme.surfaceContainer] card with the community badge and a
 /// conditional protected-species notice kept below the grid.
 class _ObservationCard extends StatelessWidget {
   const _ObservationCard({
@@ -162,35 +162,51 @@ class _ObservationCard extends StatelessWidget {
   static Widget _cell(
     BuildContext context, {
     required String label,
-    required String value,
+    String? value,
     String? subtitle,
+    Color? subtitleColor,
+    Widget? valueWidget,
   }) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: textTheme.labelSmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        if (subtitle != null) ...[
-          const SizedBox(height: 4),
+    return Container(
+      constraints: const BoxConstraints(minHeight: 76),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            subtitle,
-            style: textTheme.bodySmall?.copyWith(
+            label,
+            style: textTheme.labelSmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
+              letterSpacing: 0.5,
             ),
           ),
+          const SizedBox(height: 4),
+          valueWidget ??
+              Text(
+                value!,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontSize: 12,
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: textTheme.bodySmall?.copyWith(
+                color: subtitleColor ?? colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -203,7 +219,7 @@ class _ObservationCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -220,11 +236,28 @@ class _ObservationCard extends StatelessWidget {
               Icon(Icons.sensors, color: colorScheme.onSurfaceVariant),
               const SizedBox(width: 8),
               Text(
-                '최근 관측 텔레메트리',
+                '최근 관측 정보',
                 style: textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              if (selection.status == 'community') ...[
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'eBird 관측',
+                    style: textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -238,6 +271,7 @@ class _ObservationCard extends StatelessWidget {
                   value: shortSpotName(selection.spotName),
                   subtitle: '${selection.spotCoord.lat.toStringAsFixed(4)}, '
                       '${selection.spotCoord.lng.toStringAsFixed(4)}',
+                  subtitleColor: colorScheme.secondary,
                 ),
               ),
               const SizedBox(width: 16),
@@ -245,7 +279,13 @@ class _ObservationCard extends StatelessWidget {
                 child: _cell(
                   context,
                   label: '관측 시각',
-                  value: formatRelativeTime(selection.obsDt, now),
+                  valueWidget: Text(
+                    formatObservedAt(selection.obsDt, now),
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: colorScheme.secondary,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -259,26 +299,28 @@ class _ObservationCard extends StatelessWidget {
                   child: _cell(
                     context,
                     label: '군집 규모',
-                    value: '${selection.count} 개체',
+                    valueWidget: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '${selection.count}',
+                            style: textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.secondary,
+                            ),
+                          ),
+                          TextSpan(
+                            text: ' 개체',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
-            ),
-          ],
-          if (selection.status == 'community') ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '커뮤니티 관측',
-                style: textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
             ),
           ],
           if (isProtectedSpecies) ...[

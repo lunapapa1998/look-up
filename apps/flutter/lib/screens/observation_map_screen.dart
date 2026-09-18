@@ -148,10 +148,14 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   }
 
   void _selectSpecies(SelectedSpecies species) {
+    // Refresh "now" at the moment a marker's data is opened (owner: the "지금"
+    // tide marker / relative times should reflect the tap time, not app start).
+    ref.invalidate(nowProvider);
     setState(() => _selectedSpecies = species);
   }
 
   void _selectSpot(ObservationSpot spot) {
+    ref.invalidate(nowProvider);
     setState(() {
       _selectedSpot = spot;
       _selectedTrail = null;
