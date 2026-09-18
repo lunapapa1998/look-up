@@ -5,6 +5,7 @@ from app.routers import (
     observation_map,
     observations,
     species,
+    starlight,
     suitability,
     tide,
     trails,
@@ -17,6 +18,7 @@ app.include_router(observations.router)
 app.include_router(badges.router)
 app.include_router(species.router)
 app.include_router(suitability.router)
+app.include_router(starlight.router)
 app.include_router(trails.router)
 app.include_router(trails_detail.router)
 app.include_router(tide.router)
