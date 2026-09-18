@@ -76,12 +76,32 @@ class FakeSuitabilityApi implements SuitabilityApi {
   final bool degraded;
   final bool shouldThrow;
   final void Function(double lat, double lng)? onFetchSuitability;
+  final Moon? moonOverride;
+  final bool includeMoon;
 
   FakeSuitabilityApi({
     this.degraded = false,
     this.shouldThrow = false,
     this.onFetchSuitability,
+    this.moonOverride,
+    this.includeMoon = true,
   });
+
+  static const _dayMoon = Moon(
+    illumination: 62,
+    phaseName: '차오르는 달',
+    moonrise: '13:42',
+    moonset: '01:15',
+    status: 'live',
+  );
+
+  static const _nightMoon = Moon(
+    illumination: 96,
+    phaseName: '보름달',
+    moonrise: '18:32',
+    moonset: '05:12',
+    status: 'live',
+  );
 
   static const _goldenHours = [
     GoldenHour(
@@ -136,11 +156,15 @@ class FakeSuitabilityApi implements SuitabilityApi {
             TelemetryReading(kind: 'precip', label: '강수확률', value: '0%'),
             TelemetryReading(kind: 'tide', label: '조위 상태', value: '간조 23:10'),
           ];
+    final Moon? resolvedMoon = !includeMoon
+        ? null
+        : moonOverride ?? (mode == ObsMode.day ? _dayMoon : _nightMoon);
     return DiscoveryOverview(
       suitabilityIndex: suitabilityIndex,
       goldenHours: _goldenHours,
       telemetry: telemetry,
       degraded: degraded,
+      moon: resolvedMoon,
     );
   }
 }

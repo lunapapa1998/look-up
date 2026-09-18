@@ -2525,4 +2525,71 @@ The telemetry `_StaggerReveal(startMs: 160)` block's `child` changed from a `Sin
 
 **미실행 검증**: 이 역할 툴 권한(Bash 없음)으로 `flutter test` 직접 실행 불가. 정적 재확인: 추가 블록(약 434~531행) 전체를 재독해하여 `group -> testWidgets(2개) -> expect(...)` 괄호/콤마/대괄호 짝, 각 `find.descendant(of:..., matching:...)` 인자 쌍, `for (... in const [...]) { expect(...); }` 블록 종료 확인, 문자열 리터럴 전체에 이스케이프 없는 큰따옴표·아포스트로피가 섞이지 않았음을 육안 확인. `FakeObservationMapApi`의 `bird-001`(`lib/api/observation_map_api.dart` 74~113행)에서 name/coord/status/topSpecies(blbspo1 count=24, eurost count=null) 값을 재확인해 테스트 리터럴과 일치시킴. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
 
+## Spec 039 — `Moon` 모델 신설 + `DiscoveryOverview.moon` 필드 추가 (`lib/models/discovery.dart`, 2026-09-18)
+
+`TelemetryReading` 클래스 종료 직후, `DiscoveryOverview` 앞에 신규 클래스 `Moon` 추가. 다른 기존 클래스(`ObsMode`/`SuitabilityIndex`/`GoldenHour`/`TelemetryReading`/`HotspotMeta`/`Hotspot`)는 바이트 단위로 무편집.
+
+**`Moon` 필드 shape** (backend `apps/backend/.team/member.md` 섹션 43 계약 그대로 매핑):
+- `illumination`: `int` (0–100, required)
+- `phaseName`: `String` (required, 9종 한글 위상명 중 하나)
+- `moonrise`: `String?` (nullable, `"HH:MM"` 또는 파싱 실패 시 `null`)
+- `moonset`: `String?` (nullable, `"HH:MM"` 또는 파싱 실패 시 `null`)
+- `status`: `String` (required, `"live"` | `"approx"` | `"unavailable"`)
+
+`Moon.fromJson`은 기존 `GoldenHour.fromJson`/`TelemetryReading.fromJson`과 동일한 `json['key'] as Type` 캐스팅 패턴을 그대로 따름(`moonrise`/`moonset`만 `as String?`).
+
+**`DiscoveryOverview` 변경**: `degraded` 필드 바로 뒤에 `final Moon? moon;` 추가, 생성자에 `this.moon`(옵셔널, 미지정 시 `null` 디폴트라 기존 콜사이트 전부 무변경 컴파일)으로 추가. `fromJson`은 `degraded` 대입 직후 `moon: json['moon'] == null ? null : Moon.fromJson(json['moon'] as Map<String, dynamic>)` 추가 — JSON에 `moon` 키가 아예 없는 경우와 `null` 값으로 존재하는 경우 모두 안전하게 `null`로 처리(백엔드 계약: astronomy 레이어 `status != "live"`일 때 `moon`이 `null`).
+
+**소비한 백엔드 계약**: `apps/backend/.team/member.md` 섹션 43 "Moon contract publish for consumer flutter 039" — `SuitabilityResponse.moon`은 `Moon | null`.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 없음)으로 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인: 파일 전체(157줄 → 신규 라인만 추가된 버전) 재독해로 기존 5개 클래스가 원본 라인과 동일함을 확인, 신규 `Moon` 클래스와 `DiscoveryOverview` 변경분의 중괄호/콤마 균형 확인, `moonrise`/`moonset`만 `?` 타입인지 재확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test` (0 issues 기대; `DiscoveryOverview`를 생성하는 기존 콜사이트/테스트는 `moon` 미지정 시 그대로 컴파일되어야 함).
+
 **추가 수정 (2026-09-18)**: 위 테스트의 forbidden-substring 루프에서 `find.textContaining(forbidden)`이 전체 위젯 트리를 검색하던 것을 `find.descendant(of: find.byType(SpeciesDetail), matching: find.textContaining(forbidden))`로 `SpeciesDetail` 서브트리로 스코프 축소 — `피크`가 조수/달 섹션의 무관한 `obsmap_moon_text` 위젯(간조/만조 문구 중 "썰물 2시간 전 갯벌 유입 피크")에도 우연히 포함되어 있어 전체-트리 검색 시 false failure가 발생했기 때문. 금지어 목록·루프 구조는 동일하게 유지.
+
+## Spec 039 — `FakeSuitabilityApi`에 Moon 샘플 데이터 + 테스트 제어 훅 추가 (`lib/api/suitability_api.dart`, 2026-09-18)
+
+`FakeSuitabilityApi`(다른 클래스 `SuitabilityApiException`/`SuitabilityApi`/`HttpSuitabilityApi`는 무편집)에 신규 static const 2개 `_dayMoon`(illumination:62, phaseName:'차오르는 달', moonrise:'13:42', moonset:'01:15', status:'live')/`_nightMoon`(illumination:96, phaseName:'보름달', moonrise:'18:32', moonset:'05:12', status:'live')을 `_goldenHours` 바로 앞에 추가. 생성자에 옵셔널 named 파라미터 2개 추가: `moonOverride`(`Moon?`, 디폴트 없음 → 미지정 시 `null`), `includeMoon`(`bool`, 디폴트 `true`) — 기존 `degraded`/`shouldThrow`/`onFetchSuitability`는 그대로. `fetchSuitability` 끝 `return DiscoveryOverview(...)` 직전에 `resolvedMoon` 계산: `includeMoon`이 false면 `null`, 아니면 `moonOverride ?? (mode == ObsMode.day ? _dayMoon : _nightMoon)`. `DiscoveryOverview(...)` 호출에 `moon: resolvedMoon` 추가(`suitabilityIndex`/`goldenHours`/`telemetry`/`degraded`는 그대로).
+
+**테스트에서 moon 제어하는 법**: 기본(`FakeSuitabilityApi()`, 인자 없음)은 이전과 동일하게 동작 + 추가로 mode에 따라 day/night 샘플 Moon이 채워짐. `moon`을 `null`로 강제하려면 `FakeSuitabilityApi(includeMoon: false)`. 커스텀 Moon을 주입하려면 `FakeSuitabilityApi(moonOverride: const Moon(...))`(이 경우 mode 무관하게 항상 이 값 사용, `includeMoon`이 `false`가 아닌 한).
+
+**미실행 검증**: 이 역할 툴 권한(Bash 없음)으로 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인: 신규 필드·생성자 파라미터·`resolvedMoon` 삼항/null-coalescing 표현식 괄호 균형 재독해, `SuitabilityApiException`/`SuitabilityApi`/`HttpSuitabilityApi` 3개 클래스 바이트 단위 무편집 확인(diff 범위가 `FakeSuitabilityApi` 클래스 내부로 국한), `FakeSuitabilityApi()` 무인자 호출 시 `includeMoon` 디폴트 `true`·`moonOverride` 디폴트 `null`이라 기존 콜사이트 전부 그대로 컴파일됨을 확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test` (0 issues 기대; 기존 `FakeSuitabilityApi` 사용 테스트는 `moon` 필드 추가만으로 동작 변화 없어야 함).
+
+## Spec 039 — `Moon` 파싱 유닛테스트 신설 (`test/models/discovery_test.dart`, 2026-09-18)
+
+신규 파일 `apps/flutter/test/models/discovery_test.dart` 생성(기존 파일 무편집). `test/models/observation_test.dart`와 동일한 import 스타일(`package:flutter_test/flutter_test.dart`, `package:lookup/models/discovery.dart` — pubspec.yaml `name: lookup` 확인 후 매칭)로 `group('Moon parsing', ...)` 안에 테스트 4개: (1) 전체 JSON에서 `DiscoveryOverview.fromJson` → `overview.moon` non-null 및 5개 필드 검증, (2) `moon: null` → `overview.moon` null, (3) `moon` 키 자체 누락 → `overview.moon` null, (4) `Moon.fromJson` 직접 호출로 `moonrise`/`moonset`이 `null`인 케이스.
+
+**소비한 백엔드 계약**: 별도 신규 소비 없음 — 기존 `Moon`/`DiscoveryOverview.fromJson`(`lib/models/discovery.dart`) 구현만 검증.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 없음)으로 `flutter test` 직접 실행 불가. `Moon.fromJson`(`illumination: json['illumination'] as int`, `phaseName as String`, `moonrise/moonset as String?`, `status as String`)과 `DiscoveryOverview.fromJson`의 `moon: json['moon'] == null ? null : Moon.fromJson(...)` 로직을 재독해해 테스트 리터럴 타입(int/String/bool/List)이 캐스팅과 일치함을 확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test test/models/discovery_test.dart` (0 issues, 4 tests pass 기대).
+
+## Spec 039 — 홈 화면 오늘의 달 섹션 삽입 (`lib/screens/home_discovery_screen.dart`, 2026-09-18)
+
+골든타임 카드 `_StaggerReveal(startMs: 120)`와 텔레메트리 그리드 `_StaggerReveal(startMs: 160)` 사이의 단일 `const SizedBox(height: 16)` 스페이서를 교체: `SizedBox(height: 8)` → 가드된 `if` → `SizedBox(height: 16)`. 가드 조건 3개 모두 참일 때만 렌더: `currentMode == ObsMode.night && overview.moon != null && overview.moon!.status != 'unavailable'`(day 모드거나 moon이 null/unavailable이면 이 슬롯은 0px, 플레이스홀더 없음). 참일 때 `_StaggerReveal(controller: _staggerController, startMs: 140, child: _TodayMoonSection(moon: overview.moon!))` 렌더. 두 `_StaggerReveal` 내부·`ScoreGauge`·적합도 row·골든타임 카드·텔레메트리 그리드·프로바이더/상태 코드는 무편집.
+
+**신규 위젯 `_TodayMoonSection`** (private `StatelessWidget`, `_StaggerReveal` 클래스 정의 바로 앞에 위치, 생성자 파라미터 `required Moon moon`): 골든타임 카드와 동일한 스타일 — `Container(padding: EdgeInsets.all(8), decoration: BoxDecoration(color: colorScheme.surfaceContainerLow.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(8)))` 안에 `Row(crossAxisAlignment: CrossAxisAlignment.start)`. 구성: (1) `SizedBox(width: 27)` 안에 `moonPhaseIcon(moon.phaseName)` 아이콘을 `Semantics(label: '${phaseName}, 달빛 ${illumination} 퍼센트')`로 래핑(WCAG 1.1.1 — 아이콘만으로 위상 정보 전달 불가하므로 필수), (2) `SizedBox(width: 8)`, (3) `Expanded` 컬럼 — 첫 줄 정확히 `오늘의 달 · ${phaseName}`(예: `오늘의 달 · 보름달`, `titleSmall`/`labelLarge` bold + `onSurface`), 둘째 줄 정확히 `달빛 ${illumination}%`(예: `달빛 96%`, `bodySmall` + `onSurfaceVariant`, 낮은 위계), (4) trailing `Column(mainAxisSize: min, crossAxisAlignment: end)` — 첫 줄 정확히 `월몰 ${moonset ?? '—'}`(em-dash, `bodyMedium`/`labelMedium` + `colorScheme.secondary` + `FontWeight.w600`, 골든타임과의 인과 관계로 더 중요하게 강조), 둘째 줄 정확히 `월출 ${moonrise ?? '—'}`(`bodySmall` + `onSurfaceVariant`, 낮은 위계). 인과 주장 문구(월몰이 골든타임을 유발한다는 식) 없음 — 사실 값만 표시.
+
+**신규 헬퍼 `moonPhaseIcon(String phaseName)`** (top-level private 함수, `_TodayMoonSection` 바로 앞): 9종 위상명(`삭`/`초승달`/`상현 반달`/`차오르는 달`/`보름달`/`기우는 달`/`하현 반달`/`그믐달`)을 `Icons.circle_outlined`/`nights_stay`/`brightness_3`/`brightness_2`/`circle`/`brightness_2`/`brightness_3`/`nights_stay`로 매핑, 미인식 문자열은 `default: Icons.dark_mode`로 폴백.
+
+**소비한 백엔드 계약**: 신규 소비 없음 — 기존 `Moon`(`lib/models/discovery.dart`, 위 섹션 참고)의 `illumination`/`phaseName`/`moonrise`/`moonset`/`status` 필드만 사용.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 명령 승인 차단, `flutter` 커맨드는 승인 필요 상태라 비대화형 워커에서 실행 불가)으로 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인: 삽입 지점이 `Column`의 `children: [...]` 리스트 내부(246~248행 부근, 이미 `if (overview.degraded) ... else ...` collection-if 패턴이 쓰이고 있음)임을 확인해 신규 `if (...) _StaggerReveal(...)`가 문법적으로 유효함을 확인, `overview`/`currentMode`/`colorScheme`/`textTheme`가 모두 외부 스코프에서 접근 가능함을 확인, `_TodayMoonSection.build()`가 `package:flutter/material.dart`(이미 최상단 import)만으로 컴파일됨을 확인, 괄호/콤마/중괄호 균형을 신규 블록 전체 재독해로 확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test` (0 issues 기대; night 모드 + `moon.status != 'unavailable'`일 때 `find.byType(_StaggerReveal)`가 4개, `find.text('오늘의 달 · ...')` 존재, day 모드/`moon: null`/`status: 'unavailable'`일 때 해당 섹션 `findsNothing`을 검증하는 신규 위젯 테스트는 후속 작업 — 이번 태스크 범위 아님).
+
+## 테스트 타이밍 회귀 수정 (`test/suitability_wiring_test.dart`, 2026-09-18)
+
+`mode caching: day/night toggle ...` 테스트에서 night→day 리비지트 블록(`focusModeDaySegment` 탭 직후)에 `await tester.pump();` 한 줄을 추가해 기존 1회 → 2회 pump로 변경. Spec 039로 night 모드 서브트리에 `_TodayMoonSection`(`_StaggerReveal` 래핑) 위젯이 하나 늘어, `AnimatedSwitcher`가 day 서브트리로 전환될 때 정착에 프레임이 하나 더 필요해진 타이밍 회귀 수정 — night 블록(이미 3회 pump)과 마지막 재방문 블록(1회 pump, 스피너 없이 캐시 즉시 히트라 무관)은 무편집, `expect(...)` 순서/내용도 무편집.
+
+**미실행 검증**: `flutter analyze`/`flutter test` 명령이 승인 대기 상태로 차단되어 비대화형 실행 불가. `git diff`로 정확히 1줄(`await tester.pump();`)만 추가되고 나머지 바이트 무변경임을 확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test test/suitability_wiring_test.dart` (0 issues, 해당 테스트 pass 기대).
+
+## 테스트 타이밍 회귀 수정 — 잘못된 이전 수정 되돌리고 근본 원인 수정 (`test/suitability_wiring_test.dart`, 2026-09-18)
+
+바로 위 항목("테스트 타이밍 회귀 수정")에서 추가한 `await tester.pump();` 중복 라인은 근본 원인을 잘못 짚은 수정이었음 — 재확인. 실제 원인: Spec 039로 night 모드 콘텐츠가 `_TodayMoonSection` 추가만큼 더 길어졌는데, `focusModeNightSegment`를 탭하기 전 드래그(`Offset(0, -200)`)는 짧은 day 레이아웃 기준 스크롤 위치라 문제없지만, 그 다음 `focusModeDaySegment`를 탭하기 전 드래그는 여전히 (더 긴) night 레이아웃이 보이는 상태에서 같은 `Offset(0, -200)`만큼 내려가 night 기준 오프셋에 도달함 — day로 전환되면 콘텐츠가 다시 짧아지므로 그 오프셋이 오버슈트되어 `SliverList`(lazy — 뷰포트+캐시 익스텐트 밖 아이템은 위젯 트리에서 완전히 unmount됨, 단순 클리핑 아님) 상단부의 ScoreGauge/score-text 아이템이 unmount되어 `find.text('88')`이 0개가 됨. pump 추가는 애니메이션 타이밍 문제가 아니라 스크롤 위치 문제라 효과가 없었음.
+
+수정: `focusModeDaySegment` 탭 → `await tester.pump();` 1회(중복 pump 제거) → 신규 `await tester.dragUntilVisible(find.text('88'), find.byType(CustomScrollView), const Offset(0, 200))`(양수 200 — 다른 곳의 하방 드래그와 반대로 위쪽으로 스크롤해 score 텍스트를 재마운트) 추가. 이후 3개 `expect(...)`는 순서·내용 무편집. 위쪽 night 토글 블록과 아래쪽 night 재토글 블록은 완전히 무편집.
+
+**미실행 검증**: `flutter analyze`/`flutter test` 명령이 이 환경에서 승인 차단되어 비대화형 실행 불가. `git diff`로 변경 범위가 `focusModeDaySegment` 블록 내부(중복 pump 제거 + dragUntilVisible 1개 추가)로만 국한됨을 확인, 괄호/콤마 균형과 `dragUntilVisible` 시그니처(`Finder finder, Finder view, Offset moveStep`)가 파일 내 기존 호출들과 일치함을 확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test test/suitability_wiring_test.dart` (0 issues, 전체 테스트 pass 기대).
+
+## 위젯 트리 리그레션 수정 — moon 슬롯 collection-if 제거 (`lib/screens/home_discovery_screen.dart`, 2026-09-18)
+
+Spec 039가 남긴 근본 결함 수정: 달 섹션 자리의 `if (조건) _StaggerReveal(...)`(리스트 아이템 자체를 collection-if로 넣었다 뺐다 함)가 조건이 바뀔 때마다 뒤따르는 `SizedBox(height: 16)`와 `_StaggerReveal(startMs: 160)`(텔레메트리 그리드)의 리스트 인덱스를 밀어버려 Flutter의 위치 기반 element reconciliation이 깨짐 — `_FocusInheritedScope` InheritedElement dependents-not-empty 단언, `_staggerController` 공유 리스너의 AnimationController elapsedInSeconds negative-tick 단언 2건이 재현됨. 수정: `_StaggerReveal(controller: _staggerController, startMs: 140, ...)` 아이템 자체는 항상 리스트에 유지하고, 조건(`currentMode == ObsMode.night && overview.moon != null && overview.moon!.status != 'unavailable'`)은 그 `child`에만 적용 — 참이면 `_TodayMoonSection(moon: overview.moon!)`, 거짓이면 `const SizedBox.shrink()`. 앞뒤의 `const SizedBox(height: 8)`/`const SizedBox(height: 16)`는 무조건부로 그대로 유지. `discovery.dart`/`suitability_api.dart`/테스트 파일은 무편집.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 없음)으로 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인: 리스트의 아이템 개수·타입이 이제 mode/data 값과 무관하게 항상 동일함(collection-if가 `_StaggerReveal` 진입 여부가 아니라 그 `child`의 삼항 표현식으로만 남음)을 확인, 괄호 균형과 삼항 표현식 구조 재독해. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test` (0 issues 기대; 기존에 실패하던 두 단언 모두 해소되어야 함).
