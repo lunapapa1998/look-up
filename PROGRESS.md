@@ -231,3 +231,4 @@
 ## 백로그 (2026-09-18)
 
 - **지도 KakaoMap 전환 (보류)** — 공모전 입상 가점 목적(규정 강제 아님). 다른 UI 먼저 진행 후 착수. 채택 후보 = `kakao_map_sdk` v1.3.1(**네이티브 PlatformView 래퍼**, WebView 아님). 범위·리스크(조류 산포 리빌은 정적 Poi로 단순화)·셋업 요건(네이티브 앱 키·키해시·번들 등록, iOS 시뮬레이터 미지원 가능→실기기)·PoC 우선 계획 전부: [`docs/backlog/kakao-map-migration.md`](docs/backlog/kakao-map-migration.md).
+- **관측 텔레메트리 NIE 보강 (보류·미착수)** — 스펙 = [`specs/032-observation-telemetry-nie-enrich-backend.md`](specs/032-observation-telemetry-nie-enrich-backend.md) (team=backend, risk=medium). eBird+NIE(보호종·서식지)+조석/생태 3소스 하이브리드로 피그마 "최근 관측 텔레메트리" 카드를 실데이터화. **연령(성조/유조)·섭식 행동은 카드에서 완전 제거 확정**(공개 API 실데이터 없음, 날조 금지). 이 작업은 **다른 곳에서 진행 중**이라 여기서는 나중에 시작. 착수 시 예산: claude lead 1+member 3~5, codex 1~2, agy 0 / `just build specs/032-observation-telemetry-nie-enrich-backend.md backend`.
