@@ -333,3 +333,14 @@ final tonightSkyForecastProvider = FutureProvider<StarlightForecast>((
   final location = await ref.watch(locationProvider.future);
   return api.fetchForecast(lat: location.lat, lng: location.lng);
 });
+
+typedef SpotStarlightQuery = ({double lat, double lng});
+
+final spotStarlightForecastProvider =
+    FutureProvider.family<StarlightForecast, SpotStarlightQuery>((
+      ref,
+      query,
+    ) {
+      final api = ref.watch(starlightApiProvider);
+      return api.fetchForecast(lat: query.lat, lng: query.lng);
+    });
