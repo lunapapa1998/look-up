@@ -136,12 +136,16 @@ class FakeSuitabilityApi implements SuitabilityApi {
             label: '매우 쾌적 (Prime)',
             sqmValue: 21.6,
             skyClass: 'Class 2 최적 다크스카이',
+            bortleClass: 2,
+            nightSkyStatus: 'live',
           )
         : const SuitabilityIndex(
             score: 92,
             label: '천체관측 최적 (Prime)',
             sqmValue: 21.9,
             skyClass: 'Class 1 최고 다크스카이',
+            bortleClass: 1,
+            nightSkyStatus: 'live',
           );
     final telemetry = mode == ObsMode.day
         ? const [

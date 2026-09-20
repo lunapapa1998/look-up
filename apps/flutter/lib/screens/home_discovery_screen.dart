@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config.dart';
 import '../models/discovery.dart';
+import '../models/trails.dart';
 import '../state/auth_providers.dart';
 import '../state/discovery_providers.dart';
 import '../widgets/app_header_logo.dart';
+import '../widgets/night_sky_tag.dart';
 import '../widgets/score_gauge.dart';
 import 'account_screen.dart';
 
@@ -433,52 +435,26 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                               ],
                                             ),
                                           ),
-                                          Flexible(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.end,
-                                              children: [
-                                                Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Icon(
-                                                      Icons.wb_twilight,
-                                                      color:
-                                                          colorScheme.tertiary,
-                                                      size: 16,
-                                                    ),
-                                                    Flexible(
-                                                      child: Text(
-                                                        'SQM ${overview.suitabilityIndex.sqmValue}',
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: textTheme
-                                                            .labelMedium
-                                                            ?.copyWith(
-                                                              color: colorScheme
-                                                                  .tertiary,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                Text(
-                                                  overview
-                                                      .suitabilityIndex
-                                                      .skyClass,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  textAlign: TextAlign.end,
-                                                  style: textTheme.bodySmall
-                                                      ?.copyWith(
-                                                        color:
-                                                            colorScheme.outline,
-                                                      ),
-                                                ),
-                                              ],
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                              maxWidth: 170,
+                                            ),
+                                            child: NightSkyTag(
+                                              nightSky: NightSky(
+                                                sqmValue: overview
+                                                    .suitabilityIndex
+                                                    .sqmValue,
+                                                bortleClass: overview
+                                                    .suitabilityIndex
+                                                    .bortleClass,
+                                                skyClass: overview
+                                                    .suitabilityIndex
+                                                    .skyClass,
+                                                status: overview
+                                                    .suitabilityIndex
+                                                    .nightSkyStatus,
+                                              ),
+                                              large: false,
                                             ),
                                           ),
                                         ],

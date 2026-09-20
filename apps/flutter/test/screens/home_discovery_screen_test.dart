@@ -178,4 +178,71 @@ void main() {
 
     expect(container.read(obsModeProvider).mode, ObsMode.night);
   });
+
+  testWidgets('shows plain-language night sky tag instead of raw SQM/Class text', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('별이 쏟아져요'), findsWidgets);
+    expect(find.textContaining('SQM 21.6'), findsNothing);
+    expect(find.text('Class 2 최적 다크스카이'), findsNothing);
+  });
+
+  testWidgets('does not overflow at narrow surface widths', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(375, 800));
+
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
 }

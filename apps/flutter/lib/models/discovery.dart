@@ -25,20 +25,29 @@ class SuitabilityIndex {
   final String label;
   final double sqmValue;
   final String skyClass;
+  final int bortleClass;
+  final String nightSkyStatus;
 
   const SuitabilityIndex({
     required this.score,
     required this.label,
     required this.sqmValue,
     required this.skyClass,
+    required this.bortleClass,
+    required this.nightSkyStatus,
   });
 
   factory SuitabilityIndex.fromJson(Map<String, dynamic> json) {
+    final nightSkyStatus = json['nightSkyStatus'] as String?;
     return SuitabilityIndex(
       score: json['score'] as int,
       label: json['label'] as String,
       sqmValue: (json['sqmValue'] as num).toDouble(),
       skyClass: json['skyClass'] as String,
+      bortleClass: (json['bortleClass'] as num?)?.toInt() ?? 5,
+      nightSkyStatus: (nightSkyStatus == null || nightSkyStatus.isEmpty)
+          ? 'none'
+          : nightSkyStatus,
     );
   }
 }

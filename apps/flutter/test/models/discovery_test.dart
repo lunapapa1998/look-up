@@ -81,4 +81,61 @@ void main() {
       expect(moon.status, 'approx');
     });
   });
+
+  group('SuitabilityIndex parsing', () {
+    test('parses bortleClass and nightSkyStatus from json', () {
+      final map = <String, dynamic>{
+        'score': 92,
+        'label': '매우 쾌적',
+        'sqmValue': 21.6,
+        'skyClass': 'Class 1',
+        'bortleClass': 4,
+        'nightSkyStatus': 'approx',
+        'goldenHours': [],
+        'telemetry': [],
+        'degraded': false,
+      };
+
+      final overview = DiscoveryOverview.fromJson(map);
+
+      expect(overview.suitabilityIndex.bortleClass, 4);
+      expect(overview.suitabilityIndex.nightSkyStatus, 'approx');
+    });
+
+    test('missing bortleClass and nightSkyStatus default to 5 and none', () {
+      final map = <String, dynamic>{
+        'score': 92,
+        'label': '매우 쾌적',
+        'sqmValue': 21.6,
+        'skyClass': 'Class 1',
+        'goldenHours': [],
+        'telemetry': [],
+        'degraded': false,
+      };
+
+      final index = SuitabilityIndex.fromJson(map);
+
+      expect(index.bortleClass, 5);
+      expect(index.nightSkyStatus, 'none');
+    });
+
+    test('empty nightSkyStatus string defaults to none', () {
+      final map = <String, dynamic>{
+        'score': 92,
+        'label': '매우 쾌적',
+        'sqmValue': 21.6,
+        'skyClass': 'Class 1',
+        'bortleClass': 3,
+        'nightSkyStatus': '',
+        'goldenHours': [],
+        'telemetry': [],
+        'degraded': false,
+      };
+
+      final index = SuitabilityIndex.fromJson(map);
+
+      expect(index.bortleClass, 3);
+      expect(index.nightSkyStatus, 'none');
+    });
+  });
 }
