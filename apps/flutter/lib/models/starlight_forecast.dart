@@ -74,7 +74,9 @@ class StarlightForecast {
   final String sunset;
   final String astronomicalTwilightEnd;
   final StarlightTarget target;
+  final List<StarlightTarget> allVisibleTargets;
   final StarlightConditions conditions;
+  final bool degraded;
 
   const StarlightForecast({
     required this.title,
@@ -85,7 +87,9 @@ class StarlightForecast {
     required this.sunset,
     required this.astronomicalTwilightEnd,
     required this.target,
+    required this.allVisibleTargets,
     required this.conditions,
+    required this.degraded,
   });
 
   factory StarlightForecast.fromJson(Map<String, dynamic> json) {
@@ -103,7 +107,11 @@ class StarlightForecast {
       sunset: timing['sunset'] as String? ?? '',
       astronomicalTwilightEnd: timing['astronomical_twilight_end'] as String? ?? '',
       target: StarlightTarget.fromJson(target),
+      allVisibleTargets: (json['all_visible_targets'] as List<dynamic>? ?? const [])
+          .map((e) => StarlightTarget.fromJson(e as Map<String, dynamic>))
+          .toList(),
       conditions: StarlightConditions.fromJson(conditions),
+      degraded: json['degraded'] as bool? ?? false,
     );
   }
 }

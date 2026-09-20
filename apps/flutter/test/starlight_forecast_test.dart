@@ -64,6 +64,86 @@ void main() {
       expect(forecast.conditions.moonIlluminationPct, 18);
     });
 
+    test('fromJson parses all_visible_targets list', () {
+      const jsonWithTargets = '''
+      {
+        "title": "야간 전환 별빛 예보",
+        "summary": "오늘 20:45 일몰 및 박명 종료 후 남동쪽 방위에서 페르세우스자리 은하수 육안 관측이 시작됩니다.",
+        "location": {
+          "lat": 37.7,
+          "lng": 126.4
+        },
+        "timing": {
+          "date": "2026-09-18",
+          "sunset": "18:39",
+          "civil_twilight_end": "19:05",
+          "nautical_twilight_end": "19:36",
+          "astronomical_twilight_end": "20:45",
+          "forecast_reference_time": "20:45"
+        },
+        "target": {
+          "id": "perseus_milky_way",
+          "name": "페르세우스자리 은하수",
+          "constellation": "페르세우스자리",
+          "target_type": "milky_way",
+          "altitude_deg": 28.5,
+          "azimuth_deg": 135.0,
+          "direction": "남동쪽",
+          "observation_mode": "육안 관측",
+          "description": "가을과 겨울 밤하늘을 가로지르는 은하수의 북쪽 줄기"
+        },
+        "conditions": {
+          "lunar_age_days": 4.5,
+          "moon_illumination_pct": 18,
+          "moon_phase_name": "초승달",
+          "sqm_value": 21.5,
+          "sky_class": "Class 3",
+          "milky_way_visible": true
+        },
+        "all_visible_targets": [
+          {
+            "id": "perseus_milky_way",
+            "name": "페르세우스자리 은하수",
+            "constellation": "페르세우스자리",
+            "target_type": "milky_way",
+            "altitude_deg": 28.5,
+            "azimuth_deg": 135.0,
+            "direction": "남동쪽",
+            "observation_mode": "육안 관측",
+            "description": "가을과 겨울 밤하늘을 가로지르는 은하수의 북쪽 줄기"
+          },
+          {
+            "id": "cassiopeia",
+            "name": "카시오페이아자리",
+            "constellation": "카시오페이아자리",
+            "target_type": "constellation",
+            "altitude_deg": 45.0,
+            "azimuth_deg": 20.0,
+            "direction": "북쪽",
+            "observation_mode": "육안 관측",
+            "description": "W자 모양의 별자리"
+          }
+        ],
+        "degraded": false
+      }
+      ''';
+
+      final decoded = json.decode(jsonWithTargets) as Map<String, dynamic>;
+      final forecast = StarlightForecast.fromJson(decoded);
+
+      expect(forecast.allVisibleTargets.length, 2);
+      expect(forecast.allVisibleTargets.first.name, '페르세우스자리 은하수');
+      expect(forecast.allVisibleTargets.first.targetType, 'milky_way');
+    });
+
+    test('fromJson defaults allVisibleTargets to empty list when key is omitted', () {
+      final decoded = json.decode(mockJson) as Map<String, dynamic>;
+      decoded.remove('all_visible_targets');
+      final forecast = StarlightForecast.fromJson(decoded);
+
+      expect(forecast.allVisibleTargets, isEmpty);
+    });
+
     test('HttpStarlightApi fetches and returns forecast', () async {
       final mockClient = MockClient((request) async {
         expect(request.url.path, '/api/starlight-forecast');

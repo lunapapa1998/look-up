@@ -2692,3 +2692,37 @@ DONE: flutter-engineer | apps/flutter/.team/member.md에 홈 화면 밤하늘 �
 ## 밤 블록 라벨 변경(오늘 밤) (spec 047, 2026-09-20)
 
 `home_discovery_screen.dart:1356`의 night-block 접두 텍스트를 `별밝기`에서 `오늘 밤`으로 변경해 day-mode 줄의 기존 접두 표현과 맞춤. `home_discovery_screen_test.dart`의 259, 263, 315행을 이에 맞춰 갱신함. `flutter analyze`와 `flutter test`는 리드가 green으로 확인함(전체 테스트 통과).
+
+## StarlightForecast.allVisibleTargets 파싱 (spec 048, 2026-09-20)
+
+## night-mode 전용 StarlightForecast provider 배선 (spec 048, 2026-09-20)
+
+`discovery_providers.dart`에 `starlightApiProvider`(`Provider<StarlightApi>`, `HttpStarlightApi(defaultApiBaseUrl)`, `suitabilityApiProvider`와 동일 패턴)와 `tonightSkyForecastProvider`(`FutureProvider<StarlightForecast>`, `locationProvider.future`로 현재 위치를 얻어 `api.fetchForecast(lat:, lng:)` 호출, day/night 분기 없는 순수 조회)를 `spotSuitabilityProvider` 뒤에 추가. Riverpod FutureProvider는 lazy라 아무 화면도 watch하지 않는 한 실행되지 않으므로, 이번 태스크에서는 어떤 위젯도 이 provider를 watch하지 않음(별도 후속 태스크에서 night-mode UI가 watch하도록 연결 예정) — day 모드에서 백엔드 호출이 발생하지 않음을 이 방식으로 보장.
+
+이 세션도 Bash 승인이 비대화형으로 차단되어(`flutter analyze` 포함 모든 명령 "requires approval") 직접 실행 불가. 정적 재확인 완료: `StarlightApi.fetchForecast`/`HttpStarlightApi` 시그니처가 `starlight_api.dart`와 정확히 일치, `StarlightForecast.fromJson` 존재 확인(`models/starlight_forecast.dart`는 수정하지 않음), import 2건(`../api/starlight_api.dart`, `../models/starlight_forecast.dart`) 중복 없이 추가, `defaultApiBaseUrl`은 기존에 이미 import된 `config.dart`에서 제공되어 추가 import 불필요. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test` — 0 issues, 전체 테스트 통과 기대(이 태스크는 기존 위젯/테스트를 아무 것도 건드리지 않음).
+
+`models/starlight_forecast.dart`의 `StarlightForecast`에 `target` 필드 다음 위치로 `allVisibleTargets: List<StarlightTarget>` 필드를 추가(생성자 required named param 포함). `fromJson`에서 top-level(`target`/`conditions`와 형제 레벨) `all_visible_targets` JSON 배열을 `StarlightTarget.fromJson`으로 매핑해 파싱하며, 키가 없거나 null이면 빈 리스트로 기본값 처리. 기존 `StarlightTarget`은 변경 없음. `test/starlight_forecast_test.dart`에 신규 테스트 2건 추가: `fromJson parses all_visible_targets list`(2개 타겟 파싱, 첫 번째 name/targetType 검증) `fromJson defaults allVisibleTargets to empty list when key is omitted`. 이 세션도 Bash 승인이 비대화형으로 차단되어 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인 완료: 신규 필드/파싱 로직이 기존 필드들과 동일한 null-safety 패턴(`as List<dynamic>? ?? const []`, `.map(...).toList()`)을 따름. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test test/starlight_forecast_test.dart` — 0 issues, 전체 5개 테스트(기존 2개 + 신규 2개 + 기존 全) 통과 기대.
+
+## tonight_sky_section_test.dart semantics handle 버그 수정 (2026-09-20)
+
+`a row Semantics label includes the target name` 테스트가 `tester.getSemantics()`를 semantics handle 활성화 없이 호출해 런타임에 StateError가 발생하던 버그를 수정. 해당 testWidgets 콜백 첫 줄에 `final handle = tester.ensureSemantics();`를, expect 뒤 마지막 줄에 `handle.dispose();`를 추가함(다른 테스트/위젯 파일은 변경 없음). 이 세션도 Bash 승인이 비대화형으로 차단되어 `flutter test` 직접 실행 불가. **Pipeline validate stage must run** `cd apps/flutter && flutter test test/widgets/tonight_sky_section_test.dart` — 5개 테스트 전체 통과 기대.
+
+## TonightSkySection widget (spec 048)
+
+`apps/flutter/lib/widgets/tonight_sky_section.dart`가 `TonightSkySection`을 export함 — `targets: List<StarlightTarget>`를 required 파라미터로 받는 `StatefulWidget`(순수 데이터만 받으며, 위젯 내부에서 provider/ref 접근 없음). 리스트의 첫 3개 항목과 더보기 펼치기를 보여주고, 리스트가 비어있으면 빈 상태 문장을 표시하며, 각 행은 탭하면 설명 텍스트가 펼쳐짐. `home_discovery_screen.dart`에서 `INTEGRATED RADAR` overline 바로 위, `currentMode == ObsMode.night` 가드 내부에 배선되어 `tonightSkyForecastProvider` watch와 이 서브섹션 전체가 night 모드에서만 존재하도록 함(StaggerReveal startMs 180 사용). 고도 티어 매핑: 30도 미만은 지평선 근처 문구, 30~60도 미만은 중간 높이 문구, 60도 이상은 머리 위에 가까운 문구. 관측 모드 pill 매핑: telescope 키워드→망원경 축약어, visual-observation 키워드→쌍안경 축약어, naked-eye 키워드→맨눈 축약어, 그 외는 원문 그대로. `test/widgets/tonight_sky_section_test.dart`와 전체 flutter test 스위트는 이 위젯 반영 후 리드가 green으로 확인함(244개 테스트 통과).
+
+## StarlightForecast.degraded and TonightSkySection.isApprox (spec 048)
+
+`apps/flutter/lib/models/starlight_forecast.dart`의 `StarlightForecast`가 required `bool degraded` 필드를 갖게 됨 — 백엔드 JSON의 top-level `degraded` 키에서 파싱하며, 키가 없으면 `false`로 기본값 처리. `apps/flutter/lib/widgets/tonight_sky_section.dart`의 `TonightSkySection`에 optional named `bool isApprox` 파라미터(기본값 `false`)가 추가됨 — `true`일 때 섹션 heading 옆에 `labelSmall` 텍스트로 정확히 `추정치`를 렌더링. `apps/flutter/lib/screens/home_discovery_screen.dart`의 night-mode 전용 `tonightSkyForecastProvider` watch 블록에서 `TonightSkySection` 생성 시 `isApprox: forecast.degraded`를 전달함. 리드가 이 변경 반영 후 `flutter analyze`와 `flutter test` green 확인(246개 테스트 통과).
+
+## tonight_sky_section.dart 카피 수정 (spec 048, 2026-09-20)
+
+`apps/flutter/lib/widgets/tonight_sky_section.dart`의 리터럴 문구 3건을 스펙 지정 카피로 교체: (1) 오버라인 `'TONIGHT SKY'` → `"TONIGHT'S SKY"`, (2) heading 텍스트(두 곳, `isApprox` Row 분기와 else 분기 동일하게) `'오늘, 이 자리에서 볼 수 있는 하늘'` → `'오늘 이 자리에서 보이는 하늘'`, (3) 빈 상태 문구 `'오늘 밤은 뚜렷하게 보이는 관측 대상이 적어요'` → `'오늘 밤은 또렷이 보이는 대상이 적어요'`. `apps/flutter/test/widgets/tonight_sky_section_test.dart`의 `renders the empty-state sentence when given an empty list` 테스트 내 기대 문자열 3건도 동일하게 갱신. 로직/다른 코드는 변경 없음. 이 세션도 Bash 승인이 비대화형으로 차단되어 `flutter analyze`/`flutter test` 직접 실행 불가 — 정적 재확인 완료(문자열 리터럴 외 변경 없음, 위젯 파일과 테스트 파일의 문자열이 문자 단위로 일치). **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test test/widgets/tonight_sky_section_test.dart` — 0 issues, 5개 테스트 전체 통과 기대.
+
+## Stagger-reveal timing overlap fix (2026-09-20)
+
+`apps/flutter/lib/screens/home_discovery_screen.dart`의 스태거 리빌 타이밍 겹침 버그 수정: `_staggerTotalDuration`을 420ms → 620ms로 확장, 핫스팟 리스트 Column을 감싸는 `_StaggerReveal`의 `startMs`를 200 → 400으로 변경. tonight-sky 섹션의 `_StaggerReveal`(startMs: 180, line ~753)은 그대로 유지. 그 결과 tonight-sky 섹션(180ms~380ms)과 핫스팟 섹션(400ms~600ms)이 서로 겹치지 않게 됨. 다른 `_StaggerReveal`(80/100/120/140/160ms)은 변경하지 않음. 이 세션도 Bash 승인이 비대화형으로 차단되어 `flutter analyze`/`flutter test` 직접 실행 불가 — 정적 재확인 완료(변경은 숫자 리터럴 2곳뿐, 타입/구조 변경 없음). **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test` — 0 issues, 전체 테스트 통과 기대.
+
+## home_discovery_screen_test.dart tonight-sky coverage (spec 048, 2026-09-20)
+
+`test/screens/home_discovery_screen_test.dart`에 tonight-sky-forecast 기능 위젯 테스트 3건 추가(파일 하단, 기존 테스트는 무변경). 새 `FakeStarlightApi implements StarlightApi`(파일 내부 정의, `onFetchForecast` 콜백으로 호출 횟수 추적 가능)를 도입해 `starlightApiProvider.overrideWithValue(...)`로 주입 — 기존 `suitabilityApiProvider`/`locationServiceProvider` override 패턴을 그대로 따름. 테스트: (1) `night mode renders the tonight sky section with fetched targets` — night 전환 후 fake target name(`'테스트자리 성단'`)이 렌더됨을 확인, (2) `day mode does not render the tonight sky section and does not call the starlight API` — day 모드 유지 시 target 텍스트 미표시 + fetch 호출 0회 확인(provider가 day 모드에서 watch되지 않음을 검증), (3) `switching from day to night mode fetches the starlight forecast exactly once` — day→night 전환 시 fetch가 정확히 1회만 호출됨을 확인. 이 세션도 Bash 승인이 비대화형으로 차단되어 `flutter analyze`/`flutter test` 직접 실행 불가 — 정적 재확인 완료(`StarlightApi`/`StarlightForecast`/`StarlightConditions`/`StarlightTarget` 생성자 시그니처가 각각 `api/starlight_api.dart`, `models/starlight_forecast.dart`와 정확히 일치, import 2건만 추가). **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test test/screens/home_discovery_screen_test.dart` — 0 issues, 신규 3개 포함 전체 테스트 통과 기대.

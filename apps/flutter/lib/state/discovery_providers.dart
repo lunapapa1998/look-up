@@ -9,6 +9,7 @@ import '../api/gpx_api.dart';
 import '../api/observation_map_api.dart';
 import '../api/regions_api.dart';
 import '../api/species_api.dart';
+import '../api/starlight_api.dart';
 import '../api/suitability_api.dart';
 import '../api/tide_api.dart';
 import '../api/trails_api.dart';
@@ -17,6 +18,7 @@ import '../models/discovery.dart';
 import '../models/observation_map.dart';
 import '../models/region.dart';
 import '../models/species.dart';
+import '../models/starlight_forecast.dart';
 import '../models/tide.dart';
 import '../models/trails.dart';
 import '../services/location_service.dart';
@@ -319,3 +321,15 @@ final spotSuitabilityProvider =
         mode: query.mode,
       );
     });
+
+final starlightApiProvider = Provider<StarlightApi>((ref) {
+  return HttpStarlightApi(defaultApiBaseUrl);
+});
+
+final tonightSkyForecastProvider = FutureProvider<StarlightForecast>((
+  ref,
+) async {
+  final api = ref.watch(starlightApiProvider);
+  final location = await ref.watch(locationProvider.future);
+  return api.fetchForecast(lat: location.lat, lng: location.lng);
+});

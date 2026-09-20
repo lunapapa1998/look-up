@@ -2,12 +2,66 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:lookup/api/starlight_api.dart';
 import 'package:lookup/api/suitability_api.dart';
 import 'package:lookup/models/discovery.dart';
+import 'package:lookup/models/starlight_forecast.dart';
 import 'package:lookup/screens/home_discovery_screen.dart';
 import 'package:lookup/services/location_service.dart';
 import 'package:lookup/state/discovery_providers.dart';
 import 'package:lookup/widgets/night_sky_tag.dart';
+
+class FakeStarlightApi implements StarlightApi {
+  FakeStarlightApi({this.onFetchForecast});
+
+  final void Function()? onFetchForecast;
+
+  static const _target = StarlightTarget(
+    id: 'test-target-1',
+    name: '테스트자리 성단',
+    constellation: '테스트자리',
+    targetType: 'cluster',
+    altitudeDeg: 45.0,
+    azimuthDeg: 180.0,
+    direction: '남쪽',
+    observationMode: 'naked_eye',
+    description: '테스트용 관측 대상',
+  );
+
+  @override
+  Future<StarlightForecast> fetchForecast({
+    required double lat,
+    required double lng,
+    String? date,
+    String? time,
+    String? target,
+    double? sqm,
+    int? moonIllumination,
+    String? twilightEnd,
+  }) async {
+    onFetchForecast?.call();
+    return const StarlightForecast(
+      title: '야간 전환 별빛 예보',
+      summary: '테스트 요약',
+      lat: 37.5921,
+      lng: 126.3984,
+      date: '2026-09-09',
+      sunset: '18:30',
+      astronomicalTwilightEnd: '20:00',
+      target: _target,
+      allVisibleTargets: [_target],
+      conditions: StarlightConditions(
+        lunarAgeDays: 5.0,
+        moonIlluminationPct: 30,
+        moonPhaseName: '상현달',
+        sqmValue: 21.5,
+        skyClass: 'Class 3',
+        milkyWayVisible: true,
+      ),
+      degraded: false,
+    );
+  }
+}
 
 void main() {
   testWidgets('renders suitability score, golden hours and telemetry', (
@@ -520,5 +574,137 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('night mode renders the tonight sky section with fetched targets', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+        starlightApiProvider.overrideWithValue(FakeStarlightApi()),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    await tester.dragUntilVisible(
+      find.byKey(const Key('focusModeNightSegment')),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
+
+    await tester.tap(find.byKey(const Key('focusModeNightSegment')));
+    await tester.pumpAndSettle();
+
+    await tester.dragUntilVisible(
+      find.text('테스트자리 성단'),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
+
+    expect(find.text('테스트자리 성단'), findsOneWidget);
+  });
+
+  testWidgets('day mode does not render the tonight sky section and does not call the starlight API', (
+    tester,
+  ) async {
+    var callCount = 0;
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+        starlightApiProvider.overrideWithValue(
+          FakeStarlightApi(onFetchForecast: () => callCount++),
+        ),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('테스트자리 성단'), findsNothing);
+    expect(callCount, 0);
+  });
+
+  testWidgets('switching from day to night mode fetches the starlight forecast exactly once', (
+    tester,
+  ) async {
+    var callCount = 0;
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+        starlightApiProvider.overrideWithValue(
+          FakeStarlightApi(onFetchForecast: () => callCount++),
+        ),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    expect(callCount, 0);
+
+    await tester.dragUntilVisible(
+      find.byKey(const Key('focusModeNightSegment')),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
+
+    await tester.tap(find.byKey(const Key('focusModeNightSegment')));
+    await tester.pumpAndSettle();
+
+    expect(callCount, 1);
   });
 }

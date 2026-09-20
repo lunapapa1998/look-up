@@ -10,6 +10,7 @@ import '../widgets/app_header_logo.dart';
 import '../widgets/night_sky_scale.dart';
 import '../widgets/night_sky_tag.dart';
 import '../widgets/score_gauge.dart';
+import '../widgets/tonight_sky_section.dart';
 import 'account_screen.dart';
 
 class HomeDiscoveryScreen extends ConsumerStatefulWidget {
@@ -30,7 +31,7 @@ class HomeDiscoveryScreen extends ConsumerStatefulWidget {
 /// `specs/011-scene-transition-flutter.md` §4 for the timing source of truth.
 class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
     with TickerProviderStateMixin {
-  static const _staggerTotalDuration = Duration(milliseconds: 420);
+  static const _staggerTotalDuration = Duration(milliseconds: 620);
 
   late final AnimationController _staggerController;
   final Set<ObsMode> _degradedModes = {};
@@ -760,6 +761,23 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                     ),
                   ),
                   const SizedBox(height: 20),
+                  if (currentMode == ObsMode.night) ...[
+                    _StaggerReveal(
+                      controller: _staggerController,
+                      startMs: 180,
+                      child: ref
+                          .watch(tonightSkyForecastProvider)
+                          .when(
+                            data: (forecast) => TonightSkySection(
+                              targets: forecast.allVisibleTargets,
+                              isApprox: forecast.degraded,
+                            ),
+                            loading: () => const SizedBox.shrink(),
+                            error: (err, st) => const SizedBox.shrink(),
+                          ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   Text(
                     'INTEGRATED RADAR',
                     style: textTheme.labelSmall?.copyWith(
@@ -792,7 +810,7 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                   const SizedBox(height: 12),
                   _StaggerReveal(
                     controller: _staggerController,
-                    startMs: 200,
+                    startMs: 400,
                     child: Column(
                       children: hotspots
                           .map(
