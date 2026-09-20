@@ -71,7 +71,7 @@ class FakeObservationMapService:
     def __init__(self, response: dict) -> None:
         self._response = response
 
-    def get_observation_map(self, lat: float, lng: float) -> dict:
+    def get_observation_map(self, lat: float, lng: float, region_id: str | None = None) -> dict:
         return self._response
 
 

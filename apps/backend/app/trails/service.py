@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from app.regions import registry
 from app.suitability.providers.light_pollution import LightPollutionProvider
 from app.suitability.service import get_suitability_service
 from app.trails import durunubi, tourapi
@@ -22,8 +23,6 @@ def match_region(place_tokens: list[str], courses: list[dict]) -> list[dict]:
     return matched
 
 
-DEFAULT_REGION_LABEL = "인천 강화군"
-DEFAULT_REGION_TOKENS = ["강화"]
 TOP_K = 5
 CANDIDATE_LIMIT = 15
 
@@ -43,14 +42,18 @@ class TrailsService:
         self.light_pollution_provider = light_pollution_provider or LightPollutionProvider()
         self.suitability_service = suitability_service or get_suitability_service()
 
-    def get_trails(self, lat: float, lng: float) -> dict:
+    def get_trails(self, lat: float, lng: float, region_id: str | None = None) -> dict:
+        region = registry.get(region_id) if region_id else None
+        if region is None:
+            region = registry.nearest(lat, lng)
+
         all_courses = self.fetch_courses()
         if not all_courses:
-            return {"region": DEFAULT_REGION_LABEL, "degraded": True, "courses": []}
+            return {"region": region.label, "degraded": True, "courses": []}
 
-        matched = match_region(DEFAULT_REGION_TOKENS, all_courses)
+        matched = match_region(region.trail_tokens, all_courses)
         if not matched:
-            return {"region": DEFAULT_REGION_LABEL, "degraded": True, "courses": []}
+            return {"region": region.label, "degraded": True, "courses": []}
 
         candidates = sorted(matched, key=lambda course: course["crsIdx"])[:CANDIDATE_LIMIT]
 
@@ -129,7 +132,7 @@ class TrailsService:
             except Exception:
                 course["nightSuitability"] = None
 
-        return {"region": DEFAULT_REGION_LABEL, "degraded": False, "courses": top}
+        return {"region": region.label, "degraded": False, "courses": top}
 
 
 def get_default_trails_service() -> TrailsService:

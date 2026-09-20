@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from app.observation.service import DEFAULT_REGION_LABEL, ObservationMapService
+from app.observation.service import ObservationMapService
 from app.suitability.providers.base import LayerReading
+
+_GANGHWA_LABEL = "인천 강화군"
 
 _RAW_BIRD_RECORD_1 = {
     "nameKo": "알락꼬리마도요",
@@ -140,4 +142,4 @@ def test_total_failure_returns_degraded_empty():
 
     result = service.get_observation_map(37.6, 126.4)
 
-    assert result == {"region": DEFAULT_REGION_LABEL, "degraded": True, "spots": []}
+    assert result == {"region": _GANGHWA_LABEL, "degraded": True, "spots": []}

@@ -46,7 +46,7 @@ class FakeTrailsService:
     def __init__(self, response: dict) -> None:
         self._response = response
 
-    def get_trails(self, lat: float, lng: float) -> dict:
+    def get_trails(self, lat: float, lng: float, region_id: str | None = None) -> dict:
         return self._response
 
 

@@ -27,7 +27,7 @@ from app.suitability.service import SuitabilityService, get_default_providers
 from app.species.wikipedia import fetch_species_summary
 from app.trails.durunubi import fetch_courses, fetch_gpx_endpoints
 from app.trails.durunubi_detail import fetch_course_detail
-from app.trails.service import DEFAULT_REGION_TOKENS, TrailsService
+from app.trails.service import TrailsService
 from app.trails.tourapi import fetch_nearby_food
 
 pytestmark = pytest.mark.skipif(

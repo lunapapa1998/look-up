@@ -12,6 +12,7 @@ router = APIRouter(prefix="/api/observation-map", tags=["observation-map"])
 def get_observation_map(
     lat: float = Query(..., ge=-90, le=90),
     lng: float = Query(..., ge=-180, le=180),
+    region: str | None = Query(None),
     service: ObservationMapService = Depends(get_observation_map_service),
 ) -> dict:
-    return service.get_observation_map(lat, lng)
+    return service.get_observation_map(lat, lng, region_id=region)
