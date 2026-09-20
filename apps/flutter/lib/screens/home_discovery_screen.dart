@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config.dart';
 import '../models/discovery.dart';
+import '../state/auth_providers.dart';
 import '../state/discovery_providers.dart';
 import '../widgets/app_header_logo.dart';
 import '../widgets/score_gauge.dart';
+import 'account_screen.dart';
 
 class HomeDiscoveryScreen extends ConsumerStatefulWidget {
   const HomeDiscoveryScreen({super.key, required this.onViewMapPressed});
@@ -58,6 +60,10 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
     final modeState = ref.watch(obsModeProvider);
     final currentMode = modeState.mode;
     final overviewAsync = ref.watch(discoveryProvider(currentMode));
+    final user = ref.watch(authUserProvider);
+    final displayName = (user?.displayName?.isNotEmpty ?? false)
+        ? user!.displayName!
+        : '관찰자';
     final hotspots = ref.watch(hotspotsProvider);
     final locationAsync = ref.watch(locationProvider);
     final locationLabel = locationAsync.when(
@@ -162,7 +168,15 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const CircleAvatar(child: Icon(Icons.person)),
+                    IconButton(
+                      tooltip: '내 계정',
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const AccountScreen(),
+                        ),
+                      ),
+                      icon: const CircleAvatar(child: Icon(Icons.person)),
+                    ),
                   ],
                 ),
               ),
@@ -179,7 +193,7 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                           children: [
                             const TextSpan(text: '하늘을 올려다보기 완벽한 하루예요, '),
                             TextSpan(
-                              text: '지은님',
+                              text: '$displayName님',
                               style: TextStyle(color: colorScheme.secondary),
                             ),
                           ],
