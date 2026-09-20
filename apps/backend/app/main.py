@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.routers import (
+    auth_kakao,
     badges,
     observation_map,
     observations,
@@ -14,6 +15,7 @@ from app.routers import (
 
 app = FastAPI()
 
+app.include_router(auth_kakao.router)
 app.include_router(observations.router)
 app.include_router(badges.router)
 app.include_router(species.router)

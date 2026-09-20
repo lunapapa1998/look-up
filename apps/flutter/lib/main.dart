@@ -2,14 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'auth/auth_bootstrap.dart';
 import 'models/discovery.dart' show ObsMode;
-import 'screens/app_shell.dart';
+import 'screens/auth_gate.dart';
+import 'state/auth_providers.dart';
 import 'state/discovery_providers.dart';
 import 'theme/app_theme.dart';
 import 'theme/scene_transition.dart';
 
-void main() {
-  runApp(const ProviderScope(child: MyApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Resolves to an UnavailableAuthRepository when auth is not configured, so
+  // the app still boots into guest-friendly exploration.
+  final auth = await initializeAuth();
+  runApp(
+    ProviderScope(
+      overrides: [authRepositoryProvider.overrideWithValue(auth)],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -106,7 +117,7 @@ class _MyAppState extends ConsumerState<MyApp>
                     reduceMotion: _activeReduceMotion,
                   ).transform(_controller.value),
           ),
-          home: const AppShell(),
+          home: const AuthGate(),
         );
       },
     );
