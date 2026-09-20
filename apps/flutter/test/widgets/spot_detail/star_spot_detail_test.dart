@@ -10,6 +10,8 @@ import 'package:lookup/models/observation_map.dart';
 import 'package:lookup/models/starlight_forecast.dart';
 import 'package:lookup/models/trails.dart';
 import 'package:lookup/state/discovery_providers.dart';
+import 'package:lookup/widgets/observation_spot_detail.dart';
+import 'package:lookup/widgets/score_gauge.dart';
 import 'package:lookup/widgets/spot_detail/star_spot_detail.dart';
 
 class _FakeStarlightApi implements StarlightApi {
@@ -217,5 +219,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('오늘 밤은 또렷이 보이는 대상이 적어요'), findsOneWidget);
+  });
+
+  testWidgets('star spot detail does not render the suitability score gauge', (
+    tester,
+  ) async {
+    await _pumpDetail(tester, _forecast());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ScoreGauge), findsNothing);
+    expect(find.byType(SuitabilityBlock), findsNothing);
   });
 }

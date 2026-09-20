@@ -12,7 +12,6 @@ import 'package:lookup/services/location_service.dart';
 import 'package:lookup/state/discovery_providers.dart';
 import 'package:lookup/widgets/night_sky_tag.dart';
 import 'package:lookup/widgets/observation_marker.dart';
-import 'package:lookup/widgets/score_gauge.dart';
 
 /// Pumps [ObservationMapScreen] wired to [observationMapApi]/[suitabilityApi]
 /// via provider overrides, mirroring the pattern in trails_wiring_test.dart.
@@ -191,30 +190,6 @@ void main() {
       // assertion.
       expect(find.textContaining('저어새'), findsWidgets);
       expect(find.textContaining('검은머리물떼새'), findsWidgets);
-    },
-  );
-
-  testWidgets(
-    'measurement/suitability separation: the star spot detail shows a ScoreGauge outside the NightSkyTag measurement subtree, with a Divider between them',
-    (tester) async {
-      await _pumpObservationMap(
-        tester,
-        observationMapApi: FakeObservationMapApi(),
-      );
-      await tester.pump();
-
-      await tester.tap(find.byKey(const Key('obsmap_spot_item_star-001')));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(ScoreGauge), findsOneWidget);
-      expect(find.byType(Divider), findsOneWidget);
-      expect(
-        find.descendant(
-          of: find.byType(NightSkyTag),
-          matching: find.byType(ScoreGauge),
-        ),
-        findsNothing,
-      );
     },
   );
 

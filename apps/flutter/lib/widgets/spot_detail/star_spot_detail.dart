@@ -6,13 +6,11 @@ import '../../models/starlight_forecast.dart';
 import '../../state/discovery_providers.dart';
 import '../../utils/spot_name.dart';
 import '../night_sky_tag.dart';
-import '../observation_spot_detail.dart';
 import '../tonight_sky_section.dart';
 
 /// Star spot detail body for the observation sheet's detail view: back
-/// header, the [NightSkyTag] measurement, then the shared
-/// [SuitabilityBlock] -- the star branch of [ObservationSpotDetail]'s kind
-/// switch.
+/// header, the [NightSkyTag] measurement, then the golden-time and
+/// tonight-sky forecast content.
 class StarSpotDetail extends ConsumerWidget {
   const StarSpotDetail({
     super.key,
@@ -71,8 +69,6 @@ class StarSpotDetail extends ConsumerWidget {
           loading: () => const _GoldenTimeSkeleton(),
           error: (err, st) => const SizedBox.shrink(),
         ),
-        const Divider(height: 32),
-        SuitabilityBlock(spot: spot),
       ],
     );
   }

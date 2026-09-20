@@ -74,7 +74,8 @@ class ObservationSpotDetail extends StatelessWidget {
 
 /// 0-100 suitability score gauge shown below the measurement block, for
 /// every kind except heritage (an observation-fitness gauge doesn't apply
-/// to a restaurant). Shared by [BirdSpotDetail] and [StarSpotDetail].
+/// to a restaurant). Used by [BirdSpotDetail] and other non-heritage spot
+/// kinds.
 class SuitabilityBlock extends ConsumerWidget {
   const SuitabilityBlock({super.key, required this.spot});
 
