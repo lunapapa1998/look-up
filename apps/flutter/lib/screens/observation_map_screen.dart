@@ -31,7 +31,7 @@ class ObservationMapScreen extends ConsumerStatefulWidget {
 
 class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   final MapController _mapController = MapController();
-  final Set<String> _activeKinds = {'bird', 'star', 'heritage'};
+  final Set<String> _activeKinds = {'bird', 'star', 'heritage', 'trail'};
   late final DraggableScrollableController _sheetController =
       DraggableScrollableController();
   final LayerHitNotifier<TrailTrack> _trailHitNotifier = ValueNotifier(null);

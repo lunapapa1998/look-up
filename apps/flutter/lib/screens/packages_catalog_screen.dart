@@ -31,7 +31,7 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
             Text('패키지 이용 안내', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppSpacing.md),
             const Text(
-              '현재는 Figma 시안의 예시 패키지입니다. 일정·가격·교통·혜택·인증·환경 지표는 실제 상품이나 실시간 정보가 아닙니다.\n\n예약 미리보기에서 희망 날짜와 인원에 따른 예시 금액을 확인할 수 있습니다. 실제 예약·결제·상담 접수는 지원하지 않습니다.',
+              '현재는 예시 패키지입니다. 일정·가격·교통·혜택·인증·환경 지표는 실제 상품이나 실시간 정보가 아닙니다.\n\n예약 미리보기에서 희망 날짜와 인원에 따른 예시 금액을 확인할 수 있습니다. 실제 예약·결제·상담 접수는 지원하지 않습니다.',
             ),
             const SizedBox(height: AppSpacing.lg),
             Align(
@@ -75,27 +75,6 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
                   ),
                 ),
               ],
-            ),
-            const Spacer(),
-            Flexible(
-              child: Text(
-                '낮-밤 패키지',
-                style: text.labelMedium,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            IconButton(
-              key: const Key('packages_header_help'),
-              tooltip: '패키지 이용 안내',
-              onPressed: _showHelp,
-              icon: ClipOval(
-                child: Image.asset(
-                  'assets/packages/profile.png',
-                  width: 32,
-                  height: 32,
-                  excludeFromSemantics: true,
-                ),
-              ),
             ),
           ],
         ),
@@ -153,7 +132,7 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
               SliverPadding(
                 padding: const EdgeInsets.all(AppSpacing.page),
                 sliver: SliverToBoxAdapter(
-                  child: Text('이 유형의 예시 패키지가 없어요', style: text.bodyMedium),
+                  child: Text('이 유형의 패키지가 없어요', style: text.bodyMedium),
                 ),
               ),
             SliverPadding(
@@ -217,7 +196,7 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text('예시 패키지 · 서비스 준비 중', style: text.bodySmall),
+                  child: Text('패키지 · 서비스 준비 중', style: text.bodySmall),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 FilledButton(
@@ -261,58 +240,6 @@ class _PackagesIntro extends StatelessWidget {
           style: text.bodySmall?.copyWith(
             color: colors.onSurfaceVariant,
             height: 1.6,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            color: colors.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '시안 예시 · 실시간 데이터가 아닙니다',
-                style: text.labelSmall?.copyWith(color: colors.secondary),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              LayoutBuilder(
-                builder: (context, constraints) => Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.md,
-                  children: [
-                    for (final value in [
-                      ('Bortle Scale', 'Class 2~3', '암흑 하늘 · 예시'),
-                      ('Avian Index', '98.4%', '철새 지표 · 예시'),
-                      ('Transit', '공유 셔틀', '교통 구성 · 예시'),
-                    ])
-                      SizedBox(
-                        width: MediaQuery.textScalerOf(context).scale(1) > 1.3
-                            ? constraints.maxWidth
-                            : (constraints.maxWidth - AppSpacing.sm * 2) / 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(value.$1, style: text.labelSmall),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              value.$2,
-                              style: text.titleSmall?.copyWith(
-                                color: colors.secondary,
-                              ),
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(value.$3, style: text.bodySmall),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
           ),
         ),
       ],
