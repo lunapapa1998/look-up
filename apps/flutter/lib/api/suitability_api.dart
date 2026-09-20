@@ -79,6 +79,7 @@ class FakeSuitabilityApi implements SuitabilityApi {
   final Moon? moonOverride;
   final bool includeMoon;
   final bool weatherRefreshing;
+  final String? nightSkyStatusOverride;
 
   FakeSuitabilityApi({
     this.degraded = false,
@@ -87,6 +88,7 @@ class FakeSuitabilityApi implements SuitabilityApi {
     this.moonOverride,
     this.includeMoon = true,
     this.weatherRefreshing = false,
+    this.nightSkyStatusOverride,
   });
 
   static const _dayMoon = Moon(
@@ -131,21 +133,21 @@ class FakeSuitabilityApi implements SuitabilityApi {
       throw SuitabilityApiException(500, 'fake failure');
     }
     final suitabilityIndex = mode == ObsMode.day
-        ? const SuitabilityIndex(
+        ? SuitabilityIndex(
             score: 88,
             label: '매우 쾌적 (Prime)',
             sqmValue: 21.6,
             skyClass: 'Class 2 최적 다크스카이',
             bortleClass: 2,
-            nightSkyStatus: 'live',
+            nightSkyStatus: nightSkyStatusOverride ?? 'live',
           )
-        : const SuitabilityIndex(
+        : SuitabilityIndex(
             score: 92,
             label: '천체관측 최적 (Prime)',
             sqmValue: 21.9,
             skyClass: 'Class 1 최고 다크스카이',
             bortleClass: 1,
-            nightSkyStatus: 'live',
+            nightSkyStatus: nightSkyStatusOverride ?? 'live',
           );
     final telemetry = mode == ObsMode.day
         ? const [

@@ -7,6 +7,7 @@ import '../models/trails.dart';
 import '../state/auth_providers.dart';
 import '../state/discovery_providers.dart';
 import '../widgets/app_header_logo.dart';
+import '../widgets/night_sky_scale.dart';
 import '../widgets/night_sky_tag.dart';
 import '../widgets/score_gauge.dart';
 import 'account_screen.dart';
@@ -435,11 +436,15 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                               ],
                                             ),
                                           ),
-                                          ConstrainedBox(
-                                            constraints: const BoxConstraints(
-                                              maxWidth: 170,
-                                            ),
-                                            child: NightSkyTag(
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    _StaggerReveal(
+                                      controller: _staggerController,
+                                      startMs: 100,
+                                      child: currentMode == ObsMode.night
+                                          ? _NightSkySection(
                                               nightSky: NightSky(
                                                 sqmValue: overview
                                                     .suitabilityIndex
@@ -454,11 +459,23 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                                     .suitabilityIndex
                                                     .nightSkyStatus,
                                               ),
-                                              large: false,
+                                            )
+                                          : _NightSkyDayLine(
+                                              nightSky: NightSky(
+                                                sqmValue: overview
+                                                    .suitabilityIndex
+                                                    .sqmValue,
+                                                bortleClass: overview
+                                                    .suitabilityIndex
+                                                    .bortleClass,
+                                                skyClass: overview
+                                                    .suitabilityIndex
+                                                    .skyClass,
+                                                status: overview
+                                                    .suitabilityIndex
+                                                    .nightSkyStatus,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
                                     ),
                                     const SizedBox(height: 16),
                                     _StaggerReveal(
@@ -1293,6 +1310,164 @@ class _TodayMoonSection extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+Color _nightSkyTierColor(int filledStars, ColorScheme colorScheme) {
+  if (filledStars >= 4) return colorScheme.tertiary;
+  if (filledStars == 3) return colorScheme.onSurfaceVariant;
+  if (filledStars >= 1) return Colors.amber;
+  return colorScheme.outline;
+}
+
+class _NightSkySection extends StatelessWidget {
+  const _NightSkySection({required this.nightSky});
+
+  final NightSky nightSky;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final display = mapNightSky(
+      bortleClass: nightSky.bortleClass,
+      status: nightSky.status ?? '',
+    );
+    final tierColor = _nightSkyTierColor(display.filledStars, colorScheme);
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 27,
+            child: Icon(
+              Icons.auto_awesome,
+              size: 28,
+              color: display.hasNoData
+                  ? colorScheme.outline
+                  : display.isApprox
+                  ? tierColor.withValues(alpha: 0.6)
+                  : tierColor,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: display.hasNoData
+                  ? const [Text('밤하늘 밝기 정보 없음')]
+                  : [
+                      Text(
+                        '별밝기 · ${display.label}',
+                        style: textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (display.expectation.isNotEmpty)
+                        Text(
+                          display.expectation,
+                          style: textTheme.bodySmall,
+                        ),
+                      if (display.isApprox)
+                        Text('추정치', style: textTheme.labelSmall),
+                    ],
+            ),
+          ),
+          if (!display.hasNoData)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(5, (index) {
+                    final filled = index < display.filledStars;
+                    return Icon(
+                      Icons.auto_awesome,
+                      size: 12,
+                      color: filled
+                          ? (display.isApprox
+                                ? tierColor.withValues(alpha: 0.6)
+                                : tierColor)
+                          : colorScheme.outline.withValues(alpha: 0.3),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 4),
+                NightSkyInfoButton(nightSky: nightSky),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NightSkyDayLine extends StatelessWidget {
+  const _NightSkyDayLine({required this.nightSky});
+
+  final NightSky nightSky;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final display = mapNightSky(
+      bortleClass: nightSky.bortleClass,
+      status: nightSky.status ?? '',
+    );
+    final tierColor = _nightSkyTierColor(display.filledStars, colorScheme);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Row(
+        children: [
+          Icon(
+            Icons.auto_awesome,
+            size: 16,
+            color: display.hasNoData ? colorScheme.outline : tierColor,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              display.hasNoData
+                  ? '오늘 밤 · 밤하늘 밝기 정보 없음'
+                  : '오늘 밤 · ${display.label}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.bodyMedium,
+            ),
+          ),
+          if (!display.hasNoData) ...[
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var index = 0; index < 5; index++) ...[
+                  if (index > 0) const SizedBox(width: 2),
+                  Icon(
+                    Icons.auto_awesome,
+                    size: 10,
+                    color: index < display.filledStars
+                        ? (display.isApprox
+                              ? tierColor.withValues(alpha: 0.6)
+                              : tierColor)
+                        : colorScheme.outline.withValues(alpha: 0.3),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(width: 4),
+            NightSkyInfoButton(nightSky: nightSky),
+          ],
         ],
       ),
     );

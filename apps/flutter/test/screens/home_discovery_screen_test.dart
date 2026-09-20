@@ -7,6 +7,7 @@ import 'package:lookup/models/discovery.dart';
 import 'package:lookup/screens/home_discovery_screen.dart';
 import 'package:lookup/services/location_service.dart';
 import 'package:lookup/state/discovery_providers.dart';
+import 'package:lookup/widgets/night_sky_tag.dart';
 
 void main() {
   testWidgets('renders suitability score, golden hours and telemetry', (
@@ -208,9 +209,229 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('별이 쏟아져요'), findsWidgets);
+    expect(find.textContaining('별이 쏟아져요'), findsWidgets);
     expect(find.textContaining('SQM 21.6'), findsNothing);
     expect(find.text('Class 2 최적 다크스카이'), findsNothing);
+    expect(find.byType(NightSkyTag), findsNothing);
+  });
+
+  testWidgets('night mode shows night sky section between score and golden hours', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    await tester.dragUntilVisible(
+      find.byKey(const Key('focusModeNightSegment')),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
+
+    await tester.tap(find.byKey(const Key('focusModeNightSegment')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('별밝기 ·'), findsOneWidget);
+
+    final scoreDy = tester.getTopLeft(find.text('92')).dy;
+    final nightSkyDy = tester.getTopLeft(find.textContaining('별밝기 ·')).dy;
+    final goldenHourDy = tester.getTopLeft(find.text('21:40 - 01:20').first).dy;
+
+    expect(nightSkyDy, greaterThan(scoreDy));
+    expect(nightSkyDy, lessThan(goldenHourDy));
+  });
+
+  testWidgets('night mode orders score then night sky then golden hours then moon', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    await tester.dragUntilVisible(
+      find.byKey(const Key('focusModeNightSegment')),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
+
+    await tester.tap(find.byKey(const Key('focusModeNightSegment')));
+    await tester.pumpAndSettle();
+
+    await tester.dragUntilVisible(
+      find.textContaining('오늘의 달'),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
+
+    final scoreDy = tester.getTopLeft(find.text('92')).dy;
+    final nightSkyDy = tester.getTopLeft(find.textContaining('별밝기 ·')).dy;
+    final goldenHourDy =
+        tester.getTopLeft(find.text('21:40 - 01:20').first).dy;
+    final moonDy = tester.getTopLeft(find.textContaining('오늘의 달')).dy;
+
+    expect(nightSkyDy, greaterThan(scoreDy));
+    expect(goldenHourDy, greaterThan(nightSkyDy));
+    expect(moonDy, greaterThan(goldenHourDy));
+  });
+
+  testWidgets('day mode shows tonight night sky line with mini scale', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.textContaining('오늘 밤 ·'), findsWidgets);
+    expect(find.byType(NightSkyInfoButton), findsWidgets);
+  });
+
+  testWidgets('approx night sky shows dimmed stars and label', (tester) async {
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(
+          FakeSuitabilityApi(nightSkyStatusOverride: 'approx'),
+        ),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    await tester.dragUntilVisible(
+      find.byKey(const Key('focusModeNightSegment')),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
+
+    await tester.tap(find.byKey(const Key('focusModeNightSegment')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('추정치'), findsWidgets);
+  });
+
+  testWidgets('no data night sky hides stars and info button', (tester) async {
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(
+          FakeSuitabilityApi(nightSkyStatusOverride: 'none'),
+        ),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    await tester.dragUntilVisible(
+      find.byKey(const Key('focusModeNightSegment')),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
+
+    await tester.tap(find.byKey(const Key('focusModeNightSegment')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('밤하늘 밝기 정보 없음'), findsWidgets);
+    expect(find.byType(NightSkyInfoButton), findsNothing);
   });
 
   testWidgets('does not overflow at narrow surface widths', (tester) async {

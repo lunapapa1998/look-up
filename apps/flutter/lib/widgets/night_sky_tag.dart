@@ -20,7 +20,7 @@ String _buildSemanticsLabel(NightSkyDisplay display) {
   return parts.join(', ');
 }
 
-void _showNightSkyInfoSheet(BuildContext context) {
+void showNightSkyInfoSheet(BuildContext context, NightSky nightSky) {
   showModalBottomSheet<void>(
     context: context,
     builder: (context) => Padding(
@@ -28,22 +28,29 @@ void _showNightSkyInfoSheet(BuildContext context) {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text('SQM과 Bortle 등급이란?', style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(height: 8),
-          Text('SQM은 밤하늘의 밝기를 측정한 값으로, 숫자가 높을수록 하늘이 더 어둡고 별이 잘 보여요.'),
-          SizedBox(height: 4),
-          Text('Bortle 등급은 빛공해 정도를 1~9단계로 나눈 지표로, 낮을수록 별을 관측하기 좋아요.'),
-          SizedBox(height: 4),
-          Text('두 값은 위성 데이터를 기반으로 추정한 값일 수 있어 실제와 다소 차이가 있을 수 있어요.'),
+        children: [
+          const Text('SQM과 Bortle 등급이란?', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text('SQM은 밤하늘의 밝기를 측정한 값으로, 숫자가 높을수록 하늘이 더 어둡고 별이 잘 보여요.'),
+          const SizedBox(height: 4),
+          const Text('Bortle 등급은 빛공해 정도를 1~9단계로 나눈 지표로, 낮을수록 별을 관측하기 좋아요.'),
+          const SizedBox(height: 4),
+          const Text('두 값은 위성 데이터를 기반으로 추정한 값일 수 있어 실제와 다소 차이가 있을 수 있어요.'),
+          const Divider(height: 24),
+          Text(
+            '현재 측정값: SQM ${nightSky.sqmValue.toStringAsFixed(2)} · Bortle ${nightSky.bortleClass}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     ),
   );
 }
 
-class _NightSkyInfoButton extends StatelessWidget {
-  const _NightSkyInfoButton();
+class NightSkyInfoButton extends StatelessWidget {
+  const NightSkyInfoButton({super.key, required this.nightSky});
+
+  final NightSky nightSky;
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +61,7 @@ class _NightSkyInfoButton extends StatelessWidget {
         width: 44,
         height: 44,
         child: InkWell(
-          onTap: () => _showNightSkyInfoSheet(context),
+          onTap: () => showNightSkyInfoSheet(context, nightSky),
           customBorder: const CircleBorder(),
           child: Center(
             child: Icon(
@@ -199,7 +206,7 @@ class NightSkyTag extends StatelessWidget {
                   ),
                 ),
               ),
-              if (!display.hasNoData) const _NightSkyInfoButton(),
+              if (!display.hasNoData) NightSkyInfoButton(nightSky: nightSky),
             ],
           ),
           if (large && !display.hasNoData)
