@@ -35,6 +35,11 @@ Future<ProviderContainer> _pumpTrails(
   );
   addTearDown(container.dispose);
 
+  tester.view.physicalSize = const Size(800, 1400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
@@ -176,8 +181,16 @@ void main() {
             )
             .first,
       );
-      expect(find.text('SQM 18.20'), findsOneWidget);
-      expect(find.text('Class 4 도시외곽 다크스카이'), findsOneWidget);
+      final secondCourseCard = find.byKey(
+        const Key('trail_course_T_CRS_MNG0000008888'),
+      );
+      expect(
+        find.descendant(
+          of: secondCourseCard,
+          matching: find.text('별이 잘 보여요'),
+        ),
+        findsOneWidget,
+      );
     },
   );
 
@@ -287,19 +300,35 @@ void main() {
   );
 
   testWidgets(
-    'single source of truth: the featured course SQM text matches on both the catalog and detail screens',
+    'single source of truth: the featured course night-sky label matches on both the catalog and detail screens',
     (tester) async {
       await _pumpTrails(tester, api: FakeTrailsApi());
       await tester.pump();
 
-      expect(find.text('SQM 20.15'), findsOneWidget);
+      final featuredCard = find.byKey(
+        const Key('trail_course_T_CRS_MNG0000009999'),
+      );
+      expect(
+        find.descendant(
+          of: featuredCard,
+          matching: find.text('별이 잘 보여요'),
+        ),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byType(CourseCard).first);
       await tester.pumpAndSettle();
 
       final detail = find.byType(CourseDetailScreen);
       expect(
-        find.descendant(of: detail, matching: find.text('SQM 20.15')),
+        find.descendant(of: detail, matching: find.text('별이 잘 보여요')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: detail,
+          matching: find.textContaining('SQM 20.15'),
+        ),
         findsOneWidget,
       );
     },

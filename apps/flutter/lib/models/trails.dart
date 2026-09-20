@@ -19,7 +19,7 @@ class NightSky {
   final double sqmValue;
   final int bortleClass;
   final String skyClass;
-  final String status;
+  final String? status;
 
   const NightSky({
     required this.sqmValue,
@@ -33,7 +33,7 @@ class NightSky {
       sqmValue: (json['sqmValue'] as num).toDouble(),
       bortleClass: json['bortleClass'] as int,
       skyClass: json['skyClass'] as String,
-      status: json['status'] as String,
+      status: json['status'] as String?,
     );
   }
 }
