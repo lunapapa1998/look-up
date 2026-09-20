@@ -133,7 +133,7 @@ void main() {
   );
 
   testWidgets(
-    'layer chip toggle: turning a chip off flips its selected state, and turning all three off shows the layer-selection prompt',
+    'layer chip toggle: turning a chip off flips its selected state, and turning all four off shows the layer-selection prompt',
     (tester) async {
       await _pumpObservationMap(
         tester,
@@ -161,6 +161,8 @@ void main() {
       await tester.tap(find.byKey(const Key('obsmap_chip_star')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('obsmap_chip_heritage')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('obsmap_chip_trail')));
       await tester.pump();
 
       expect(find.text('표시할 레이어를 선택하세요'), findsOneWidget);

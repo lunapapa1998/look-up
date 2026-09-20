@@ -528,23 +528,20 @@ void main() {
   });
 
   group('Phase 2b: trail layer chip and polylines', () {
-    testWidgets('trail layer defaults off', (tester) async {
+    testWidgets('trail layer defaults on', (tester) async {
       await _pumpTrailMapScreen(tester);
       await tester.pump();
 
       final chip = tester.widget<FilterChip>(
         find.byKey(const Key('obsmap_chip_trail')),
       );
-      expect(chip.selected, isFalse);
+      expect(chip.selected, isTrue);
     });
 
     testWidgets(
-      'toggling the trail chip renders trailhead markers without throwing',
+      'the active trail layer renders trailhead markers without throwing',
       (tester) async {
         await _pumpTrailMapScreen(tester);
-        await tester.pump();
-
-        await tester.tap(find.byKey(const Key('obsmap_chip_trail')));
         await tester.pumpAndSettle();
 
         expect(
@@ -563,9 +560,6 @@ void main() {
           tester,
           gpxApi: FakeGpxApi(shouldThrow: true),
         );
-        await tester.pump();
-
-        await tester.tap(find.byKey(const Key('obsmap_chip_trail')));
         await tester.pumpAndSettle();
 
         expect(
@@ -922,7 +916,7 @@ void main() {
     });
 
     testWidgets(
-      'initial state (trail excluded) leaves the "전체" chip unselected',
+      'initial state (all layers on) selects the "전체" chip',
       (tester) async {
         await _pumpTrailMapScreen(tester);
         await tester.pump();
@@ -930,16 +924,20 @@ void main() {
         final chip = tester.widget<FilterChip>(
           find.byKey(const Key('obsmap_chip_all')),
         );
-        expect(chip.selected, isFalse);
+        expect(chip.selected, isTrue);
       },
     );
 
     testWidgets(
-      'tapping the "전체" chip also selects the trail chip (all 4 layers on)',
+      'tapping the "전체" chip back on selects the trail chip (all 4 layers on)',
       (tester) async {
         await _pumpTrailMapScreen(tester);
         await tester.pump();
 
+        // Default is all-on; tapping "전체" clears every layer, tapping it
+        // again turns all four (including trail) back on.
+        await tester.tap(find.byKey(const Key('obsmap_chip_all')));
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const Key('obsmap_chip_all')));
         await tester.pumpAndSettle();
 
@@ -951,14 +949,11 @@ void main() {
     );
 
     testWidgets(
-      'tapping the "전체" chip again while all layers are on clears every '
+      'tapping the "전체" chip while all layers are on clears every '
       'layer and shows the "표시할 레이어를 선택하세요" empty-layer banner',
       (tester) async {
         await _pumpTrailMapScreen(tester);
         await tester.pump();
-
-        await tester.tap(find.byKey(const Key('obsmap_chip_all')));
-        await tester.pumpAndSettle();
 
         await tester.tap(find.byKey(const Key('obsmap_chip_all')));
         await tester.pumpAndSettle();
@@ -1056,6 +1051,12 @@ void main() {
             observationMapApi: _TwoBirdSpotsApi(),
           );
           await tester.pump();
+
+          // Turn the (now default-on) trail layer off so the map auto-fits to
+          // the bird spots only, keeping both bird markers on-screen for this
+          // scatter-timing test.
+          await tester.tap(find.byKey(const Key('obsmap_chip_trail')));
+          await tester.pumpAndSettle();
 
           await tester.tap(find.byKey(const Key('obsmap_spot_item_bird-001')));
           await tester.pumpAndSettle();

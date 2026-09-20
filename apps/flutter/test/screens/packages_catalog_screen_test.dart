@@ -76,7 +76,7 @@ void main() {
     await pumpPackages(tester, packages: [exampleStayPackages.first]);
     await tester.tap(find.byKey(const Key('packages_filter_coastal')));
     await tester.pumpAndSettle();
-    expect(find.text('이 유형의 예시 패키지가 없어요'), findsOneWidget);
+    expect(find.text('이 유형의 패키지가 없어요'), findsOneWidget);
     expect(find.byType(PackageCard), findsNothing);
     await tester.tap(find.byKey(const Key('packages_filter_all')));
     await tester.pumpAndSettle();
@@ -87,7 +87,7 @@ void main() {
     'help identifies sample prices and unavailable real reservation',
     (tester) async {
       await pumpPackages(tester);
-      expect(find.text('시안 예시 · 실시간 데이터가 아닙니다'), findsOneWidget);
+      expect(find.text('패키지 · 서비스 준비 중'), findsOneWidget);
       await tester.tap(find.byKey(const Key('packages_help')));
       await tester.pumpAndSettle();
       expect(find.text('패키지 이용 안내'), findsOneWidget);
@@ -148,7 +148,7 @@ void main() {
         expect(tester.takeException(), isNull);
         await reveal(tester, find.text('시민과학 기록 노트'));
         expect(tester.takeException(), isNull);
-        await reveal(tester, find.text('탄소 배출 절감 · 예시'));
+        await reveal(tester, find.text('탄소 배출 절감'));
         expect(tester.takeException(), isNull);
         await tester.tap(find.byKey(const Key('packages_help')));
         await tester.pumpAndSettle();
