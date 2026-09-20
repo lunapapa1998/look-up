@@ -18,7 +18,9 @@ _BORTLE_THRESHOLDS: list[tuple[float, int]] = [
     (18.38, 8),
 ]
 
+_ARTIFICIAL_LIGHT_REFERENCE_MCD = 108000000
 _NATURAL_SKY_SQM = 22.0
+_NATURAL_BRIGHTNESS_MCD = _ARTIFICIAL_LIGHT_REFERENCE_MCD * 10 ** (-0.4 * _NATURAL_SKY_SQM)
 
 _BORTLE_DESCRIPTIONS: list[tuple[int, str]] = [
     (2, "최적 다크스카이"),
@@ -36,9 +38,8 @@ def sqm_to_bortle(sqm: float) -> int:
 
 
 def brightness_to_sqm(brightness_mcd_per_m2: float) -> float:
-    if brightness_mcd_per_m2 <= 0:
-        return _NATURAL_SKY_SQM
-    return math.log10(brightness_mcd_per_m2 / 108000000) / -0.4
+    total = max(brightness_mcd_per_m2, 0.0) + _NATURAL_BRIGHTNESS_MCD
+    return math.log10(total / _ARTIFICIAL_LIGHT_REFERENCE_MCD) / -0.4
 
 
 def bortle_description(bortle_class: int) -> str:

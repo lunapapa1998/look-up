@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+
 from app.suitability.lightpollution.convert import (
     bortle_description,
     brightness_to_sqm,
@@ -67,6 +69,23 @@ def test_brightness_to_sqm_negative_returns_natural_sky_value():
 def test_brightness_to_sqm_positive_returns_float_without_raising():
     result = brightness_to_sqm(5.0)
     assert isinstance(result, float)
+
+
+def test_brightness_to_sqm_small_positive_stays_below_natural_ceiling():
+    result = brightness_to_sqm(0.05)
+    assert result < 22.0
+    assert result > 20.0
+
+
+def test_brightness_to_sqm_never_exceeds_natural_ceiling():
+    for brightness in (0.0001, 0.001, 0.01, 0.1, 1, 10, 100, 1000, 10000, 100000, 1000000):
+        assert brightness_to_sqm(brightness) <= 22.0 + 1e-9
+
+
+def test_brightness_to_sqm_bright_city_matches_old_formula():
+    brightness = 5000000
+    old_formula_result = math.log10(brightness / 108000000) / -0.4
+    assert abs(brightness_to_sqm(brightness) - old_formula_result) < 0.01
 
 
 def test_bortle_description_labels():
