@@ -54,7 +54,7 @@ const exampleStayPackages = [
     title: '강원 인제 — 비무장지대 두루미 & 곰배령 다크스카이',
     eyebrow: 'GANGWON INJE DMZ · 1 NIGHT 2 DAYS',
     imageAsset: 'assets/packages/inje.jpg',
-    badges: ['생태관광 인증 예시', '다크스카이 테마'],
+    badges: ['생태관광 인증', '다크스카이 테마'],
     benefits: ['입문용 관찰키트 무상대여', '로컬 노포 식음 바우처 20,000원', 'KTX 진부역 전기 셔틀 왕복'],
     transport: 'KTX + 연계 전기셔틀 포함',
     pricePerPerson: 128000,
@@ -62,13 +62,13 @@ const exampleStayPackages = [
       PackageStop(
         '14:00 DAY 1',
         '두루미·재두루미 군무 탐조',
-        '인제 평화생태 습지 갈대밭에서 전문 생태해설사와 동행하는 탐조 일정 예시.',
+        '인제 평화생태 습지 갈대밭에서 전문 생태해설사와 동행하는 탐조 일정.',
         PackageMoment.day,
       ),
       PackageStop(
         '18:00 SUNSET',
         '인제 황태구이 로컬 미식',
-        '자연 건조한 황태구이 정식으로 쉬어가는 석식과 연계 셔틀 일정 예시.',
+        '자연 건조한 황태구이 정식으로 쉬어가는 석식과 연계 셔틀 일정.',
         PackageMoment.sunset,
       ),
       PackageStop(
@@ -80,7 +80,7 @@ const exampleStayPackages = [
       PackageStop(
         '08:30 DAY 2',
         '아침 숲새 소리 & 자작나무 숲길',
-        '동고비와 쇠딱따구리 울음소리를 듣고 걷는 4km 숲길 트레킹 일정 예시.',
+        '동고비와 쇠딱따구리 울음소리를 듣고 걷는 4km 숲길 트레킹 일정.',
         PackageMoment.day,
       ),
     ],
@@ -99,13 +99,13 @@ const exampleStayPackages = [
       PackageStop(
         '13:30 DAY 1',
         '만조 갯벌 도요물떼새 관찰',
-        '밀물에 맞춰 모여드는 도요물떼새를 목재 관찰데크에서 만나는 탐조 일정 예시.',
+        '밀물에 맞춰 모여드는 도요물떼새를 목재 관찰데크에서 만나는 탐조 일정.',
         PackageMoment.day,
       ),
       PackageStop(
         '18:30 EVENING',
         '흑산도 숙성 홍어 & 제철 해산물',
-        '로컬 해초밥과 삼합을 함께 맛보는 섬 미식 일정 예시.',
+        '로컬 해초밥과 삼합을 함께 맛보는 섬 미식 일정.',
         PackageMoment.sunset,
       ),
       PackageStop(

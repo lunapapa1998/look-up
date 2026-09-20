@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'diary_list_screen.dart';
 import 'home_discovery_screen.dart';
 import 'observation_map_screen.dart';
 import 'packages_catalog_screen.dart';
 import 'trails_catalog_screen.dart';
 
-/// Bottom-navigation shell hosting the app's 5 top-level tabs.
+/// Bottom-navigation shell hosting the app's 4 top-level tabs.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -24,7 +23,6 @@ class _AppShellState extends State<AppShell> {
     const ObservationMapScreen(),
     const TrailsCatalogScreen(),
     const PackagesCatalogScreen(),
-    const DiaryListScreen(),
   ];
 
   @override
@@ -41,10 +39,6 @@ class _AppShellState extends State<AppShell> {
           NavigationDestination(icon: Icon(Icons.map), label: '관찰 지도'),
           NavigationDestination(icon: Icon(Icons.hiking), label: '트레일·노포'),
           NavigationDestination(icon: Icon(Icons.route), label: '낮-밤 패키지'),
-          NavigationDestination(
-            icon: Icon(Icons.auto_stories),
-            label: '내 생태일기',
-          ),
         ],
       ),
     );

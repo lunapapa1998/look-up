@@ -18,7 +18,7 @@ class PackageKitSection extends StatelessWidget {
         Text('체류자 전용 입문 키트', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          '시안의 대여 구성 예시 · 실제 대여 서비스는 준비 중입니다.',
+          '실제 대여 서비스는 준비 중입니다.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -104,7 +104,7 @@ class PackageImpactSection extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           Text('착한 체류, 지역을 생각하는 여행', style: text.titleLarge),
           const SizedBox(height: AppSpacing.sm),
-          Text('아래 수치는 시안 예시이며 검증된 실적이 아닙니다.', style: text.bodySmall),
+          Text('아래 수치는 예시이며 검증된 실적이 아닙니다.', style: text.bodySmall),
           const SizedBox(height: AppSpacing.lg),
           LayoutBuilder(
             builder: (context, constraints) => Wrap(
@@ -112,8 +112,8 @@ class PackageImpactSection extends StatelessWidget {
               runSpacing: AppSpacing.lg,
               children: [
                 for (final item in [
-                  ('68%', '지역 소상공인 기여 · 예시', colors.tertiary),
-                  ('52%', '탄소 배출 절감 · 예시', colors.secondary),
+                  ('68%', '지역 소상공인 기여', colors.tertiary),
+                  ('52%', '탄소 배출 절감', colors.secondary),
                 ])
                   SizedBox(
                     width:

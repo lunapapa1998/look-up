@@ -210,6 +210,48 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                     ],
                   ),
                   const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Text('지금 시선의 초점', style: textTheme.headlineSmall),
+                      const Spacer(),
+                      _buildFocusModeSourceBadge(colorScheme, modeState),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _FocusModeSegmentButton(
+                          buttonKey: const Key('focusModeDaySegment'),
+                          icon: Icons.light_mode,
+                          label: '낮의 새를 찾아서',
+                          active: currentMode == ObsMode.day,
+                          activeBackground: colorScheme.tertiary,
+                          activeForeground: colorScheme.onTertiary,
+                          semanticsLabel: '낮 모드로 전환합니다',
+                          onTap: () => ref
+                              .read(obsModeProvider.notifier)
+                              .setManual(ObsMode.day),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _FocusModeSegmentButton(
+                          buttonKey: const Key('focusModeNightSegment'),
+                          icon: Icons.nightlight_round,
+                          label: '밤의 별을 보러',
+                          active: currentMode == ObsMode.night,
+                          activeBackground: colorScheme.secondary,
+                          activeForeground: colorScheme.onSecondary,
+                          semanticsLabel: '밤 모드로 전환합니다',
+                          onTap: () => ref
+                              .read(obsModeProvider.notifier)
+                              .setManual(ObsMode.night),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
                   AnimatedSwitcher(
                     duration: modeTransitionDuration,
                     child: KeyedSubtree(
@@ -723,48 +765,6 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Text('지금 시선의 초점', style: textTheme.headlineSmall),
-                      const Spacer(),
-                      _buildFocusModeSourceBadge(colorScheme, modeState),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _FocusModeSegmentButton(
-                          buttonKey: const Key('focusModeDaySegment'),
-                          icon: Icons.light_mode,
-                          label: '낮의 새를 찾아서 (탐조)',
-                          active: currentMode == ObsMode.day,
-                          activeBackground: colorScheme.tertiary,
-                          activeForeground: colorScheme.onTertiary,
-                          semanticsLabel: '낮 모드로 전환합니다',
-                          onTap: () => ref
-                              .read(obsModeProvider.notifier)
-                              .setManual(ObsMode.day),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _FocusModeSegmentButton(
-                          buttonKey: const Key('focusModeNightSegment'),
-                          icon: Icons.nightlight_round,
-                          label: '밤의 별을 보러 (천체관측)',
-                          active: currentMode == ObsMode.night,
-                          activeBackground: colorScheme.secondary,
-                          activeForeground: colorScheme.onSecondary,
-                          semanticsLabel: '밤 모드로 전환합니다',
-                          onTap: () => ref
-                              .read(obsModeProvider.notifier)
-                              .setManual(ObsMode.night),
-                        ),
-                      ),
-                    ],
                   ),
                   const SizedBox(height: 20),
                   Text(

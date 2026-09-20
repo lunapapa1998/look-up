@@ -122,7 +122,7 @@ class PackageCard extends StatelessWidget {
                     final price = Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('예시 가격 · 1인', style: text.bodySmall),
+                        Text('가격 · 1인', style: text.bodySmall),
                         Text(
                           '${formatPackagePrice(package.pricePerPerson)}원',
                           style: text.titleLarge,
@@ -156,7 +156,7 @@ class PackageCard extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '시안 예시 상품 · 일정·가격·혜택 확정 전',
+                  '시안 상품 · 일정·가격·혜택 확정 전',
                   style: text.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),

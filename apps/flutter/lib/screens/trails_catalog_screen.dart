@@ -47,14 +47,6 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
                 ),
               ],
             ),
-            const Spacer(),
-            Flexible(
-              child: Text(
-                trails.valueOrNull?.region ?? '트레일·노포',
-                style: text.labelMedium,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
           ],
         ),
       ),
