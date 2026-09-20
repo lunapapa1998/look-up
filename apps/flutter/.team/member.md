@@ -2758,3 +2758,19 @@ DONE: flutter-engineer | apps/flutter/.team/member.md에 홈 화면 밤하늘 �
 ## star_spot_detail_test.dart: ScoreGauge/SuitabilityBlock 미렌더 회귀 가드 테스트 추가 (spec 050 후속, 2026-09-21)
 
 `test/widgets/spot_detail/star_spot_detail_test.dart` 상단 import에 `package:lookup/widgets/observation_spot_detail.dart`(`SuitabilityBlock`)와 `package:lookup/widgets/score_gauge.dart`(`ScoreGauge`) 2건 추가. `main()`의 기존 4개 testWidgets 블록(무변경) 뒤에 5번째 `star spot detail does not render the suitability score gauge` 테스트 신설 — `_pumpDetail(tester, _forecast())` + `pumpAndSettle()` 후 `find.byType(ScoreGauge)`/`find.byType(SuitabilityBlock)` 둘 다 `findsNothing`으로 확인, spec 050에서 `star_spot_detail.dart`가 두 위젯을 더 이상 렌더하지 않게 된 것을 고정하는 회귀 가드. 다른 테스트 블록/헬퍼는 무변경. 이 세션도 Bash 승인이 비대화형으로 차단되어 `flutter analyze`/`flutter test` 직접 실행 불가 — 정적 재확인 완료(두 클래스가 각각 `observation_spot_detail.dart:79`/`score_gauge.dart:5`에 존재함을 grep으로 확인, import 경로 일치). **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test test/widgets/spot_detail/star_spot_detail_test.dart` — 0 issues, 5개 테스트 전체 통과 기대.
+
+## home_discovery_screen.dart: _NightSkySection SQM/Bortle Row narrow-width overflow 수정 (2026-09-21)
+
+`home_discovery_screen.dart`의 `_NightSkySection` (class 시작 라인 1344) 내부, `SQM ... · Bortle ...` Text와 "추정치" 배지를 담은 `Row`(구 라인 1398-1413)가 원인 — 이 Row는 `Expanded`로 감싸인 `Column` 안에 있는데도 `mainAxisSize: MainAxisSize.min`으로 자식(Text)의 intrinsic 너비를 그대로 요구해, 좁은 화면(375x800)에서 SQM/Bortle 텍스트가 너무 길면 "추정치" 배지까지 포함한 전체 너비가 가용폭을 넘겨 `RenderFlex overflowed on the right` 발생. 수정: Row의 `mainAxisSize: MainAxisSize.min` 제거하고 SQM/Bortle `Text`를 `Flexible`로 감싼 뒤 `maxLines: 1`, `overflow: TextOverflow.ellipsis` 추가 — 배지("추정치")는 고정폭으로 유지되고 SQM/Bortle 텍스트만 좁을 때 생략 표시됨(표시 정보 자체는 그대로 유지, 폭만 축소). 같은 파일의 다른 `MainAxisSize.min` Row들(별점 아이콘 Row 등)은 자식이 고정폭 아이콘뿐이라 overflow 위험 없음을 확인; `_NightSkyDayLine`(구 라인 1450-)의 동일 정보 Row는 이미 `Expanded` + `Text.rich(maxLines:1, overflow:ellipsis)`로 안전하게 처리되어 있어 무변경. 이 세션도 Bash 승인이 비대화형으로 차단되어 `flutter test`/`flutter analyze` 직접 실행 불가 — 정적 재확인만 완료. **Pipeline validate stage must run** `cd apps/flutter && flutter test test/screens/home_discovery_screen_test.dart && flutter analyze lib/screens/home_discovery_screen.dart` — `does not overflow at narrow surface widths` 포함 전체 테스트 green, analyze 0 issues 기대.
+
+## _NightSkyDayLine: overflow-fix-probe-051 마커 주석 추가 (2026-09-21)
+
+`_NightSkyDayLine.build`(구 라인 1456) 본문 첫 줄에 `// overflow-fix-probe-051` 한 줄 추가 — spec 051 edit 파이프라인 검증용 프로브, 동작 변경 없음. 다른 라인은 무변경.
+
+## SliverAppBar title Row: probe 주석 제거 + Spacer/Flexible dual-flex overflow 수정 (spec 051, 2026-09-21)
+
+(1) `_NightSkyDayLine.build`(라인 1457) 첫 줄에 있던 임시 프로브 주석 `// overflow-fix-probe-051` 삭제, 그 자리는 원래대로 복원(빈 줄 없음). (2) `HomeDiscoveryScreen.build`의 `SliverAppBar` title `Row`(구 라인 146-173)에서 `const Spacer()`와 위치/지역 선택 칩을 감싸던 `Flexible`이 각각 flex:1을 나눠 갖던 dual-flex 50/50 분할을 제거 — 서브픽셀 반올림으로 두 flex share + 고정폭 자식 합이 가용폭을 근소하게 초과해 `RenderFlex overflowed` 발생 가능하던 구조. `Spacer()` 삭제하고, 칩을 감싸던 `Flexible`을 `Expanded(child: Align(alignment: Alignment.centerRight, child: <동일 Container>))`로 교체 — leftover width 계산이 Expanded 1개로만 이뤄져 반올림 오차 소지 제거, `Align(centerRight)`가 기존 `Spacer()`와 동일하게 칩을 우측 정렬 유지. 칩 `Container` 내부(Icon/Flexible-Text/Icon)는 완전히 무변경. `AppHeaderLogo`/타이틀 `Column`/`SizedBox`/계정 `IconButton` 등 Row의 다른 자식도 무변경. 이 세션도 Bash 승인이 비대화형으로 차단되어 `flutter analyze`/`flutter test` 직접 실행 불가 — 정적 재확인 완료(변경 구간 읽어 괄호/중괄호 균형 확인). **Pipeline validate stage must run** `cd apps/flutter && flutter analyze lib/screens/home_discovery_screen.dart && flutter test` — 0 issues, 기존 overflow 관련 테스트 전체 통과 기대.
+
+## `// overflow-fix-probe-051` 재확인 (2026-09-21): 이미 삭제되어 있음, 코드 변경 없음
+
+`_NightSkyDayLine.build`(현재 라인 1452~1460 부근)에서 `// overflow-fix-probe-051` 주석을 삭제해달라는 요청을 받아 확인했으나, 바로 위 항목("SliverAppBar title Row: probe 주석 제거...")에서 이미 삭제된 상태였음 — grep 결과 파일 전체에 해당 문자열 없음. 코드 변경 없이 사실 확인만 기록.

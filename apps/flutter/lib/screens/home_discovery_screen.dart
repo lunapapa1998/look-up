@@ -143,31 +143,33 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    Flexible(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.explore, size: 16),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                locationLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.explore, size: 16),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  locationLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                            ),
-                            const Icon(Icons.keyboard_arrow_down, size: 16),
-                          ],
+                              const Icon(Icons.keyboard_arrow_down, size: 16),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1396,13 +1398,16 @@ class _NightSkySection extends StatelessWidget {
                           style: textTheme.bodySmall,
                         ),
                       Row(
-                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Text(
-                            'SQM ${nightSky.sqmValue.toStringAsFixed(2)} · Bortle ${nightSky.bortleClass}',
-                            style: textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                          Flexible(
+                            child: Text(
+                              'SQM ${nightSky.sqmValue.toStringAsFixed(2)} · Bortle ${nightSky.bortleClass}',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (display.isApprox) ...[
