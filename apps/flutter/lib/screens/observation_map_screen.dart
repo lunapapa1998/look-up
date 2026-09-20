@@ -10,6 +10,7 @@ import '../config.dart';
 import '../models/discovery.dart';
 import '../models/observation_map.dart';
 import '../models/trails.dart';
+import '../services/location_service.dart';
 import '../state/discovery_providers.dart';
 import '../utils/bird_scatter.dart';
 import '../utils/observation_spot_filter.dart';
@@ -279,17 +280,36 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     });
   }
 
-  void _recenter() {
-    final location = ref.read(locationProvider).valueOrNull;
-    final lat = location?.lat ?? defaultObservationLat;
-    final lng = location?.lng ?? defaultObservationLng;
-    _mapController.move(LatLng(lat, lng), _mapController.camera.zoom);
-    _lastFetchCenter = LatLng(lat, lng);
+  /// Moves the map to the device's real GPS position and re-fetches spots
+  /// there. The app opens on Ganghwa (curated data); this fires only when the
+  /// user taps "내 위치", so it must resolve the actual device location rather
+  /// than the fixed default.
+  Future<void> _recenter() async {
+    final ObservationLocation location;
+    try {
+      location = await ref.read(locationServiceProvider).deviceLocation();
+    } on LocationUnavailableException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('현재 위치를 가져오지 못했어요')));
+      return;
+    }
+    if (!mounted) return;
+    final target = LatLng(location.lat, location.lng);
+    _mapController.move(target, _mapController.camera.zoom);
+    _lastFetchCenter = target;
     _skipNextAutoFit = true;
     setState(() => _showResearchButton = false);
-    ref
+    await ref
         .read(observationMapProvider.notifier)
-        .refreshAtCenter(lat: lat, lng: lng);
+        .refreshAtCenter(lat: location.lat, lng: location.lng);
   }
 
   /// Re-fetches observation-map data centered on the current camera position

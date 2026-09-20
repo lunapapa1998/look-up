@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/trails.dart';
 import '../theme/layout_tokens.dart';
 import '../state/discovery_providers.dart';
-import '../widgets/app_header_logo.dart';
+import '../widgets/app_sliver_header.dart';
 import '../widgets/course_card.dart';
 import '../utils/trail_format.dart';
 import 'course_detail_screen.dart';
@@ -26,35 +26,29 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        toolbarHeight: 64,
-        title: Row(
-          children: [
-            const AppHeaderLogo(),
-            const SizedBox(width: AppSpacing.sm),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('위를 봐요', style: text.titleMedium),
-                Text(
-                  'LOOK UP',
-                  style: text.labelSmall?.copyWith(
-                    color: colors.secondary,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
       body: SafeArea(
-        top: false,
+        bottom: false,
         child: trails.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, st) =>
-              _ErrorState(onRetry: () => ref.invalidate(trailsProvider)),
+          loading: () => const CustomScrollView(
+            slivers: [
+              AppSliverHeader(),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+          ),
+          error: (err, st) => CustomScrollView(
+            slivers: [
+              const AppSliverHeader(),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _ErrorState(
+                  onRetry: () => ref.invalidate(trailsProvider),
+                ),
+              ),
+            ],
+          ),
           data: (response) {
             final courses = response.courses;
             final eats = <String, (HeritageEat, TrailCourse)>{};
@@ -74,6 +68,7 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
             return CustomScrollView(
               key: const Key('trails_catalog_scroll'),
               slivers: [
+                const AppSliverHeader(),
                 const SliverPadding(
                   padding: EdgeInsets.fromLTRB(
                     AppSpacing.page,
@@ -189,23 +184,6 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           _RouteStops(course: courses.first),
-                          const SizedBox(height: AppSpacing.md),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              key: const Key('trail_gpx_open'),
-                              onPressed: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      TrailRouteScreen(course: courses.first),
-                                ),
-                              ),
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 14),
-                                child: Text('GPX 코스 지도 보기'),
-                              ),
-                            ),
-                          ),
                           const SizedBox(height: AppSpacing.xl),
                           const _SectionTitle(
                             eyebrow: 'LOCAL HERITAGE',

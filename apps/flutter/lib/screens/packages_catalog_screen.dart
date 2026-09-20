@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/stay_package.dart';
 import '../theme/layout_tokens.dart';
-import '../widgets/app_header_logo.dart';
+import '../widgets/app_sliver_header.dart';
 import '../widgets/packages/package_card.dart';
 import '../widgets/packages/package_extras.dart';
 import 'package_booking_preview_screen.dart';
@@ -55,36 +55,12 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
         .where((p) => _category == null || p.category == _category)
         .toList();
     return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        toolbarHeight: 64,
-        title: Row(
-          children: [
-            const AppHeaderLogo(),
-            const SizedBox(width: AppSpacing.sm),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('위를 봐요', style: text.titleMedium),
-                Text(
-                  'LOOK UP',
-                  style: text.labelSmall?.copyWith(
-                    color: colors.secondary,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
       body: SafeArea(
-        top: false,
         bottom: false,
         child: CustomScrollView(
           key: const Key('packages_scroll'),
           slivers: [
+            const AppSliverHeader(),
             const SliverPadding(
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.page,

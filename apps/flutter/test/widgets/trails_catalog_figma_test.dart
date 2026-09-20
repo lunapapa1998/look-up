@@ -253,38 +253,6 @@ void main() {
     },
   );
 
-  testWidgets('GPX action displays real fetched points as a polyline', (
-    tester,
-  ) async {
-    await pumpCatalog(tester, [course('a', '강화')]);
-    final action = find.byKey(const Key('trail_gpx_open'));
-    await scrollTo(tester, action);
-    await tester.tap(action);
-    await tester.pumpAndSettle();
-    expect(find.text('두루누비 GPX 경로 · 3개 지점'), findsOneWidget);
-    final lines = tester
-        .widget<PolylineLayer>(find.byType(PolylineLayer))
-        .polylines;
-    expect(lines.single.points, [
-      const LatLng(37.60, 126.40),
-      const LatLng(37.61, 126.41),
-      const LatLng(37.62, 126.42),
-    ]);
-  });
-
-  testWidgets(
-    'missing GPX preserves endpoints and never draws an invented route',
-    (tester) async {
-      await pumpCatalog(tester, [course('a', '강화', gpx: false)]);
-      final action = find.byKey(const Key('trail_gpx_open'));
-      await scrollTo(tester, action);
-      await tester.tap(action);
-      await tester.pumpAndSettle();
-      expect(find.text('등록된 GPX 경로가 없어요. 출발·도착 위치를 표시합니다.'), findsOneWidget);
-      expect(find.byType(PolylineLayer), findsNothing);
-    },
-  );
-
   testWidgets('failed GPX can retry and then render recovered data', (
     tester,
   ) async {

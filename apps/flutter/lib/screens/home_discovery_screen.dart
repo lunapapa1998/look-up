@@ -68,7 +68,6 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
     final displayName = (user?.displayName?.isNotEmpty ?? false)
         ? user!.displayName!
         : '관찰자';
-    final hotspots = ref.watch(hotspotsProvider);
     final locationAsync = ref.watch(locationProvider);
     final locationLabel = locationAsync.when(
       data: (loc) => loc.placeName ?? fallbackPlaceName,
@@ -114,13 +113,18 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () => _refreshDiscovery(currentMode),
-        child: CustomScrollView(
+        // Keep the notch/status-bar band fixed so scrolling content never
+        // slides under it; only the header below scrolls away.
+        child: SafeArea(
+          bottom: false,
+          child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverAppBar(
-              pinned: true,
-              floating: false,
-              snap: false,
+              primary: false,
+              pinned: false,
+              floating: true,
+              snap: true,
               toolbarHeight: 64,
               titleSpacing: 0,
               automaticallyImplyLeading: false,
@@ -167,7 +171,6 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const Icon(Icons.keyboard_arrow_down, size: 16),
                             ],
                           ),
                         ),
@@ -780,328 +783,11 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                     ),
                     const SizedBox(height: 16),
                   ],
-                  Text(
-                    'INTEGRATED RADAR',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: colorScheme.secondary,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '실시간 생태 · 성운 핫스팟',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textTheme.headlineMedium,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: widget.onViewMapPressed,
-                        child: Text(
-                          '지도에서 보기 →',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.outline,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _StaggerReveal(
-                    controller: _staggerController,
-                    startMs: 400,
-                    child: Column(
-                      children: hotspots
-                          .map(
-                            (hotspot) => Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: AnimatedOpacity(
-                                duration: modeTransitionDuration,
-                                opacity: hotspot.mode == currentMode
-                                    ? 1.0
-                                    : 0.45,
-                                child: Card(
-                                  clipBehavior: Clip.antiAlias,
-                                  color: colorScheme.surfaceContainer,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        height: 140,
-                                        width: double.infinity,
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topCenter,
-                                            end: Alignment.bottomCenter,
-                                            colors: [
-                                              colorScheme.surfaceContainerHigh,
-                                              colorScheme
-                                                  .surfaceContainerHighest,
-                                            ],
-                                          ),
-                                        ),
-                                        child: Stack(
-                                          children: [
-                                            Center(
-                                              child: Icon(
-                                                hotspot.mode == ObsMode.day
-                                                    ? Icons.landscape
-                                                    : Icons.nightlight,
-                                                size: 48,
-                                                color: colorScheme
-                                                    .onSurfaceVariant,
-                                              ),
-                                            ),
-                                            Positioned(
-                                              top: 8,
-                                              left: 8,
-                                              right: 8,
-                                              child: Wrap(
-                                                spacing: 6,
-                                                runSpacing: 6,
-                                                children: hotspot.badges
-                                                    .map(
-                                                      (b) => Container(
-                                                        padding:
-                                                            const EdgeInsets.symmetric(
-                                                              horizontal: 8,
-                                                              vertical: 4,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: colorScheme
-                                                              .surfaceContainerHighest,
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                6,
-                                                              ),
-                                                        ),
-                                                        child: Text(
-                                                          b,
-                                                          style: textTheme
-                                                              .labelSmall,
-                                                        ),
-                                                      ),
-                                                    )
-                                                    .toList(),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              top: 8,
-                                              right: 8,
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 4,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: colorScheme
-                                                      .surfaceContainerHighest,
-                                                  borderRadius:
-                                                      BorderRadius.circular(6),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    Icon(
-                                                      hotspot.scoreIcon,
-                                                      size: 14,
-                                                      color:
-                                                          hotspot.mode ==
-                                                              ObsMode.day
-                                                          ? colorScheme.tertiary
-                                                          : colorScheme
-                                                                .secondary,
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      '적합도 ${hotspot.suitabilityScore}점',
-                                                      style: textTheme
-                                                          .labelMedium
-                                                          ?.copyWith(
-                                                            color:
-                                                                hotspot.mode ==
-                                                                    ObsMode.day
-                                                                ? colorScheme
-                                                                      .tertiary
-                                                                : colorScheme
-                                                                      .secondary,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              bottom: 0,
-                                              left: 0,
-                                              right: 0,
-                                              child: Container(
-                                                padding: const EdgeInsets.all(
-                                                  8,
-                                                ),
-                                                color: colorScheme.scrim
-                                                    .withValues(alpha: 0.35),
-                                                child: Row(
-                                                  children: [
-                                                    Icon(
-                                                      hotspot.overlayIcon,
-                                                      size: 14,
-                                                      color:
-                                                          colorScheme.onSurface,
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .start,
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          Text(
-                                                            hotspot
-                                                                .overlayHeadline,
-                                                            style: textTheme
-                                                                .labelSmall
-                                                                ?.copyWith(
-                                                                  color: colorScheme
-                                                                      .onSurface,
-                                                                ),
-                                                          ),
-                                                          Text(
-                                                            hotspot
-                                                                .overlayTimestamp,
-                                                            style: textTheme
-                                                                .labelSmall
-                                                                ?.copyWith(
-                                                                  color: colorScheme
-                                                                      .onSurface
-                                                                      .withValues(
-                                                                        alpha:
-                                                                            0.7,
-                                                                      ),
-                                                                ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Padding(
-                                        padding: const EdgeInsets.all(16),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.location_on,
-                                                  size: 16,
-                                                  color: colorScheme.outline,
-                                                ),
-                                                const SizedBox(width: 4),
-                                                Expanded(
-                                                  child: Text(
-                                                    hotspot.title,
-                                                    style: textTheme.titleMedium
-                                                        ?.copyWith(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            Text(
-                                              hotspot.subtitle,
-                                              style: textTheme.bodySmall
-                                                  ?.copyWith(
-                                                    color: colorScheme.outline,
-                                                  ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              hotspot.description,
-                                              style: textTheme.bodyMedium
-                                                  ?.copyWith(
-                                                    color: colorScheme
-                                                        .onSurfaceVariant,
-                                                  ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Wrap(
-                                              spacing: 12,
-                                              runSpacing: 4,
-                                              children: hotspot.metas
-                                                  .map(
-                                                    (m) => Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        Icon(
-                                                          m.icon,
-                                                          size: 14,
-                                                          color: colorScheme
-                                                              .outline,
-                                                        ),
-                                                        const SizedBox(
-                                                          width: 4,
-                                                        ),
-                                                        Text(
-                                                          m.label,
-                                                          style: textTheme
-                                                              .bodySmall
-                                                              ?.copyWith(
-                                                                color: colorScheme
-                                                                    .onSurfaceVariant,
-                                                              ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  )
-                                                  .toList(),
-                                            ),
-                                            const SizedBox(height: 12),
-                                            Align(
-                                              alignment: Alignment.centerRight,
-                                              child: FilledButton(
-                                                onPressed: () {},
-                                                child: Text(hotspot.ctaLabel),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
                 ]),
               ),
             ),
           ],
+        ),
         ),
       ),
     );
