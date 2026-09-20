@@ -17,6 +17,7 @@ class _PendingTrailsApi implements TrailsApi {
   Future<TrailsResponse> fetchTrails({
     required double lat,
     required double lng,
+    String? region,
   }) {
     throw UnimplementedError();
   }
@@ -36,6 +37,7 @@ class _RetryTrailsApi implements TrailsApi {
   Future<TrailsResponse> fetchTrails({
     required double lat,
     required double lng,
+    String? region,
   }) {
     throw UnimplementedError();
   }

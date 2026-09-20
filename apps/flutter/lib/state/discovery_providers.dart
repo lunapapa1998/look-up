@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../api/gpx_api.dart';
 import '../api/observation_map_api.dart';
+import '../api/regions_api.dart';
 import '../api/species_api.dart';
 import '../api/suitability_api.dart';
 import '../api/tide_api.dart';
@@ -14,6 +15,7 @@ import '../api/trails_api.dart';
 import '../config.dart';
 import '../models/discovery.dart';
 import '../models/observation_map.dart';
+import '../models/region.dart';
 import '../models/species.dart';
 import '../models/tide.dart';
 import '../models/trails.dart';
@@ -145,6 +147,19 @@ final trailsApiProvider = Provider<TrailsApi>((ref) {
   return HttpTrailsApi(defaultApiBaseUrl);
 });
 
+final regionsApiProvider = Provider<RegionsApi>((ref) {
+  return HttpRegionsApi(defaultApiBaseUrl);
+});
+
+final regionsProvider = FutureProvider<RegionsResponse>((ref) async {
+  final api = ref.watch(regionsApiProvider);
+  final location = await ref.watch(locationProvider.future);
+  return api.fetchRegions(lat: location.lat, lng: location.lng);
+});
+
+/// null means follow the nearest region.
+final selectedRegionProvider = StateProvider<String?>((ref) => null);
+
 final speciesApiProvider = Provider<SpeciesApi>((ref) {
   return HttpSpeciesApi(defaultApiBaseUrl);
 });
@@ -178,7 +193,12 @@ class TrailsNotifier extends AsyncNotifier<TrailsResponse> {
   Future<TrailsResponse> build() async {
     final api = ref.watch(trailsApiProvider);
     final location = await ref.watch(locationProvider.future);
-    return api.fetchTrails(lat: location.lat, lng: location.lng);
+    final regionId = ref.watch(selectedRegionProvider);
+    return api.fetchTrails(
+      lat: location.lat,
+      lng: location.lng,
+      region: regionId,
+    );
   }
 }
 

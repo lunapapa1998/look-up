@@ -19,11 +19,10 @@ class TrailsCatalogScreen extends ConsumerStatefulWidget {
 }
 
 class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
-  String? _region;
-
   @override
   Widget build(BuildContext context) {
     final trails = ref.watch(trailsProvider);
+    final regionsAsync = ref.watch(regionsProvider);
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     return Scaffold(
@@ -57,14 +56,7 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
           error: (err, st) =>
               _ErrorState(onRetry: () => ref.invalidate(trailsProvider)),
           data: (response) {
-            final regions = response.courses
-                .map((c) => c.sigun)
-                .toSet()
-                .toList();
-            final selected = regions.contains(_region) ? _region : null;
-            final courses = response.courses
-                .where((c) => selected == null || c.sigun == selected)
-                .toList();
+            final courses = response.courses;
             final eats = <String, (HeritageEat, TrailCourse)>{};
             for (final course in courses) {
               for (final eat in course.heritageEats) {
@@ -102,38 +94,65 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
                       ),
                     ),
                   ),
-                if (regions.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.page,
-                      ),
-                      child: Row(
-                        children: [
-                          for (final region in [null, ...regions])
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                right: AppSpacing.sm,
-                              ),
-                              child: ChoiceChip(
-                                key: Key('trail_region_${region ?? 'all'}'),
-                                label: Text(region ?? '전체 권역'),
-                                selected: selected == region,
-                                selectedColor: colors.secondary,
-                                labelStyle: text.labelMedium?.copyWith(
-                                  color: selected == region
-                                      ? colors.onSecondary
-                                      : colors.onSurfaceVariant,
+                regionsAsync.when(
+                  data: (regionsResponse) {
+                    if (regionsResponse.regions.isEmpty) {
+                      return const SliverToBoxAdapter(
+                        child: SizedBox.shrink(),
+                      );
+                    }
+                    final effectiveRegion =
+                        ref.watch(selectedRegionProvider) ??
+                        regionsResponse.nearestId;
+                    return SliverToBoxAdapter(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.page,
+                        ),
+                        child: Row(
+                          children: [
+                            for (final region in regionsResponse.regions)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  right: AppSpacing.sm,
                                 ),
-                                onSelected: (_) =>
-                                    setState(() => _region = region),
+                                child: ChoiceChip(
+                                  key: Key('trail_region_${region.id}'),
+                                  avatar: region.id == regionsResponse.nearestId
+                                      ? Icon(
+                                          Icons.near_me,
+                                          size: 16,
+                                          color: effectiveRegion == region.id
+                                              ? colors.onSecondary
+                                              : colors.onSurfaceVariant,
+                                        )
+                                      : null,
+                                  label: Text(region.label),
+                                  selected: effectiveRegion == region.id,
+                                  selectedColor: colors.secondary,
+                                  labelStyle: text.labelMedium?.copyWith(
+                                    color: effectiveRegion == region.id
+                                        ? colors.onSecondary
+                                        : colors.onSurfaceVariant,
+                                  ),
+                                  onSelected: (_) => ref
+                                      .read(selectedRegionProvider.notifier)
+                                      .state = region.id,
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
+                    );
+                  },
+                  loading: () => const SliverToBoxAdapter(
+                    child: SizedBox.shrink(),
                   ),
+                  error: (_, _) => const SliverToBoxAdapter(
+                    child: SizedBox.shrink(),
+                  ),
+                ),
                 if (courses.isEmpty)
                   const SliverFillRemaining(
                     hasScrollBody: false,

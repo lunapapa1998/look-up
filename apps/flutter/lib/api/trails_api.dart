@@ -24,6 +24,7 @@ abstract class TrailsApi {
   Future<TrailsResponse> fetchTrails({
     required double lat,
     required double lng,
+    String? region,
   });
 
   Future<TrailDetailResponse> fetchTrailDetail({
@@ -57,11 +58,14 @@ class HttpTrailsApi implements TrailsApi {
   Future<TrailsResponse> fetchTrails({
     required double lat,
     required double lng,
+    String? region,
   }) async {
     final uri = Uri.parse('$baseUrl/api/trails').replace(
       queryParameters: {
         'lat': lat.toString(),
         'lng': lng.toString(),
+        // ignore: use_null_aware_elements
+        if (region != null) 'region': region,
       },
     );
     final response = await client.get(uri);
@@ -218,6 +222,7 @@ class FakeTrailsApi implements TrailsApi {
   Future<TrailsResponse> fetchTrails({
     required double lat,
     required double lng,
+    String? region,
   }) async {
     onFetch?.call(lat, lng);
     if (shouldThrow) {

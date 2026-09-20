@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'package:lookup/api/trails_api.dart';
 import 'package:lookup/models/trails.dart';
@@ -50,6 +52,7 @@ class _EmptyTrailsApi implements TrailsApi {
   Future<TrailsResponse> fetchTrails({
     required double lat,
     required double lng,
+    String? region,
   }) async {
     return const TrailsResponse(region: 'test', degraded: false, courses: []);
   }
@@ -71,7 +74,70 @@ class _EmptyTrailsApi implements TrailsApi {
   }
 }
 
+/// [TrailsApi] fixture that records the `region` argument of every
+/// [fetchTrails] call, for asserting refetch-on-selection-change behavior.
+class _RegionCapturingTrailsApi implements TrailsApi {
+  final List<String?> capturedRegions = [];
+
+  @override
+  Future<TrailsResponse> fetchTrails({
+    required double lat,
+    required double lng,
+    String? region,
+  }) async {
+    capturedRegions.add(region);
+    return const TrailsResponse(region: 'x', degraded: false, courses: []);
+  }
+
+  @override
+  Future<TrailDetailResponse> fetchTrailDetail({required String crsIdx}) async {
+    return TrailDetailResponse(
+      crsIdx: crsIdx,
+      found: false,
+      description: null,
+      themeId: null,
+      startName: null,
+      endName: null,
+      travelerInfo: null,
+      tourInfo: null,
+      elevationProfile: const [],
+      degraded: false,
+    );
+  }
+}
+
 void main() {
+  group('HttpTrailsApi.fetchTrails region query parameter', () {
+    const minimalBody =
+        '{"region":"test","degraded":false,"courses":[]}';
+
+    test('includes region in the request URI when region is non-null', () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(minimalBody, 200);
+      });
+      final api = HttpTrailsApi('http://example.com', client: client);
+
+      await api.fetchTrails(lat: 37.71, lng: 126.42, region: 'ganghwa');
+
+      expect(capturedUri!.queryParameters['region'], 'ganghwa');
+    });
+
+    test('omits region from the request URI when region is null', () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(minimalBody, 200);
+      });
+      final api = HttpTrailsApi('http://example.com', client: client);
+
+      await api.fetchTrails(lat: 37.71, lng: 126.42);
+
+      expect(capturedUri!.queryParameters.containsKey('region'), isFalse);
+    });
+  });
+
   testWidgets(
     'data state: featured course card renders both suitability labels and a heritage preview line',
     (tester) async {
@@ -236,6 +302,37 @@ void main() {
         find.descendant(of: detail, matching: find.text('SQM 20.15')),
         findsOneWidget,
       );
+    },
+  );
+
+  test(
+    'trailsProvider rebuilds and refetches with the new region when selectedRegionProvider changes',
+    () async {
+      final api = _RegionCapturingTrailsApi();
+      final container = ProviderContainer(
+        overrides: [
+          trailsApiProvider.overrideWithValue(api),
+          locationServiceProvider.overrideWithValue(
+            FakeLocationService(
+              const ObservationLocation(
+                lat: 37.71,
+                lng: 126.42,
+                placeName: null,
+                isFallback: true,
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(trailsProvider.future);
+      expect(api.capturedRegions.last, isNull);
+
+      container.read(selectedRegionProvider.notifier).state = 'pyeongchang';
+
+      await container.read(trailsProvider.future);
+      expect(api.capturedRegions.last, 'pyeongchang');
     },
   );
 }

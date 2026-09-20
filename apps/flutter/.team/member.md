@@ -2593,3 +2593,73 @@ The telemetry `_StaggerReveal(startMs: 160)` block's `child` changed from a `Sin
 Spec 039가 남긴 근본 결함 수정: 달 섹션 자리의 `if (조건) _StaggerReveal(...)`(리스트 아이템 자체를 collection-if로 넣었다 뺐다 함)가 조건이 바뀔 때마다 뒤따르는 `SizedBox(height: 16)`와 `_StaggerReveal(startMs: 160)`(텔레메트리 그리드)의 리스트 인덱스를 밀어버려 Flutter의 위치 기반 element reconciliation이 깨짐 — `_FocusInheritedScope` InheritedElement dependents-not-empty 단언, `_staggerController` 공유 리스너의 AnimationController elapsedInSeconds negative-tick 단언 2건이 재현됨. 수정: `_StaggerReveal(controller: _staggerController, startMs: 140, ...)` 아이템 자체는 항상 리스트에 유지하고, 조건(`currentMode == ObsMode.night && overview.moon != null && overview.moon!.status != 'unavailable'`)은 그 `child`에만 적용 — 참이면 `_TodayMoonSection(moon: overview.moon!)`, 거짓이면 `const SizedBox.shrink()`. 앞뒤의 `const SizedBox(height: 8)`/`const SizedBox(height: 16)`는 무조건부로 그대로 유지. `discovery.dart`/`suitability_api.dart`/테스트 파일은 무편집.
 
 **미실행 검증**: 이 역할 툴 권한(Bash 없음)으로 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인: 리스트의 아이템 개수·타입이 이제 mode/data 값과 무관하게 항상 동일함(collection-if가 `_StaggerReveal` 진입 여부가 아니라 그 `child`의 삼항 표현식으로만 남음)을 확인, 괄호 균형과 삼항 표현식 구조 재독해. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test` (0 issues 기대; 기존에 실패하던 두 단언 모두 해소되어야 함).
+
+## Region 모델/API 신규 추가 (`lib/models/region.dart`, `lib/api/regions_api.dart`, 2026-09-21)
+
+`lib/api/tide_api.dart`/`lib/models/tide.dart` 패턴을 그대로 따라 신규 파일 2개 생성. `region.dart`: `RegionCenter{lat,lng}`, `RegionSummary{id,label,distanceKm,center,hasStarSpot}`, `RegionsResponse{nearestId,regions}` — 모두 const 생성자 + `fromJson` factory. `regions_api.dart`: `RegionsApiException`(statusCode+message, TideApiException과 동일 toString 포맷), 추상 `RegionsApi.fetchRegions({lat,lng})`, `HttpRegionsApi`(GET `$baseUrl/api/regions?lat&lng`, 200 기대, `_checkStatus` 헬퍼로 detail 파싱), `FakeRegionsApi`(테스트용, `shouldThrow`→`RegionsApiException(500,'fake failure')`, 기본 응답은 `nearestId: 'ganghwa'` + 강화군 단일 region).
+
+**백엔드 계약**: 아직 발행된 `/api/regions` 계약 문서를 확인하지 않음 — 태스크 지시대로 필드명(`id`,`label`,`distanceKm`,`center{lat,lng}`,`hasStarSpot`,`nearestId`,`regions`)을 그대로 사용. 실제 백엔드 응답과 다를 경우 조정 필요.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 없음)으로 `flutter analyze`/`flutter test` 직접 실행 불가. 정적으로 기존 tide 패턴과 1:1 대조해 문법·구조 확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `TrailsApi.fetchTrails`에 옵션 `region` 파라미터 추가 (`lib/api/trails_api.dart`, 2026-09-21)
+
+`region` 지원을 위해 `TrailsApi.fetchTrails`(추상)/`HttpTrailsApi.fetchTrails`/`FakeTrailsApi.fetchTrails` 세 곳 시그니처에 `String? region`(기본 null) named 파라미터 추가. `HttpTrailsApi`는 쿼리 파라미터 맵을 `{'lat': ..., 'lng': ..., if (region != null) 'region': region}`으로 구성 — `region`이 null이면 쿼리에서 완전히 생략되어 기존 호출자(파라미터 미전달)는 동작 변화 없음. `FakeTrailsApi`는 인터페이스 호환을 위해 파라미터만 추가, 기존 `onFetch(lat, lng)` 콜백 시그니처는 그대로 유지(미사용). 다른 파일은 건드리지 않음.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 없음)으로 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인: 3개 시그니처의 `region` 파라미터 위치·타입 일치, `HttpTrailsApi`의 collection-if 쿼리맵 문법(Dart 2.3+ 지원, 파일 내 타 collection-if 패턴과 동일 형태) 확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `discovery_providers.dart`에 지역 선택 프로바이더 배선 (`lib/state/discovery_providers.dart`, 2026-09-21)
+
+`regions_api.dart`/`region.dart` import 추가 후, `trailsApiProvider` 옆에 `regionsApiProvider`(`Provider<RegionsApi>` → `HttpRegionsApi(defaultApiBaseUrl)`), `regionsProvider`(`FutureProvider<RegionsResponse>`, `locationProvider.future` watch 후 `fetchRegions(lat,lng)`), `selectedRegionProvider`(`StateProvider<String?>`, null=최근접 지역 자동 추종) 3개 신설. `TrailsNotifier.build()`에 `final regionId = ref.watch(selectedRegionProvider);` 추가하고 `fetchTrails(..., region: regionId)`로 전달 — `TrailsNotifier`는 family가 아닌 plain `AsyncNotifier`라 `selectedRegionProvider` 변경 시 `ref.watch`를 통해 자동 rebuild+refetch됨. `trailsProvider` 선언 자체와 다른 프로바이더는 무편집.
+
+**백엔드 계약**: `apps/backend/.team/member.md`의 `/api/regions`, `/api/trails?region=` 계약 문서는 이번 태스크에서 별도 확인하지 않음 — 태스크 지시된 시그니처(`RegionsApi.fetchRegions`, `TrailsApi.fetchTrails`의 `region` named param)를 그대로 소비.
+
+## `TrailsApi.fetchTrails`의 `region` 파라미터로 깨진 테스트 픽스처 3개 수정 + 리전 관련 테스트 커버리지 추가 (2026-09-21)
+
+`fetchTrails`에 `String? region` named param이 추가되며 override 불일치로 깨졌던 `_EmptyTrailsApi`(`test/trails_wiring_test.dart`), `_PendingTrailsApi`/`_RetryTrailsApi`(`test/widgets/trail_spot_detail_rich_test.dart`) 3개 클래스에 동일 파라미터 추가(본문 무변경). 신규 `test/regions_api_test.dart`: `RegionsResponse.fromJson`(정상 파싱, `regions.length`/`nearestId`/각 필드/`center.lat`·`center.lng` 검증) + `FakeRegionsApi`(`shouldThrow`→`RegionsApiException`, 기본 응답→`nearestId == 'ganghwa'`) 커버. `test/trails_wiring_test.dart`에 `HttpTrailsApi.fetchTrails` 쿼리 파라미터 테스트 그룹 추가 — `package:http/testing.dart`의 `MockClient`(기존 `starlight_forecast_test.dart` 패턴과 동일)로 `region` non-null 시 쿼리에 포함, null/생략 시 미포함 검증.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 승인 차단)으로 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인: 3개 픽스처 클래스의 override 시그니처가 `TrailsApi` 추상 클래스와 일치, `regions_api_test.dart`의 import 경로(`lib/api/regions_api.dart`, `lib/models/region.dart`)와 `RegionsResponse`/`RegionSummary`/`RegionCenter` 필드명 일치, `MockClient` 사용이 기존 `starlight_forecast_test.dart` 패턴과 동일한 import(`package:http/http.dart as http`, `package:http/testing.dart`) 확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+**미실행 검증**: 이 세션에서 Bash 승인이 차단되어 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인: import 경로, provider 3개의 타입 시그니처, `TrailsNotifier.build()` 수정부의 `ref.watch` 사용(기존 `location` watch 패턴과 동일) 확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `HttpTrailsApi.fetchTrails` 쿼리맵 lint 수정 (`lib/api/trails_api.dart`, 2026-09-21)
+
+`flutter analyze`의 `use_null_aware_elements` info 해소 — `queryParameters` 맵의 `if (region != null) 'region': region` collection-if 엔트리를 null-aware map 엔트리 `?'region': region`으로 교체(의미 동일, null이면 키 생략). 파일 내 이 한 줄 외 변경 없음.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 승인 차단)으로 `flutter analyze` 직접 실행 불가. 정적 재확인: 변경 라인이 Dart null-aware map element 문법과 일치. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `HttpTrailsApi.fetchTrails` 쿼리맵 `?'region'` 수정 되돌림 (`lib/api/trails_api.dart`, 2026-09-21)
+
+직전 `?'region': region` 변경이 `invalid_null_aware_operator` 경고(키 'region'은 non-null이라 `?`가 불필요)를 유발해 원래 형태 `if (region != null) 'region': region`으로 되돌리고, 대신 `use_null_aware_elements` info를 억제하기 위해 `queryParameters: {` 바로 위에 `// ignore: use_null_aware_elements` 라인 추가. 파일 내 이 부분 외 변경 없음.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 승인 차단)으로 `flutter analyze` 직접 실행 불가. 정적 재확인: `if (region != null) 'region': region`은 collection-if 문법으로 `invalid_null_aware_operator`를 유발하지 않고, ignore 주석은 해당 맵 리터럴 바로 위에 위치해 `use_null_aware_elements`를 억제함. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `use_null_aware_elements` ignore 주석 위치 수정 (`lib/api/trails_api.dart`, 2026-09-21)
+
+이전 시도에서 `// ignore: use_null_aware_elements`가 `queryParameters: {` 바로 위(맵 리터럴 시작)에 있어 lint를 억제하지 못함(analyzer는 억제 대상 라인 바로 위에 있는 ignore만 인식) — 실제 lint가 발생하는 `if (region != null) 'region': region,` 라인 바로 위로 주석을 이동. 이 한 줄(주석 위치)만 변경, 로직 무변경.
+
+## `selectedRegionProvider` 변경 시 `trailsProvider` 재빌드/refetch 단위 테스트 추가 (`test/trails_wiring_test.dart`, 2026-09-21)
+
+`_RegionCapturingTrailsApi`(로컬 `TrailsApi` 더블, `fetchTrails` 호출마다 `region` 인자를 `capturedRegions`에 기록) 추가하고, `ProviderContainer`(trailsApiProvider/locationServiceProvider override, `_pumpTrails`와 동일 override 패턴이되 위젯 pump 없이)로 `trailsProvider.future`를 첫 빌드(기본 `null`)와 `selectedRegionProvider.notifier.state = 'pyeongchang'` 이후(리빌드) 두 번 await해 `capturedRegions.last`가 각각 `null`→`'pyeongchang'`으로 바뀌는지 검증하는 `test()`를 파일 말미에 추가.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 승인 차단)으로 `flutter test` 직접 실행 불가. 정적 재확인: `_RegionCapturingTrailsApi`가 `TrailsApi` 추상 메서드 시그니처와 일치, `trailsProvider`는 family가 아니므로 `container.read(trailsProvider.future)` 재호출이 리빌드된 새 future를 반환함, import는 기존 파일 것 재사용(추가 import 없음). **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test test/trails_wiring_test.dart`.
+
+## 트레일 카탈로그 화면 sigun 칩 행 → 거리순 region picker 전환 (`lib/screens/trails_catalog_screen.dart`, 2026-09-21)
+
+`_TrailsCatalogScreenState`의 로컬 `String? _region` 필드와 `response.courses`에서 파생하던 sigun 기반 `regions`/`selected` 로컬 계산을 제거하고, `regionsProvider`(`ref.watch`)가 주는 `RegionsResponse`(이미 거리순 정렬된 `regions`, `nearestId`)로 칩 행을 렌더링하도록 교체. `courses`는 이제 필터링 없이 `response.courses`를 그대로 사용(region 선택은 `trailsProvider` 쪽 backend 쿼리가 이미 반영). 새 칩 키는 `Key('trail_region_${region.id}')`(기존 `trail_region_${region ?? 'all'}` 방식 대체, '전체 권역' 칩 없음). 선택 상태는 `selectedRegionProvider`(null이면 `nearestId`로 폴백)로 판정하고 `onSelected`는 `selectedRegionProvider.notifier.state`를 직접 갱신. `region.id == regionsResponse.nearestId`인 칩에만 `ChoiceChip.avatar`로 `Icons.near_me`(size 16, 선택 상태에 따라 onSecondary/onSurfaceVariant 색) 표시 — 현재 선택된 칩이 아니라 지리적 최근접 region 기준. `regionsAsync`가 loading/error/empty일 때는 `SliverToBoxAdapter(child: SizedBox.shrink())`로 빈 슬리버 반환. 상단 바 region 라벨(`trails.valueOrNull?.region`)은 변경 없음. 기존 구조적 키(`trails_catalog_scroll`, `trail_gpx_open`, `trail_heritage_*`, `trail_course_*` 상당)는 그대로 유지.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 승인 차단)으로 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인: `_region` 필드 및 옛 sigun 기반 `regions`/`selected` 로컬 참조가 파일 내에 더 이상 없음(grep 확인), `RegionsResponse`/`RegionSummary` 필드명(`id`/`label`/`nearestId`)이 `lib/models/region.dart`와 일치, `regionsAsync.when`의 세 분기 모두 sliver(`SliverToBoxAdapter`) 타입으로 통일되어 `CustomScrollView.slivers` 리스트에 안전하게 삽입됨, `ChoiceChip.avatar`/`selected`/`labelStyle`이 동일한 `effectiveRegion` 로컬 변수를 참조해 3중 `ref.watch` 중복 제거. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 승인 차단)으로 `flutter analyze` 직접 실행 불가. 정적 재확인: ignore 주석이 lint 대상 라인(현재 68번 줄)의 바로 위 줄(67번 줄)에 위치함을 확인. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze` (should report zero issues for this file).
+
+## `trails_catalog_figma_test.dart`의 stale sigun region 필터 테스트 → 신규 region picker 테스트 3종 교체 (`test/widgets/trails_catalog_figma_test.dart`, 2026-09-21)
+
+`region selection filters courses and reset restores list` 테스트(존재하지 않는 `trail_region_순천`/`trail_region_all` 키를 탭하던 obsolete 테스트) 삭제. `pumpCatalog()`에 `RegionsResponse? regions` 파라미터를 추가하고 `regionsProvider.overrideWith((ref) async => regions ?? _defaultRegions)`를 override 목록에 추가해 위젯 테스트가 실네트워크(`locationProvider`/`HttpRegionsApi`)를 타지 않게 함(기본값은 `ganghwa` 단일 region). region picker 스펙(chip 렌더링/거리순/최근접 강조/탭 선택) 커버하는 신규 테스트 3개 추가: (1) `renders one chip per region in distance order` — 3개 region을 거리순으로 pump 후 `find.byType(ChoiceChip).evaluate()` 순서가 리스트 순서와 일치하는지 검증, (2) `nearest region chip shows a near_me icon and others do not` — `nearestId`인 칩에만 `find.descendant(..., matching: find.byIcon(Icons.near_me))`가 `findsOneWidget`, 다른 칩은 `findsNothing`, (3) `tapping a region chip updates selectedRegionProvider and visually selects it` — 비최근접 칩을 탭한 뒤 `tester.widget<ChoiceChip>(...).selected`로 탭한 칩은 `true`, 이전 칩은 `false`가 됐는지 확인(provider container 대신 위젯 `selected` 필드로 단순화, 지시사항에 명시된 대안 채택). 새 import: `package:lookup/models/region.dart`.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 승인 차단)으로 `flutter analyze`/`flutter test` 직접 실행 불가. 정적 재확인: `trail_region_순천`/`trail_region_all` 참조가 파일 내에 더 이상 없음(grep 확인), `regionsProvider`는 `FutureProvider<RegionsResponse>`라 `overrideWith((ref) async => ...)` 시그니처가 일치, `RegionsResponse`/`RegionSummary`/`RegionCenter` 필드명이 `lib/models/region.dart`와 일치, `ChoiceChip.selected`/`.key`는 표준 Flutter API. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## `trails_catalog_figma_test.dart` unused_import 제거 (`test/widgets/trails_catalog_figma_test.dart`, 2026-09-21)
+
+`CourseCard`를 사용하는 테스트가 이전에 삭제되어 더 이상 참조되지 않던 `import 'package:lookup/widgets/course_card.dart';`(13번 줄) 한 줄만 삭제. 파일 내 `CourseCard`/`course_card` 참조 없음을 grep으로 확인. 다른 변경 없음.
+
+**미실행 검증**: 이 역할 툴 권한(Bash 승인 차단)으로 `flutter analyze` 직접 실행 불가. **Pipeline validate stage must run** `cd apps/flutter && flutter analyze test/widgets/trails_catalog_figma_test.dart` (should report zero issues for this file).

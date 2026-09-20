@@ -4,12 +4,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lookup/api/gpx_api.dart';
+import 'package:lookup/models/region.dart';
 import 'package:lookup/models/trails.dart';
 import 'package:lookup/screens/trail_route_screen.dart';
 import 'package:lookup/screens/trails_catalog_screen.dart';
 import 'package:lookup/state/discovery_providers.dart';
 import 'package:lookup/theme/app_theme.dart';
-import 'package:lookup/widgets/course_card.dart';
+
+const _defaultRegions = RegionsResponse(
+  nearestId: 'ganghwa',
+  regions: [
+    RegionSummary(
+      id: 'ganghwa',
+      label: '강화·서해안',
+      distanceKm: 0.0,
+      center: RegionCenter(lat: 37.7469, lng: 126.4878),
+      hasStarSpot: true,
+    ),
+  ],
+);
 
 TrailCourse course(
   String id,
@@ -56,6 +69,7 @@ Future<void> pumpCatalog(
   List<TrailCourse> courses, {
   bool night = true,
   double scale = 1,
+  RegionsResponse? regions,
 }) async {
   final colors = night
       ? AppTheme.nightColorScheme()
@@ -65,6 +79,7 @@ Future<void> pumpCatalog(
       overrides: [
         trailsProvider.overrideWith(() => _Trails(courses)),
         gpxApiProvider.overrideWithValue(FakeGpxApi()),
+        regionsProvider.overrideWith((ref) async => regions ?? _defaultRegions),
       ],
       child: MaterialApp(
         theme: ThemeData(
@@ -106,27 +121,123 @@ Future<void> scrollTo(WidgetTester tester, Finder target) async {
 }
 
 void main() {
-  testWidgets('region selection filters courses and reset restores list', (
+  testWidgets('renders one chip per region in distance order', (
     tester,
   ) async {
-    await pumpCatalog(tester, [
-      course('a', '강화', scores: true),
-      course('b', '순천'),
-    ]);
-    await tester.tap(find.byKey(const Key('trail_region_순천')));
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<CourseCard>(find.byType(CourseCard).first).course.crsIdx,
-      'b',
+    const regions = RegionsResponse(
+      nearestId: 'ganghwa',
+      regions: [
+        RegionSummary(
+          id: 'ganghwa',
+          label: '강화·서해안',
+          distanceKm: 0.0,
+          center: RegionCenter(lat: 37.7469, lng: 126.4878),
+          hasStarSpot: true,
+        ),
+        RegionSummary(
+          id: 'pyeongchang',
+          label: '평창',
+          distanceKm: 50.0,
+          center: RegionCenter(lat: 37.3706, lng: 128.3904),
+          hasStarSpot: true,
+        ),
+        RegionSummary(
+          id: 'suncheon',
+          label: '순천',
+          distanceKm: 300.0,
+          center: RegionCenter(lat: 34.9506, lng: 127.4874),
+          hasStarSpot: true,
+        ),
+      ],
     );
-    expect(find.text('관측 적합도 정보가 없어요'), findsNWidgets(2));
-    await tester.tap(find.byKey(const Key('trail_region_all')));
-    await tester.pumpAndSettle();
+    await pumpCatalog(tester, [course('a', '강화')], regions: regions);
+    expect(find.byKey(const Key('trail_region_ganghwa')), findsOneWidget);
+    expect(find.byKey(const Key('trail_region_pyeongchang')), findsOneWidget);
+    expect(find.byKey(const Key('trail_region_suncheon')), findsOneWidget);
+    final chips = find.byType(ChoiceChip).evaluate().toList();
+    expect(chips[0].widget.key, const Key('trail_region_ganghwa'));
+    expect(chips[1].widget.key, const Key('trail_region_pyeongchang'));
+    expect(chips[2].widget.key, const Key('trail_region_suncheon'));
+  });
+
+  testWidgets('nearest region chip shows a near_me icon and others do not', (
+    tester,
+  ) async {
+    const regions = RegionsResponse(
+      nearestId: 'ganghwa',
+      regions: [
+        RegionSummary(
+          id: 'ganghwa',
+          label: '강화·서해안',
+          distanceKm: 0.0,
+          center: RegionCenter(lat: 37.7469, lng: 126.4878),
+          hasStarSpot: true,
+        ),
+        RegionSummary(
+          id: 'suncheon',
+          label: '순천',
+          distanceKm: 300.0,
+          center: RegionCenter(lat: 34.9506, lng: 127.4874),
+          hasStarSpot: true,
+        ),
+      ],
+    );
+    await pumpCatalog(tester, [course('a', '강화')], regions: regions);
     expect(
-      tester.widget<CourseCard>(find.byType(CourseCard).first).course.crsIdx,
-      'a',
+      find.descendant(
+        of: find.byKey(const Key('trail_region_ganghwa')),
+        matching: find.byIcon(Icons.near_me),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('trail_region_suncheon')),
+        matching: find.byIcon(Icons.near_me),
+      ),
+      findsNothing,
     );
   });
+
+  testWidgets(
+    'tapping a region chip updates selectedRegionProvider and visually selects it',
+    (tester) async {
+      const regions = RegionsResponse(
+        nearestId: 'ganghwa',
+        regions: [
+          RegionSummary(
+            id: 'ganghwa',
+            label: '강화·서해안',
+            distanceKm: 0.0,
+            center: RegionCenter(lat: 37.7469, lng: 126.4878),
+            hasStarSpot: true,
+          ),
+          RegionSummary(
+            id: 'suncheon',
+            label: '순천',
+            distanceKm: 300.0,
+            center: RegionCenter(lat: 34.9506, lng: 127.4874),
+            hasStarSpot: true,
+          ),
+        ],
+      );
+      await pumpCatalog(tester, [course('a', '강화')], regions: regions);
+      await tester.tap(find.byKey(const Key('trail_region_suncheon')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ChoiceChip>(find.byKey(const Key('trail_region_suncheon')))
+            .selected,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<ChoiceChip>(find.byKey(const Key('trail_region_ganghwa')))
+            .selected,
+        isFalse,
+      );
+    },
+  );
 
   testWidgets(
     'nearby restaurants are unique and open their address and location',
