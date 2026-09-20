@@ -31,6 +31,10 @@ abstract class AuthRepository {
   Future<String?> idToken({bool forceRefresh = false});
   Future<void> reauthenticate(LoginProvider provider);
   Future<void> prepareAccountDeletion(LoginProvider provider);
+
+  /// Deletes the current user's identity. Requires a recent sign-in; when the
+  /// session is too old, throws an [AuthFailure] asking the user to re-login.
+  Future<void> deleteAccount();
 }
 
 class UnavailableAuthRepository implements AuthRepository {
@@ -58,4 +62,6 @@ class UnavailableAuthRepository implements AuthRepository {
   @override
   Future<void> prepareAccountDeletion(LoginProvider provider) async =>
       throw AuthFailure(unavailableReason);
+  @override
+  Future<void> deleteAccount() async => throw AuthFailure(unavailableReason);
 }

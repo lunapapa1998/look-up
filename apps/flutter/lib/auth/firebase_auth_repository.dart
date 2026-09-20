@@ -144,6 +144,9 @@ class FirebaseAuthRepository implements AuthRepository {
       if (error.code == 'user-mismatch') {
         throw const AuthFailure('현재 계정과 같은 계정으로 다시 인증해주세요.');
       }
+      if (error.code == 'requires-recent-login') {
+        throw const AuthFailure('보안을 위해 다시 로그인한 뒤 탈퇴해 주세요.');
+      }
       throw const AuthFailure('인증을 완료하지 못했어요. 설정과 네트워크를 확인해주세요.');
     } on GoogleSignInException catch (error) {
       if (error.code == GoogleSignInExceptionCode.canceled) {
@@ -190,6 +193,22 @@ class FirebaseAuthRepository implements AuthRepository {
       }
     }
   }
+
+  @override
+  Future<void> deleteAccount() => _guard(() async {
+    final user = _auth.currentUser;
+    if (user == null) throw const AuthFailure('로그인이 필요합니다.');
+    // Deletes the Firebase identity. Firebase requires a recent sign-in;
+    // `_guard` maps `requires-recent-login` to a re-login prompt.
+    await user.delete();
+    if (_googleInitialization != null) {
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {
+        /* Best-effort: the account is already deleted. */
+      }
+    }
+  });
 
   @override
   Future<void> reauthenticate(LoginProvider provider) => _guard(() async {
