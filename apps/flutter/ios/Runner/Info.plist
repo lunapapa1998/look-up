@@ -26,6 +26,34 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- OAuth redirect URL schemes. Google Sign-In uses the REVERSED_CLIENT_ID
+	     from GoogleService-Info.plist. Kakao (when enabled) adds kakao{NATIVE_APP_KEY}. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.641193496404-im1rajfmkbde79e2ffv0rqaibq232nqe</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kakao91f4a0411dda818107eeb1e74185746e</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Kakao SDK needs to query the KakaoTalk app to offer the app-login flow. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>kakaotalk</string>
+		<string>kakaolink</string>
+	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>관측 적합도를 현재 위치 기준으로 계산하기 위해 위치를 사용합니다</string>
 	<key>UIApplicationSceneManifest</key>

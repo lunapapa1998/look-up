@@ -54,6 +54,14 @@ dependencies:
   # Lat/lng geometry types used by flutter_map.
   latlong2: ^0.10.1
 
+  # Authentication: Firebase-backed identity (Google/Apple) + Kakao bridge.
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  google_sign_in: ^7.2.0
+  # Kakao login: obtains a Kakao OAuth token that the backend exchanges for a
+  # Firebase custom token (see apps/backend/app/routers/auth_kakao.py).
+  kakao_flutter_sdk_user: ^1.9.7+3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -78,6 +86,7 @@ flutter:
 
   assets:
     - assets/packages/
+    - assets/auth/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
