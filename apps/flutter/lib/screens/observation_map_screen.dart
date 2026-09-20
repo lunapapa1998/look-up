@@ -14,6 +14,7 @@ import '../state/discovery_providers.dart';
 import '../utils/bird_scatter.dart';
 import '../utils/observation_spot_filter.dart';
 import '../widgets/observation_map_overlays.dart';
+import '../widgets/app_header_logo.dart';
 import '../widgets/observation_marker.dart';
 import '../widgets/observation_spot_sheet.dart';
 
@@ -84,8 +85,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   void initState() {
     super.initState();
     _trailHitNotifier.addListener(_handleTrailHit);
-    _mapEventSub =
-        _mapController.mapEventStream.listen(_handleScatterMapEvent);
+    _mapEventSub = _mapController.mapEventStream.listen(_handleScatterMapEvent);
     _sheetController.addListener(_handleScatterSheetSize);
   }
 
@@ -247,8 +247,10 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
       const distanceCalc = Distance();
       final camera = _mapController.camera;
       final bounds = camera.visibleBounds;
-      final diagonal =
-          distanceCalc.distance(bounds.northEast, bounds.southWest);
+      final diagonal = distanceCalc.distance(
+        bounds.northEast,
+        bounds.southWest,
+      );
       final drift = distanceCalc.distance(_lastFetchCenter!, camera.center);
       final shouldShow = drift > diagonal * 0.3;
       if (shouldShow != _showResearchButton) {
@@ -285,7 +287,9 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     _lastFetchCenter = LatLng(lat, lng);
     _skipNextAutoFit = true;
     setState(() => _showResearchButton = false);
-    ref.read(observationMapProvider.notifier).refreshAtCenter(lat: lat, lng: lng);
+    ref
+        .read(observationMapProvider.notifier)
+        .refreshAtCenter(lat: lat, lng: lng);
   }
 
   /// Re-fetches observation-map data centered on the current camera position
@@ -337,8 +341,10 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
 
   void _adjustDebugMaxZoom(double delta) {
     setState(() {
-      _debugMaxZoom =
-          (_debugMaxZoom + delta).clamp(_debugMinZoom, _hardMaxDebugZoom);
+      _debugMaxZoom = (_debugMaxZoom + delta).clamp(
+        _debugMinZoom,
+        _hardMaxDebugZoom,
+      );
     });
   }
 
@@ -435,12 +441,11 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     // fetch lazy so it never fires while the trail chip is off.
     final trailTracks = _activeKinds.contains('trail')
         ? ref.watch(observationTrailTracksProvider).valueOrNull ??
-            const <TrailTrack>[]
+              const <TrailTrack>[]
         : const <TrailTrack>[];
 
     final obsMode = ref.watch(obsModeProvider).mode;
-    final discoveryOverview =
-        ref.watch(discoveryProvider(obsMode)).valueOrNull;
+    final discoveryOverview = ref.watch(discoveryProvider(obsMode)).valueOrNull;
     final tideText = discoveryOverview == null
         ? null
         : _telemetryValueFor(discoveryOverview.telemetry, 'tide');
@@ -456,8 +461,10 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
-              initialCenter:
-                  const LatLng(defaultObservationLat, defaultObservationLng),
+              initialCenter: const LatLng(
+                defaultObservationLat,
+                defaultObservationLng,
+              ),
               initialZoom: 12,
               minZoom: _debugMinZoom,
               // Esri World_Dark_Gray_Base tiles only exist up to z16.
@@ -513,11 +520,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
               if (scatterResult != null)
                 MarkerLayer(
                   markers: [
-                    for (
-                      var i = 0;
-                      i < sortedScatterIndividuals.length;
-                      i++
-                    )
+                    for (var i = 0; i < sortedScatterIndividuals.length; i++)
                       Marker(
                         point: LatLng(
                           sortedScatterIndividuals[i].coord.lat,
@@ -563,9 +566,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                           points: track.points,
                           strokeWidth: 3,
                           color: _trailColor,
-                          pattern: StrokePattern.dashed(
-                            segments: const [8, 6],
-                          ),
+                          pattern: StrokePattern.dashed(segments: const [8, 6]),
                           hitValue: track,
                         ),
                   ],
@@ -636,54 +637,59 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                   children: [
                     Row(
                       children: [
+                        const AppHeaderLogo(),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
                               children: [
                                 Semantics(
-                          label: _activeKinds.length == _layerKinds.length
-                              ? '전체 레이어 끄기'
-                              : '전체 레이어 켜기',
-                          child: SizedBox(
-                            height: 44,
-                            child: Center(
-                              child: FilterChip(
-                                key: const Key('obsmap_chip_all'),
-                                label: const Text('전체'),
-                                selected:
-                                    _activeKinds.length == _layerKinds.length,
-                                onSelected: (selected) => setState(() {
-                                  if (selected) {
-                                    _activeKinds.addAll(_layerKinds);
-                                  } else {
-                                    _activeKinds.clear();
-                                  }
-                                }),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        for (final kind in _layerKinds) ...[
-                          Semantics(
-                            label: '${_layerLabels[kind]} 레이어 '
-                                '${_activeKinds.contains(kind) ? '끄기' : '켜기'}',
-                            child: SizedBox(
-                              height: 44,
-                              child: Center(
-                                child: FilterChip(
-                                  key: Key('obsmap_chip_$kind'),
-                                  label: Text(_layerLabels[kind]!),
-                                  selected: _activeKinds.contains(kind),
-                                  onSelected: (selected) =>
-                                      _toggleKind(kind, selected),
+                                  label:
+                                      _activeKinds.length == _layerKinds.length
+                                      ? '전체 레이어 끄기'
+                                      : '전체 레이어 켜기',
+                                  child: SizedBox(
+                                    height: 44,
+                                    child: Center(
+                                      child: FilterChip(
+                                        key: const Key('obsmap_chip_all'),
+                                        label: const Text('전체'),
+                                        selected:
+                                            _activeKinds.length ==
+                                            _layerKinds.length,
+                                        onSelected: (selected) => setState(() {
+                                          if (selected) {
+                                            _activeKinds.addAll(_layerKinds);
+                                          } else {
+                                            _activeKinds.clear();
+                                          }
+                                        }),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
+                                const SizedBox(width: 8),
+                                for (final kind in _layerKinds) ...[
+                                  Semantics(
+                                    label:
+                                        '${_layerLabels[kind]} 레이어 '
+                                        '${_activeKinds.contains(kind) ? '끄기' : '켜기'}',
+                                    child: SizedBox(
+                                      height: 44,
+                                      child: Center(
+                                        child: FilterChip(
+                                          key: Key('obsmap_chip_$kind'),
+                                          label: Text(_layerLabels[kind]!),
+                                          selected: _activeKinds.contains(kind),
+                                          onSelected: (selected) =>
+                                              _toggleKind(kind, selected),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
                               ],
                             ),
                           ),
@@ -709,7 +715,9 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                         ),
                       ),
                     if (isFallbackLocation)
-                      _LocationFallbackBanner(onEnableLocation: _enableLocation),
+                      _LocationFallbackBanner(
+                        onEnableLocation: _enableLocation,
+                      ),
                     _ObservationMapStatusBanner(
                       mapAsync: mapAsync,
                       onRetry: _retryObservationMap,
@@ -775,8 +783,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
           if (scatterResult != null && scatterResult.wasReduced)
             Positioned(
               left: 16,
-              bottom:
-                  MediaQuery.sizeOf(context).height * _sheetMidSnap + 16,
+              bottom: MediaQuery.sizeOf(context).height * _sheetMidSnap + 16,
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 220),
                 child: _ScatteredBirdCaptionBanner(
@@ -899,10 +906,7 @@ class _DebugZoomOverlay extends StatelessWidget {
                   ),
                 ],
               ),
-              Text(
-                '타일 z16까지',
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
+              Text('타일 z16까지', style: Theme.of(context).textTheme.labelSmall),
             ],
           ),
         );
@@ -926,8 +930,7 @@ class _StaggeredBirdEntrance extends StatefulWidget {
   final Widget child;
 
   @override
-  State<_StaggeredBirdEntrance> createState() =>
-      _StaggeredBirdEntranceState();
+  State<_StaggeredBirdEntrance> createState() => _StaggeredBirdEntranceState();
 }
 
 class _StaggeredBirdEntranceState extends State<_StaggeredBirdEntrance> {
@@ -1003,11 +1006,7 @@ class _TrailheadMarker extends StatelessWidget {
                 color: _ObservationMapScreenState._trailColor,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.hiking,
-                size: 13,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.hiking, size: 13, color: Colors.white),
             ),
           ),
         ),
@@ -1043,10 +1042,7 @@ class _LocationFallbackBanner extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-          TextButton(
-            onPressed: onEnableLocation,
-            child: const Text('위치 켜기'),
-          ),
+          TextButton(onPressed: onEnableLocation, child: const Text('위치 켜기')),
         ],
       ),
     );
@@ -1154,10 +1150,8 @@ class _ObservationMapStatusBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return mapAsync.when(
       loading: () => const _LoadingStatusBanner(),
-      error: (_, _) => _ErrorStatusBanner(
-        message: '관찰 스팟을 불러오지 못했어요',
-        onRetry: onRetry,
-      ),
+      error: (_, _) =>
+          _ErrorStatusBanner(message: '관찰 스팟을 불러오지 못했어요', onRetry: onRetry),
       data: (response) {
         if (response.degraded) {
           return _ErrorStatusBanner(
@@ -1196,10 +1190,7 @@ class _LoadingStatusBanner extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           const SizedBox(width: 8),
-          Text(
-            '관찰 스팟 불러오는 중',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text('관찰 스팟 불러오는 중', style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );
@@ -1236,8 +1227,8 @@ class _ErrorStatusBanner extends StatelessWidget {
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onErrorContainer,
-                  ),
+                color: colorScheme.onErrorContainer,
+              ),
             ),
           ),
           TextButton(
@@ -1280,8 +1271,8 @@ class _EmptyStatusBanner extends StatelessWidget {
             child: Text(
               '주변에 표시할 관찰 스팟이 없어요',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],

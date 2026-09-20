@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/observation.dart';
 import '../state/providers.dart';
+import '../widgets/app_header_logo.dart';
 import 'badges_screen.dart';
 import 'observation_form_screen.dart';
 
@@ -16,14 +17,16 @@ class DiaryListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('관찰 일지'),
+        title: const Row(
+          children: [AppHeaderLogo(), SizedBox(width: 8), Text('관찰 일지')],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.emoji_events_outlined),
             tooltip: '배지',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const BadgesScreen()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const BadgesScreen())),
           ),
         ],
       ),
@@ -142,9 +145,9 @@ class _ObservationCard extends StatelessWidget {
             Text(
               _formatDateTime(observation.observedAt),
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 12,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
             ),
           ],
         ),
