@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.suitability import scoring
+from app.suitability.lightpollution.convert import sqm_to_bortle
 from app.suitability.models import (
     GoldenHour,
     Location,
@@ -59,6 +60,12 @@ class SuitabilityService:
         light_pollution_evidence = readings["lightPollution"].evidence
         sqm_value = light_pollution_evidence.get("sqmValue", 0.0)
         sky_class = light_pollution_evidence.get("skyClass", "알 수 없음")
+        bortle_class = light_pollution_evidence.get("bortleClass")
+        if bortle_class is None:
+            bortle_class = sqm_to_bortle(sqm_value)
+        night_sky_status = readings["lightPollution"].status
+        if not night_sky_status:
+            night_sky_status = "none"
 
         astronomy_reading = readings["astronomy"]
         moon: Moon | None = None
@@ -98,6 +105,8 @@ class SuitabilityService:
             label=fusion["label"],
             sqmValue=sqm_value,
             skyClass=sky_class,
+            bortleClass=bortle_class,
+            nightSkyStatus=night_sky_status,
             degraded=fusion["degraded"],
             weatherRefreshing=readings["environment"].status == "loading",
             goldenHours=golden_hours,

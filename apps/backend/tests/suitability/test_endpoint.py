@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.suitability.lightpollution import convert
 from app.suitability.providers.base import LayerReading
 from app.suitability.service import SuitabilityService, get_suitability_service
 
@@ -106,6 +107,8 @@ def test_happy_path_returns_full_contract() -> None:
     assert isinstance(body["label"], str)
     assert body["sqmValue"] == 21.6
     assert body["skyClass"] == "Class 2 최적 다크스카이"
+    assert body["bortleClass"] == convert.sqm_to_bortle(21.6)
+    assert body["nightSkyStatus"] == "approx"
     assert body["degraded"] is False
 
     assert isinstance(body["goldenHours"], list)
@@ -124,6 +127,26 @@ def test_happy_path_returns_full_contract() -> None:
     assert len(body["layers"]) == 4
     for entry in body["layers"]:
         assert set(entry) == {"key", "weight", "subScore", "status"}
+
+
+def test_light_pollution_evidence_bortle_class_passes_through() -> None:
+    providers = _healthy_providers()
+    providers["lightPollution"] = FakeProvider(
+        "lightPollution",
+        LayerReading(
+            key="lightPollution",
+            status="approx",
+            sub_score=60,
+            evidence={"sqmValue": 17.5, "skyClass": "some label", "bortleClass": 4},
+        ),
+    )
+    _install(providers)
+
+    response = client.get("/api/suitability", params={"lat": 37.5, "lng": 127.0, "mode": "day"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["bortleClass"] == 4
+    assert body["nightSkyStatus"] == "approx"
 
 
 def test_mode_changes_score() -> None:

@@ -51,6 +51,8 @@ class SuitabilityResponse(BaseModel):
     label: str
     sqmValue: float
     skyClass: str
+    bortleClass: int
+    nightSkyStatus: str
     degraded: bool
     weatherRefreshing: bool = False
     goldenHours: list[GoldenHour]
