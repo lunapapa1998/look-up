@@ -15,14 +15,25 @@ flutter run
 
 `lib/config.dart` defines `defaultApiBaseUrl`, used by `ecologApiProvider`
 (`lib/state/providers.dart`) to construct `HttpEcologApi`. It defaults to
-`http://localhost:8000`.
+`http://localhost:8000`, but physical-device and production runs must use the
+mode-specific commands below.
 
 - iOS simulator / desktop / web: `localhost` works as-is.
 - Android emulator: the emulator's `localhost` refers to itself, not the host
-  machine — use `10.0.2.2` instead (edit `defaultApiBaseUrl` accordingly).
+  machine — inject `http://10.0.2.2:8000` with `API_BASE_URL`.
+- Physical iPhone development: start `just backend-dev`, then run
+  `just ios-run-dev DEVICE_ID`. The command discovers the Mac LAN IP and checks
+  `/api/health` before building.
+- Deployed backend: run `just ios-run-prod DEVICE_ID HTTPS_SERVICE_URL`. The
+  command rejects non-HTTPS URLs and checks `/api/health` before building.
 
-Start the backend first (`cd apps/backend && ...`, see its own README) so the
-app has something to talk to.
+`API_BASE_URL` is a compile-time value. Switching between development and
+production requires rebuilding/reinstalling the app; restarting an already
+built app does not change its endpoint. Always read the endpoint printed by the
+command before accepting the build.
+
+See [`docs/deploy/endpoint-switching.md`](../../docs/deploy/endpoint-switching.md)
+for the development/production checklist.
 
 ## Screens
 
