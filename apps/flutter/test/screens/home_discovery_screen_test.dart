@@ -180,40 +180,43 @@ void main() {
     expect(container.read(obsModeProvider).mode, ObsMode.night);
   });
 
-  testWidgets('shows plain-language night sky tag instead of raw SQM/Class text', (
-    tester,
-  ) async {
-    final container = ProviderContainer(
-      overrides: [
-        suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
-        locationServiceProvider.overrideWithValue(
-          FakeLocationService(
-            const ObservationLocation(
-              lat: 37.5921,
-              lng: 126.3984,
-              placeName: null,
-              isFallback: true,
+  testWidgets(
+    'shows plain-language night sky label alongside inline SQM/Bortle, never the raw skyClass string',
+    (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          suitabilityApiProvider.overrideWithValue(FakeSuitabilityApi()),
+          locationServiceProvider.overrideWithValue(
+            FakeLocationService(
+              const ObservationLocation(
+                lat: 37.5921,
+                lng: 126.3984,
+                placeName: null,
+                isFallback: true,
+              ),
             ),
           ),
+          nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: HomeDiscoveryScreen(onViewMapPressed: () {}),
+          ),
         ),
-        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
-      ],
-    );
-    addTearDown(container.dispose);
+      );
+      await tester.pump();
 
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
-      ),
-    );
-    await tester.pump();
-
-    expect(find.textContaining('별이 쏟아져요'), findsWidgets);
-    expect(find.textContaining('SQM 21.6'), findsNothing);
-    expect(find.text('Class 2 최적 다크스카이'), findsNothing);
-    expect(find.byType(NightSkyTag), findsNothing);
-  });
+      expect(find.textContaining('별이 쏟아져요'), findsWidgets);
+      expect(find.textContaining('SQM 21.60 · Bortle 2'), findsWidgets);
+      expect(find.text('Class 2 최적 다크스카이'), findsNothing);
+      expect(find.byType(NightSkyTag), findsNothing);
+    },
+  );
 
   testWidgets('night mode shows night sky section between score and golden hours', (
     tester,
@@ -254,6 +257,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('별밝기 ·'), findsOneWidget);
+    expect(find.textContaining('SQM 21.90 · Bortle 1'), findsOneWidget);
 
     final scoreDy = tester.getTopLeft(find.text('92')).dy;
     final nightSkyDy = tester.getTopLeft(find.textContaining('별밝기 ·')).dy;
@@ -390,6 +394,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('추정치'), findsWidgets);
+  });
+
+  testWidgets('day-mode night sky line renders approx badge adjacent to Bortle text', (
+    tester,
+  ) async {
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(
+          FakeSuitabilityApi(nightSkyStatusOverride: 'approx'),
+        ),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+        nowProvider.overrideWithValue(DateTime(2026, 9, 9, 10, 0)),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pump();
+
+    final textWidget = tester.widget<Text>(
+      find.byKey(const Key('nightSkyDayLineText')),
+    );
+    final rootSpan = textWidget.textSpan! as TextSpan;
+    final children = rootSpan.children!;
+
+    final bortleIndex = children.indexWhere(
+      (span) => span is TextSpan && (span.text?.contains('Bortle') ?? false),
+    );
+    expect(bortleIndex, isNot(-1));
+    expect(children.length, bortleIndex + 3);
+
+    final spacerSpan = children[bortleIndex + 1] as WidgetSpan;
+    expect(spacerSpan.child, isA<SizedBox>());
+
+    final badgeSpan = children[bortleIndex + 2] as WidgetSpan;
+    final badgeText = badgeSpan.child as Text;
+    expect(badgeText.data, '추정치');
   });
 
   testWidgets('no data night sky hides stars and info button', (tester) async {

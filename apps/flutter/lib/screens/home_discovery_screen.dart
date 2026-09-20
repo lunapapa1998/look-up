@@ -1377,8 +1377,22 @@ class _NightSkySection extends StatelessWidget {
                           display.expectation,
                           style: textTheme.bodySmall,
                         ),
-                      if (display.isApprox)
-                        Text('추정치', style: textTheme.labelSmall),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            'SQM ${nightSky.sqmValue.toStringAsFixed(2)} · Bortle ${nightSky.bortleClass}',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          if (display.isApprox) ...[
+                            const SizedBox(width: 6),
+                            Text('추정치', style: textTheme.labelSmall),
+                          ],
+                        ],
+                      ),
                     ],
             ),
           ),
@@ -1438,10 +1452,25 @@ class _NightSkyDayLine extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(
-              display.hasNoData
-                  ? '오늘 밤 · 밤하늘 밝기 정보 없음'
-                  : '오늘 밤 · ${display.label}',
+            child: Text.rich(
+              TextSpan(
+                children: display.hasNoData
+                    ? const [TextSpan(text: '오늘 밤 · 밤하늘 밝기 정보 없음')]
+                    : [
+                        TextSpan(
+                          text:
+                              '오늘 밤 · ${display.label} · SQM ${nightSky.sqmValue.toStringAsFixed(2)} · Bortle ${nightSky.bortleClass}',
+                        ),
+                        if (display.isApprox) ...[
+                          const WidgetSpan(child: SizedBox(width: 4)),
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: Text('추정치', style: textTheme.labelSmall),
+                          ),
+                        ],
+                      ],
+              ),
+              key: const Key('nightSkyDayLineText'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: textTheme.bodyMedium,

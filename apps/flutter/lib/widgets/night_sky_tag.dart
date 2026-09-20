@@ -169,36 +169,18 @@ class NightSkyTag extends StatelessWidget {
                             ),
                           ],
                         ),
-                        if (display.expectation.isNotEmpty || display.isApprox)
+                        if (display.expectation.isNotEmpty)
                           Wrap(
                             spacing: 6,
                             runSpacing: 2,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              if (display.expectation.isNotEmpty)
-                                Text(
-                                  display.expectation,
-                                  style: expectationStyle?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
+                              Text(
+                                display.expectation,
+                                style: expectationStyle?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
                                 ),
-                              if (display.isApprox)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    '추정치',
-                                    style: textTheme.labelSmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ),
+                              ),
                             ],
                           ),
                       ],
@@ -212,11 +194,36 @@ class NightSkyTag extends StatelessWidget {
           if (large && !display.hasNoData)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                'SQM ${nightSky.sqmValue.toStringAsFixed(2)} · Bortle ${nightSky.bortleClass} (전문가용 측정값)',
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'SQM ${nightSky.sqmValue.toStringAsFixed(2)} · Bortle ${nightSky.bortleClass}',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (display.isApprox) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '추정치',
+                        style: textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
         ],

@@ -42,13 +42,13 @@ void main() {
     );
 
     expect(find.text('별이 잘 보여요'), findsOneWidget);
-    expect(
-      find.text('SQM 20.15 · Bortle 3 (전문가용 측정값)'),
-      findsOneWidget,
-    );
+    expect(find.text('SQM 20.15 · Bortle 3'), findsOneWidget);
+    expect(find.textContaining('전문가용'), findsNothing);
   });
 
-  testWidgets('isApprox true renders the 추정치 badge', (tester) async {
+  testWidgets('isApprox true renders the 추정치 badge next to the SQM/Bortle line', (
+    tester,
+  ) async {
     const nightSky = NightSky(
       sqmValue: 18.2,
       bortleClass: 4,
@@ -56,9 +56,12 @@ void main() {
       status: 'approx',
     );
 
-    await tester.pumpWidget(_wrap(const NightSkyTag(nightSky: nightSky)));
+    await tester.pumpWidget(
+      _wrap(const NightSkyTag(nightSky: nightSky, large: true)),
+    );
 
     expect(find.text('추정치'), findsOneWidget);
+    expect(find.text('SQM 18.20 · Bortle 4'), findsOneWidget);
   });
 
   testWidgets(
