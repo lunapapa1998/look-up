@@ -68,5 +68,16 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Local dev: allow the app to reach the Mac's local backend over the LAN
+	     (http://<mac-ip>:8000). NSAllowsLocalNetworking permits cleartext only to
+	     private/local addresses (not arbitrary internet); the usage string
+	     triggers the iOS local-network permission prompt. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>로컬 개발 서버(Mac)에 연결해 관측 데이터를 불러옵니다.</string>
 </dict>
 </plist>
