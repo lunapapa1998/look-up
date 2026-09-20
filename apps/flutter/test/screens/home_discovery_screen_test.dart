@@ -256,11 +256,11 @@ void main() {
     await tester.tap(find.byKey(const Key('focusModeNightSegment')));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('별밝기 ·'), findsOneWidget);
+    expect(find.textContaining('오늘 밤 ·'), findsOneWidget);
     expect(find.textContaining('SQM 21.90 · Bortle 1'), findsOneWidget);
 
     final scoreDy = tester.getTopLeft(find.text('92')).dy;
-    final nightSkyDy = tester.getTopLeft(find.textContaining('별밝기 ·')).dy;
+    final nightSkyDy = tester.getTopLeft(find.textContaining('오늘 밤 ·')).dy;
     final goldenHourDy = tester.getTopLeft(find.text('21:40 - 01:20').first).dy;
 
     expect(nightSkyDy, greaterThan(scoreDy));
@@ -312,7 +312,7 @@ void main() {
     );
 
     final scoreDy = tester.getTopLeft(find.text('92')).dy;
-    final nightSkyDy = tester.getTopLeft(find.textContaining('별밝기 ·')).dy;
+    final nightSkyDy = tester.getTopLeft(find.textContaining('오늘 밤 ·')).dy;
     final goldenHourDy =
         tester.getTopLeft(find.text('21:40 - 01:20').first).dy;
     final moonDy = tester.getTopLeft(find.textContaining('오늘의 달')).dy;

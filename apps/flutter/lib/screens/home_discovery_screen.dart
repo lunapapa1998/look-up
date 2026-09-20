@@ -1367,7 +1367,7 @@ class _NightSkySection extends StatelessWidget {
                   ? const [Text('밤하늘 밝기 정보 없음')]
                   : [
                       Text(
-                        '별밝기 · ${display.label}',
+                        '오늘 밤 · ${display.label}',
                         style: textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),

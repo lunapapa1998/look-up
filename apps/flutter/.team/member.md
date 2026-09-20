@@ -2688,3 +2688,7 @@ DONE: flutter-engineer | apps/flutter/.team/member.md에 홈 화면 밤하늘 �
 ## day-mode SQM/Bortle 배지 인접성 수정 (2026-09-20, 12th)
 
 `home_discovery_screen.dart`의 `_NightSkyDayLine` 위젯이 SQM/Bortle 텍스트를 일반 `Text`로 렌더링하고, 추정치 배지는 별도로 trailing 별 아이콘 `Row` 안에 렌더링하던 문제를 수정. 크로스모델 검증자가 두 요소가 인접하지 않는다고 지적함. 수정: 일반 `Text`를 `TextSpan` children을 가진 `Text.rich`(key: `nightSkyDayLineText`)로 교체하고, SQM/Bortle `TextSpan` 바로 뒤에 추정치 배지를 `WidgetSpan`으로 임베드했으며, 별 `Row`에서 중복되던 배지는 제거함. `test/screens/home_discovery_screen_test.dart`에 신규 위젯 테스트(day-mode night sky line renders approx badge adjacent to Bortle text)를 추가했고, 이 테스트는 픽셀 위치 대신 `TextSpan` children 리스트를 순회해 인접성을 검증함. `flutter analyze`와 `flutter test`는 파이프라인 리드가 이미 green으로 확인함(237개 테스트 통과, analyze 이슈 0개).
+
+## 밤 블록 라벨 변경(오늘 밤) (spec 047, 2026-09-20)
+
+`home_discovery_screen.dart:1356`의 night-block 접두 텍스트를 `별밝기`에서 `오늘 밤`으로 변경해 day-mode 줄의 기존 접두 표현과 맞춤. `home_discovery_screen_test.dart`의 259, 263, 315행을 이에 맞춰 갱신함. `flutter analyze`와 `flutter test`는 리드가 green으로 확인함(전체 테스트 통과).
