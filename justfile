@@ -33,6 +33,51 @@ suitability-live:
 flutter-check:
     cd apps/flutter && flutter pub get && flutter analyze && flutter test
 
+# Local backend for simulator/physical-device development. Always load the
+# repo-root secrets; running uvicorn directly from apps/backend skips them.
+backend-dev:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test -f .env || { echo "error: repo-root .env is missing" >&2; exit 1; }
+    grep -Eq '^KMA_APIHUB_KEY=.+$' .env || { echo "error: KMA_APIHUB_KEY is missing from repo-root .env" >&2; exit 1; }
+    cd apps/backend
+    exec uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --env-file ../../.env
+
+# Run on a physical iPhone against the Mac-hosted backend.
+# Example: just ios-run-dev 00008130-0018348E1E90001C
+ios-run-dev device:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    lan_ip="$(ipconfig getifaddr en0 2>/dev/null || true)"
+    test -n "$lan_ip" || { echo "error: could not determine the Mac LAN IP from en0" >&2; exit 1; }
+    api_url="http://${lan_ip}:8000"
+    curl -fsS --max-time 5 "${api_url}/api/health" >/dev/null || {
+      echo "error: ${api_url}/api/health is unavailable; start 'just backend-dev' first" >&2
+      exit 1
+    }
+    echo "iOS dev endpoint: ${api_url}"
+    cd apps/flutter
+    exec flutter run -d "{{device}}" --dart-define="API_BASE_URL=${api_url}"
+
+# Run on a physical iPhone against a deployed backend. Production URLs must
+# be explicit HTTPS URLs so a stale local endpoint cannot be reused silently.
+# Example: just ios-run-prod DEVICE_ID https://SERVICE.run.app
+ios-run-prod device service_url:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    api_url="{{service_url}}"
+    case "$api_url" in
+      https://*) ;;
+      *) echo "error: production API_BASE_URL must start with https://" >&2; exit 1 ;;
+    esac
+    curl -fsS --max-time 10 "${api_url%/}/api/health" >/dev/null || {
+      echo "error: ${api_url%/}/api/health is unavailable" >&2
+      exit 1
+    }
+    echo "iOS production endpoint: ${api_url%/}"
+    cd apps/flutter
+    exec flutter run -d "{{device}}" --dart-define="API_BASE_URL=${api_url%/}"
+
 # Aggregate validation — runs each lane check that has been scaffolded, skips blank lanes.
 # This is the default for lead self-checks; individual specs pin their own lane check.
 check:

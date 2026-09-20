@@ -119,6 +119,7 @@ class DiscoveryOverview {
   final List<GoldenHour> goldenHours;
   final List<TelemetryReading> telemetry;
   final bool degraded;
+  final bool weatherRefreshing;
   final Moon? moon;
 
   const DiscoveryOverview({
@@ -126,6 +127,7 @@ class DiscoveryOverview {
     required this.goldenHours,
     required this.telemetry,
     required this.degraded,
+    this.weatherRefreshing = false,
     this.moon,
   });
 
@@ -139,6 +141,7 @@ class DiscoveryOverview {
           .map((e) => TelemetryReading.fromJson(e as Map<String, dynamic>))
           .toList(),
       degraded: json['degraded'] as bool,
+      weatherRefreshing: json['weatherRefreshing'] as bool? ?? false,
       moon: json['moon'] == null
           ? null
           : Moon.fromJson(json['moon'] as Map<String, dynamic>),
@@ -150,10 +153,7 @@ class HotspotMeta {
   final IconData icon;
   final String label;
 
-  const HotspotMeta({
-    required this.icon,
-    required this.label,
-  });
+  const HotspotMeta({required this.icon, required this.label});
 }
 
 class Hotspot {

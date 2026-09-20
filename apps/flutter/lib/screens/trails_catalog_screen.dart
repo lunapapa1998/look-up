@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/trails.dart';
 import '../theme/layout_tokens.dart';
 import '../state/discovery_providers.dart';
+import '../widgets/app_header_logo.dart';
 import '../widgets/course_card.dart';
 import '../utils/trail_format.dart';
 import 'course_detail_screen.dart';
@@ -31,7 +32,7 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
         toolbarHeight: 64,
         title: Row(
           children: [
-            Icon(Icons.visibility_outlined, color: colors.secondary),
+            const AppHeaderLogo(),
             const SizedBox(width: AppSpacing.sm),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,

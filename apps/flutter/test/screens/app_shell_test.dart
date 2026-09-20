@@ -38,6 +38,7 @@ void main() {
       await tester.pump();
       expect(find.byType(PackagesCatalogScreen), findsOneWidget);
       expect(find.text('낮에는 탐조, 밤에는 별자리'), findsOneWidget);
+      expect(find.text('D.U.A.L.I.S.M. · 1박 2일 생태여행'), findsNothing);
     },
   );
 

@@ -20,8 +20,15 @@ If `observedAt` is omitted on create, the server defaults it to the current UTC 
 ## Run
 
 ```
-uv run uvicorn app.main:app --reload
+cd ../..
+just backend-dev
 ```
+
+`just backend-dev` must be used for local app development. It validates the
+repo-root `.env`, loads it explicitly, and binds to `0.0.0.0:8000` so physical
+devices on the same LAN can connect. Running `uvicorn` directly from
+`apps/backend` does not load the repo-root `.env`; live providers such as KMA
+then silently degrade to unavailable data.
 
 Run from inside `apps/backend`.
 

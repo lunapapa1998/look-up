@@ -45,6 +45,8 @@ def fuse(mode: str, sub_scores: dict[str, int], statuses: dict[str, str]) -> dic
         sub_score = sub_scores.get(key, 0)
         if status == "unavailable":
             degraded = True
+        elif status == "loading":
+            pass
         else:
             total_weight += weight
             weighted_sum += weight * sub_score

@@ -18,7 +18,7 @@ from app.suitability.providers.astronomy import (
 from app.suitability.providers.base import LayerProvider, LayerReading
 from app.suitability.providers.light_pollution import LightPollutionProvider
 from app.suitability.providers.tide import TideProvider
-from app.suitability.providers.weather import WeatherProvider
+from app.suitability.providers.weather import ProgressiveWeatherProvider
 
 LAYER_KEYS: tuple[str, ...] = ("environment", "astronomy", "lightPollution", "tide")
 
@@ -99,6 +99,7 @@ class SuitabilityService:
             sqmValue=sqm_value,
             skyClass=sky_class,
             degraded=fusion["degraded"],
+            weatherRefreshing=readings["environment"].status == "loading",
             goldenHours=golden_hours,
             telemetry=telemetry,
             layers=[LayerScore(**entry) for entry in fusion["layers"]],
@@ -108,7 +109,7 @@ class SuitabilityService:
 
 def get_default_providers() -> dict[str, LayerProvider]:
     return {
-        "environment": WeatherProvider(),
+        "environment": ProgressiveWeatherProvider(),
         "astronomy": AstronomyProvider(),
         "lightPollution": LightPollutionProvider(),
         "tide": TideProvider(),

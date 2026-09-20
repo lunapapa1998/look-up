@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/stay_package.dart';
 import '../theme/layout_tokens.dart';
+import '../widgets/app_header_logo.dart';
 import '../widgets/packages/package_card.dart';
 import '../widgets/packages/package_extras.dart';
 import 'package_booking_preview_screen.dart';
@@ -59,12 +60,7 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
         toolbarHeight: 64,
         title: Row(
           children: [
-            Image.asset(
-              'assets/packages/logo.png',
-              width: 32,
-              height: 32,
-              excludeFromSemantics: true,
-            ),
+            const AppHeaderLogo(),
             const SizedBox(width: AppSpacing.sm),
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -247,11 +243,6 @@ class _PackagesIntro extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'D.U.A.L.I.S.M. · 1박 2일 생태여행',
-          style: text.labelSmall?.copyWith(color: colors.secondary),
-        ),
-        const SizedBox(height: AppSpacing.sm),
         Text('낮에는 탐조, 밤에는 별자리', style: text.headlineSmall),
         Wrap(
           spacing: AppSpacing.sm,

@@ -46,6 +46,23 @@ def test_all_layers_unavailable_yields_score_zero_no_exception() -> None:
     assert result["degraded"] is True
 
 
+def test_loading_layer_is_excluded_without_marking_response_degraded() -> None:
+    result = fuse(
+        "day",
+        {"environment": 0, "astronomy": 80, "lightPollution": 70, "tide": 90},
+        {
+            "environment": "loading",
+            "astronomy": "live",
+            "lightPollution": "approx",
+            "tide": "live",
+        },
+    )
+
+    assert result["degraded"] is False
+    environment = next(layer for layer in result["layers"] if layer["key"] == "environment")
+    assert environment["status"] == "loading"
+
+
 def test_missing_layer_defaults_to_zero_sub_score_and_unavailable_status() -> None:
     result = fuse("day", {"environment": 100}, {"environment": "live"})
     missing = next(layer for layer in result["layers"] if layer["key"] == "astronomy")
