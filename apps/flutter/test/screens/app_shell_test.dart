@@ -11,7 +11,7 @@ import 'package:lookup/state/providers.dart';
 
 void main() {
   testWidgets(
-    'shows 5 nav destinations with discovery tab selected initially',
+    'shows 4 nav destinations with home tab selected initially',
     (tester) async {
       await tester.pumpWidget(
         ProviderScope(
@@ -32,8 +32,8 @@ void main() {
         ),
       );
 
-      expect(find.byType(NavigationDestination), findsNWidgets(5));
-      expect(find.text('발견·큐레이션'), findsWidgets);
+      expect(find.byType(NavigationDestination), findsNWidgets(4));
+      expect(find.text('홈'), findsWidgets);
       await tester.tap(find.byIcon(Icons.route));
       await tester.pump();
       expect(find.byType(PackagesCatalogScreen), findsOneWidget);
@@ -41,32 +41,4 @@ void main() {
       expect(find.text('D.U.A.L.I.S.M. · 1박 2일 생태여행'), findsNothing);
     },
   );
-
-  testWidgets('tapping the diary tab shows the diary list screen', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          ecologApiProvider.overrideWithValue(FakeEcologApi()),
-          locationServiceProvider.overrideWithValue(
-            FakeLocationService(
-              const ObservationLocation(
-                lat: 37.5921,
-                lng: 126.3984,
-                placeName: null,
-                isFallback: true,
-              ),
-            ),
-          ),
-        ],
-        child: const MaterialApp(home: AppShell()),
-      ),
-    );
-
-    await tester.tap(find.byIcon(Icons.auto_stories));
-    await tester.pumpAndSettle();
-
-    expect(find.text('관찰 일지'), findsOneWidget);
-  });
 }

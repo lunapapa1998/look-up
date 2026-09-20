@@ -35,9 +35,9 @@ class _AppShellState extends State<AppShell> {
           setState(() => _selectedIndex = index);
         },
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.radar), label: '발견·큐레이션'),
+          NavigationDestination(icon: Icon(Icons.home), label: '홈'),
           NavigationDestination(icon: Icon(Icons.map), label: '관찰 지도'),
-          NavigationDestination(icon: Icon(Icons.hiking), label: '트레일·노포'),
+          NavigationDestination(icon: Icon(Icons.radar), label: '발견'),
           NavigationDestination(icon: Icon(Icons.route), label: '낮-밤 패키지'),
         ],
       ),

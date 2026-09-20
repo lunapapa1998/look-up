@@ -13,3 +13,6 @@ __pycache__/
 
 # factory run logs
 .runs/
+
+# Claude Code local worktrees (never commit)
+.claude/worktrees/

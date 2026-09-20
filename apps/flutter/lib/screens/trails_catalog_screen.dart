@@ -190,12 +190,12 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
                           const SizedBox(height: AppSpacing.xl),
                           const _SectionTitle(
                             eyebrow: 'LOCAL HERITAGE',
-                            title: '관찰 후 들르는 지역 노포',
+                            title: '관찰 후 들르는 지역 식당',
                             description: '코스 종점 주변, 함께 둘러보기 좋은 곳',
                           ),
                           const SizedBox(height: AppSpacing.md),
                           if (nearby.isEmpty)
-                            const Text('이 코스 주변에는 아직 등록된 노포가 없어요'),
+                            const Text('이 코스 주변에는 아직 등록된 식당이 없어요'),
                         ],
                       ),
                     ),
