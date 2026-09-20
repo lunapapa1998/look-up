@@ -52,6 +52,7 @@ class SuitabilityResponse(BaseModel):
     sqmValue: float
     skyClass: str
     degraded: bool
+    weatherRefreshing: bool = False
     goldenHours: list[GoldenHour]
     telemetry: list[TelemetryReading]
     layers: list[LayerScore]

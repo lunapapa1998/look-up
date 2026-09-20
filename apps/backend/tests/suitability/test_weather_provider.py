@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from threading import Event
 
+import httpx
 import pytest
 
 from app.suitability.providers.weather import (
+    ProgressiveWeatherProvider,
     WeatherProvider,
     _parse_grid_value,
     _parse_xy_response,
+    _request_text,
 )
 
 _FIXTURE_PATH = Path(__file__).parent / "fixtures" / "kma_weather_sample.json"
@@ -86,3 +90,124 @@ def test_fetch_without_api_key_returns_unavailable_without_network(monkeypatch) 
     assert reading.status == "unavailable"
     assert reading.sub_score == 0
     assert reading.evidence["reason"] == "KMA_APIHUB_KEY not configured"
+
+
+def test_request_text_retries_transient_timeout(monkeypatch) -> None:
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise httpx.ReadTimeout("temporary KMA delay", request=request)
+        return httpx.Response(200, text="weather data", request=request)
+
+    monkeypatch.setattr("app.suitability.providers.weather.time.sleep", lambda _: None)
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        text = _request_text(client, "https://example.test/weather", {}, attempts=2)
+
+    assert text == "weather data"
+    assert attempts == 2
+
+
+def test_request_text_raises_after_retry_budget(monkeypatch) -> None:
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        raise httpx.ReadTimeout("persistent KMA delay", request=request)
+
+    monkeypatch.setattr("app.suitability.providers.weather.time.sleep", lambda _: None)
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(httpx.ReadTimeout):
+            _request_text(client, "https://example.test/weather", {}, attempts=3)
+
+    assert attempts == 3
+
+
+def test_recent_cached_reading_is_used_as_approximate_fallback(
+    monkeypatch, kma_values: dict
+) -> None:
+    provider = WeatherProvider()
+    live = provider.parse(kma_values, "day")
+    monkeypatch.setattr("app.suitability.providers.weather.time.monotonic", lambda: 100.0)
+    provider._remember(37.5921, 126.3984, "day", live)
+    monkeypatch.setattr("app.suitability.providers.weather.time.monotonic", lambda: 160.0)
+
+    fallback = provider._cached_fallback(
+        37.5921, 126.3984, "day", "temporary timeout"
+    )
+
+    assert fallback is not None
+    assert fallback.status == "approx"
+    assert fallback.sub_score == live.sub_score
+    assert fallback.telemetry == live.telemetry
+    assert fallback.evidence["cacheAgeSeconds"] == 60
+    assert fallback.evidence["liveFailure"] == "temporary timeout"
+
+
+def test_expired_cached_reading_is_not_used(monkeypatch, kma_values: dict) -> None:
+    provider = WeatherProvider()
+    live = provider.parse(kma_values, "day")
+    monkeypatch.setattr("app.suitability.providers.weather.time.monotonic", lambda: 100.0)
+    provider._remember(37.5921, 126.3984, "day", live)
+    monkeypatch.setattr(
+        "app.suitability.providers.weather.time.monotonic",
+        lambda: 100.0 + 2 * 60 * 60 + 1,
+    )
+
+    fallback = provider._cached_fallback(37.5921, 126.3984, "day", "timeout")
+
+    assert fallback is None
+
+
+def test_fresh_cache_is_shared_between_day_and_night(
+    monkeypatch, kma_values: dict
+) -> None:
+    provider = WeatherProvider()
+    monkeypatch.setattr("app.suitability.providers.weather.time.monotonic", lambda: 100.0)
+    provider._remember(37.5921, 126.3984, "day", provider.parse(kma_values, "day"))
+    provider._remember(
+        37.5921, 126.3984, "night", provider.parse(kma_values, "night")
+    )
+    monkeypatch.setattr("app.suitability.providers.weather.time.monotonic", lambda: 200.0)
+
+    day = provider._fresh_cached(37.5921, 126.3984, "day")
+    night = provider._fresh_cached(37.5921, 126.3984, "night")
+
+    assert day is not None
+    assert night is not None
+    assert day.status == "live"
+    assert night.status == "live"
+    assert day.telemetry == night.telemetry
+    assert day.sub_score != night.sub_score
+
+
+def test_progressive_provider_returns_loading_then_shared_cache(kma_values: dict) -> None:
+    refreshed = Event()
+
+    class StubWeatherProvider(WeatherProvider):
+        calls = 0
+
+        def fetch(self, lat: float, lng: float, mode: str):
+            self.calls += 1
+            for cached_mode in ("day", "night"):
+                self._remember(lat, lng, cached_mode, self.parse(kma_values, cached_mode))
+            refreshed.set()
+            return self._fresh_cached(lat, lng, mode)
+
+    source = StubWeatherProvider()
+    provider = ProgressiveWeatherProvider(source)
+
+    first = provider.fetch(37.5921, 126.3984, "day")
+    assert first.status == "loading"
+    assert refreshed.wait(timeout=1)
+
+    night = provider.fetch(37.5921, 126.3984, "night")
+    day = provider.fetch(37.5921, 126.3984, "day")
+
+    assert source.calls == 1
+    assert night.status == "live"
+    assert day.status == "live"
+    assert night.telemetry == day.telemetry

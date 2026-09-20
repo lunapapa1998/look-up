@@ -33,7 +33,7 @@ class HttpSuitabilityApi implements SuitabilityApi {
   final http.Client client;
 
   HttpSuitabilityApi(this.baseUrl, {http.Client? client})
-      : client = client ?? http.Client();
+    : client = client ?? http.Client();
 
   void _checkStatus(http.Response response, int expected) {
     if (response.statusCode == expected) return;
@@ -78,6 +78,7 @@ class FakeSuitabilityApi implements SuitabilityApi {
   final void Function(double lat, double lng)? onFetchSuitability;
   final Moon? moonOverride;
   final bool includeMoon;
+  final bool weatherRefreshing;
 
   FakeSuitabilityApi({
     this.degraded = false,
@@ -85,6 +86,7 @@ class FakeSuitabilityApi implements SuitabilityApi {
     this.onFetchSuitability,
     this.moonOverride,
     this.includeMoon = true,
+    this.weatherRefreshing = false,
   });
 
   static const _dayMoon = Moon(
@@ -145,14 +147,22 @@ class FakeSuitabilityApi implements SuitabilityApi {
         ? const [
             TelemetryReading(kind: 'sky', label: '하늘 상태', value: '맑음'),
             TelemetryReading(kind: 'humidity', label: '습도', value: '52%'),
-            TelemetryReading(kind: 'wind', label: '풍속·풍향', value: '2.1 m/s (NW)'),
+            TelemetryReading(
+              kind: 'wind',
+              label: '풍속·풍향',
+              value: '2.1 m/s (NW)',
+            ),
             TelemetryReading(kind: 'precip', label: '강수확률', value: '0%'),
             TelemetryReading(kind: 'tide', label: '조위 상태', value: '만조 16:15'),
           ]
         : const [
             TelemetryReading(kind: 'sky', label: '하늘 상태', value: '맑음 · 운량 0%'),
             TelemetryReading(kind: 'humidity', label: '습도', value: '38%'),
-            TelemetryReading(kind: 'wind', label: '풍속·풍향', value: '1.4 m/s (N)'),
+            TelemetryReading(
+              kind: 'wind',
+              label: '풍속·풍향',
+              value: '1.4 m/s (N)',
+            ),
             TelemetryReading(kind: 'precip', label: '강수확률', value: '0%'),
             TelemetryReading(kind: 'tide', label: '조위 상태', value: '간조 23:10'),
           ];
@@ -164,6 +174,7 @@ class FakeSuitabilityApi implements SuitabilityApi {
       goldenHours: _goldenHours,
       telemetry: telemetry,
       degraded: degraded,
+      weatherRefreshing: weatherRefreshing,
       moon: resolvedMoon,
     );
   }

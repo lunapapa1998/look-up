@@ -42,6 +42,9 @@ void main() {
     expect(find.text('매우 쾌적 (Prime)'), findsOneWidget);
     expect(find.text('14:00 - 17:30'), findsOneWidget);
     expect(find.text('21:40 - 01:20'), findsOneWidget);
+    expect(find.text('LIVE FIELD TELEMETRY'), findsNothing);
+    expect(find.text(' | 강화 · 영월 실시간 기상망'), findsNothing);
+    expect(find.byKey(const Key('focusModeResetAffordance')), findsNothing);
   });
 
   testWidgets('renders both hotspot cards', (tester) async {
@@ -84,6 +87,52 @@ void main() {
       const Offset(0, -200),
     );
     expect(find.text('영월 별마로 & 봉래산 다크스카이'), findsOneWidget);
+  });
+
+  testWidgets('degraded data can retry with button and pull to refresh', (
+    tester,
+  ) async {
+    var fetchCount = 0;
+    final container = ProviderContainer(
+      overrides: [
+        suitabilityApiProvider.overrideWithValue(
+          FakeSuitabilityApi(
+            degraded: true,
+            onFetchSuitability: (_, _) => fetchCount++,
+          ),
+        ),
+        locationServiceProvider.overrideWithValue(
+          FakeLocationService(
+            const ObservationLocation(
+              lat: 37.5921,
+              lng: 126.3984,
+              placeName: null,
+              isFallback: true,
+            ),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(home: HomeDiscoveryScreen(onViewMapPressed: () {})),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('discovery_degraded_retry')), findsOneWidget);
+    expect(fetchCount, 1);
+
+    await tester.tap(find.byKey(const Key('discovery_degraded_retry')));
+    await tester.pumpAndSettle();
+    expect(fetchCount, 2);
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 400));
+    await tester.pumpAndSettle();
+    expect(fetchCount, 3);
   });
 
   testWidgets('tapping night segment switches obsModeProvider to night', (

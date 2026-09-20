@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' show Icons;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -91,27 +93,53 @@ class LocationNotifier extends AsyncNotifier<ObservationLocation> {
 
 final locationProvider =
     AsyncNotifierProvider<LocationNotifier, ObservationLocation>(
-  LocationNotifier.new,
-);
+      LocationNotifier.new,
+    );
 
-class DiscoveryNotifier extends FamilyAsyncNotifier<DiscoveryOverview, ObsMode> {
+class DiscoveryNotifier
+    extends FamilyAsyncNotifier<DiscoveryOverview, ObsMode> {
   @override
   Future<DiscoveryOverview> build(ObsMode mode) async {
     ref.keepAlive();
     final api = ref.watch(suitabilityApiProvider);
     final location = await ref.watch(locationProvider.future);
-    return api.fetchSuitability(
+    final overview = await api.fetchSuitability(
       lat: location.lat,
       lng: location.lng,
       mode: mode,
     );
+    if (overview.weatherRefreshing) {
+      unawaited(_pollWeather(api, location, mode));
+    }
+    return overview;
+  }
+
+  Future<void> _pollWeather(
+    SuitabilityApi api,
+    ObservationLocation location,
+    ObsMode mode,
+  ) async {
+    for (var attempt = 0; attempt < 30; attempt++) {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      try {
+        final updated = await api.fetchSuitability(
+          lat: location.lat,
+          lng: location.lng,
+          mode: mode,
+        );
+        state = AsyncData(updated);
+        if (!updated.weatherRefreshing) return;
+      } catch (_) {
+        // Keep the already-rendered partial data and try again briefly.
+      }
+    }
   }
 }
 
 final discoveryProvider =
     AsyncNotifierProvider.family<DiscoveryNotifier, DiscoveryOverview, ObsMode>(
-  DiscoveryNotifier.new,
-);
+      DiscoveryNotifier.new,
+    );
 
 final trailsApiProvider = Provider<TrailsApi>((ref) {
   return HttpTrailsApi(defaultApiBaseUrl);
@@ -123,8 +151,10 @@ final speciesApiProvider = Provider<SpeciesApi>((ref) {
 
 typedef SpeciesQuery = ({String? sci, String? ko});
 
-final speciesInfoProvider =
-    FutureProvider.family<SpeciesInfo, SpeciesQuery>((ref, query) {
+final speciesInfoProvider = FutureProvider.family<SpeciesInfo, SpeciesQuery>((
+  ref,
+  query,
+) {
   final api = ref.watch(speciesApiProvider);
   return api.fetchSpecies(sci: query.sci, ko: query.ko);
 });
@@ -135,8 +165,10 @@ final tideApiProvider = Provider<TideApi>((ref) {
 
 typedef TideQuery = ({double lat, double lng});
 
-final tideTodayProvider =
-    FutureProvider.family<TodayTides, TideQuery>((ref, query) {
+final tideTodayProvider = FutureProvider.family<TodayTides, TideQuery>((
+  ref,
+  query,
+) {
   final api = ref.watch(tideApiProvider);
   return api.fetchTodayTides(lat: query.lat, lng: query.lng);
 });
@@ -146,18 +178,18 @@ class TrailsNotifier extends AsyncNotifier<TrailsResponse> {
   Future<TrailsResponse> build() async {
     final api = ref.watch(trailsApiProvider);
     final location = await ref.watch(locationProvider.future);
-    return api.fetchTrails(
-      lat: location.lat,
-      lng: location.lng,
-    );
+    return api.fetchTrails(lat: location.lat, lng: location.lng);
   }
 }
 
-final trailsProvider =
-    AsyncNotifierProvider<TrailsNotifier, TrailsResponse>(TrailsNotifier.new);
+final trailsProvider = AsyncNotifierProvider<TrailsNotifier, TrailsResponse>(
+  TrailsNotifier.new,
+);
 
-final trailDetailProvider =
-    FutureProvider.family<TrailDetailResponse, String>((ref, crsIdx) {
+final trailDetailProvider = FutureProvider.family<TrailDetailResponse, String>((
+  ref,
+  crsIdx,
+) {
   final api = ref.watch(trailsApiProvider);
   return api.fetchTrailDetail(crsIdx: crsIdx);
 });
@@ -195,7 +227,8 @@ final hotspotsProvider = Provider<List<Hotspot>>((ref) {
       overlayTimestamp: '14분 전 기록',
       title: '강화도 동막갯벌 & 여차리 도래지',
       subtitle: '서울 58km',
-      description: '만조 2시간 전 갯골을 따라 물이 차오르며 수백 마리의 도요물떼새가 둑방 50m 지점까지 접근하고 있습니다. 가을 이동기 최고의 관측 창구입니다.',
+      description:
+          '만조 2시간 전 갯골을 따라 물이 차오르며 수백 마리의 도요물떼새가 둑방 50m 지점까지 접근하고 있습니다. 가을 이동기 최고의 관측 창구입니다.',
       metas: [
         HotspotMeta(icon: Icons.schedule, label: '14:00~17:00'),
         HotspotMeta(icon: Icons.lens_blur, label: '배율 8x-10x 권장'),
@@ -212,7 +245,8 @@ final hotspotsProvider = Provider<List<Hotspot>>((ref) {
       overlayTimestamp: '달 위상 8% (삭)',
       title: '영월 별마로 & 봉래산 다크스카이',
       subtitle: '해발 799m',
-      description: '습도 38%, 운량 5% 미만의 맑은 상공입니다. 22시 30분 이후 궁수자리부터 백조자리까지 육안으로 은하수 분기대를 뚜렷하게 관측할 수 있습니다.',
+      description:
+          '습도 38%, 운량 5% 미만의 맑은 상공입니다. 22시 30분 이후 궁수자리부터 백조자리까지 육안으로 은하수 분기대를 뚜렷하게 관측할 수 있습니다.',
       metas: [
         HotspotMeta(icon: Icons.schedule, label: '22:30~02:00'),
         HotspotMeta(icon: Icons.bedtime, label: '암적응 15분 필수'),
@@ -231,13 +265,13 @@ class ObservationMapNotifier extends AsyncNotifier<ObservationMapResponse> {
   Future<ObservationMapResponse> build() async {
     final api = ref.watch(observationMapApiProvider);
     final location = await ref.watch(locationProvider.future);
-    return api.fetchObservationMap(
-      lat: location.lat,
-      lng: location.lng,
-    );
+    return api.fetchObservationMap(lat: location.lat, lng: location.lng);
   }
 
-  Future<void> refreshAtCenter({required double lat, required double lng}) async {
+  Future<void> refreshAtCenter({
+    required double lat,
+    required double lng,
+  }) async {
     state = const AsyncLoading();
     final api = ref.read(observationMapApiProvider);
     state = await AsyncValue.guard(
@@ -248,20 +282,20 @@ class ObservationMapNotifier extends AsyncNotifier<ObservationMapResponse> {
 
 final observationMapProvider =
     AsyncNotifierProvider<ObservationMapNotifier, ObservationMapResponse>(
-  ObservationMapNotifier.new,
-);
+      ObservationMapNotifier.new,
+    );
 
 typedef SpotSuitabilityQuery = ({double lat, double lng, ObsMode mode});
 
 final spotSuitabilityProvider =
     FutureProvider.family<DiscoveryOverview, SpotSuitabilityQuery>((
-  ref,
-  query,
-) {
-  final api = ref.watch(suitabilityApiProvider);
-  return api.fetchSuitability(
-    lat: query.lat,
-    lng: query.lng,
-    mode: query.mode,
-  );
-});
+      ref,
+      query,
+    ) {
+      final api = ref.watch(suitabilityApiProvider);
+      return api.fetchSuitability(
+        lat: query.lat,
+        lng: query.lng,
+        mode: query.mode,
+      );
+    });
