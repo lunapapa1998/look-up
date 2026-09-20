@@ -48,3 +48,34 @@ Kakao/Google 버튼을 누르면 "아직 준비되지 않은 로그인 방식입
 - Kakao 리다이렉트용 `AuthCodeHandlerActivity` 등록
   (scheme `kakao{NATIVE_APP_KEY}`, host `oauth`)
 - `google-services.json` 배치 + Google Sign-In SHA 지문 등록
+
+## 5. 로컬 실행 (인증 포함) 빠른 시작
+
+로그인은 **빌드타임 dart-define + 백엔드 서명 자격증명** 둘 다 있어야 동작한다.
+아무 설정 없이 빌드하면 `UnavailableAuthRepository`로 폴백해 "준비 중"만 뜬다.
+
+### 앱 (dart-define)
+`config/dev.json`(gitignore)에 아래 값을 채워 넘긴다. 값 출처:
+- Firebase 키(`FIREBASE_*`): FlutterFire CLI 생성값(팀 공유 `dev.ios.json` 참고).
+- `GOOGLE_CLIENT_ID`: iOS `Runner/Info.plist`의 `com.googleusercontent.apps.<ID>` URL scheme → `<ID>.apps.googleusercontent.com`.
+- `KAKAO_NATIVE_APP_KEY`: `Runner/Info.plist`의 `kakao<KEY>` URL scheme → `<KEY>`. `KAKAO_LOGIN_ENABLED=true`.
+- `AUTH_ENABLED=true`, `API_BASE_URL`은 아래 백엔드 주소(예: `http://localhost:8001`).
+
+```sh
+flutter run -d <simulator-udid> --dart-define-from-file=config/dev.json
+```
+
+### 백엔드 (Kakao 브리지 서명)
+Kakao만 백엔드가 필요하다(Google/Apple은 순수 Firebase 클라이언트라 백엔드 불필요).
+`POST /api/auth/kakao`가 Firebase **custom token**을 서명하려면 서비스 계정 키가 있어야 한다.
+없으면 503, 있으면 정상(가짜 토큰 테스트 시 401=카카오 만료가 나오면 서명 경로 OK).
+
+```sh
+cd apps/backend
+GOOGLE_APPLICATION_CREDENTIALS=<firebase 서비스계정 키 .json 경로> \
+FIREBASE_PROJECT_ID=lookup-dev-260918 \
+  uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --env-file ../../.env
+```
+
+주의: `uvicorn`은 `--reload` 없이는 코드 변경을 반영하지 않는다. 브랜치 전환/리베이스 후
+라우터(`/api/auth/kakao` 등)가 안 잡히면 백엔드를 **재시작**할 것.
