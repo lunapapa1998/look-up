@@ -86,6 +86,32 @@ class TelemetryReading {
   }
 }
 
+class Moon {
+  final int illumination;
+  final String phaseName;
+  final String? moonrise;
+  final String? moonset;
+  final String status;
+
+  const Moon({
+    required this.illumination,
+    required this.phaseName,
+    this.moonrise,
+    this.moonset,
+    required this.status,
+  });
+
+  factory Moon.fromJson(Map<String, dynamic> json) {
+    return Moon(
+      illumination: json['illumination'] as int,
+      phaseName: json['phaseName'] as String,
+      moonrise: json['moonrise'] as String?,
+      moonset: json['moonset'] as String?,
+      status: json['status'] as String,
+    );
+  }
+}
+
 /// Bundles the suitability index, golden hours, and telemetry readings
 /// shown on the discovery screen.
 class DiscoveryOverview {
@@ -93,12 +119,14 @@ class DiscoveryOverview {
   final List<GoldenHour> goldenHours;
   final List<TelemetryReading> telemetry;
   final bool degraded;
+  final Moon? moon;
 
   const DiscoveryOverview({
     required this.suitabilityIndex,
     required this.goldenHours,
     required this.telemetry,
     required this.degraded,
+    this.moon,
   });
 
   factory DiscoveryOverview.fromJson(Map<String, dynamic> json) {
@@ -111,6 +139,9 @@ class DiscoveryOverview {
           .map((e) => TelemetryReading.fromJson(e as Map<String, dynamic>))
           .toList(),
       degraded: json['degraded'] as bool,
+      moon: json['moon'] == null
+          ? null
+          : Moon.fromJson(json['moon'] as Map<String, dynamic>),
     );
   }
 }

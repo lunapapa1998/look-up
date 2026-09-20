@@ -129,9 +129,7 @@ void main() {
       );
 
       await tester.tap(find.byKey(const Key('focusModeNightSegment')));
-      await tester.pump();
-      await tester.pump();
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(fetchCount, 2);
       expect(find.text('92'), findsOneWidget);
@@ -144,6 +142,12 @@ void main() {
 
       await tester.tap(find.byKey(const Key('focusModeDaySegment')));
       await tester.pump();
+      await tester.pumpAndSettle();
+      await tester.dragUntilVisible(
+        find.text('88'),
+        find.byType(CustomScrollView),
+        const Offset(0, 200),
+      );
 
       expect(fetchCount, 2);
       expect(find.text('88'), findsOneWidget);

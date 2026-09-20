@@ -503,6 +503,15 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                             },
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        if (currentMode == ObsMode.night &&
+                            overview.moon != null &&
+                            overview.moon!.status != 'unavailable')
+                          _StaggerReveal(
+                            controller: _staggerController,
+                            startMs: 140,
+                            child: _TodayMoonSection(moon: overview.moon!),
+                          ),
                         const SizedBox(height: 16),
                         _StaggerReveal(
                           controller: _staggerController,
@@ -1111,6 +1120,109 @@ class _FocusModeSegmentButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+IconData moonPhaseIcon(String phaseName) {
+  switch (phaseName) {
+    case '삭':
+      return Icons.circle_outlined;
+    case '초승달':
+      return Icons.nights_stay;
+    case '상현 반달':
+      return Icons.brightness_3;
+    case '차오르는 달':
+      return Icons.brightness_2;
+    case '보름달':
+      return Icons.circle;
+    case '기우는 달':
+      return Icons.brightness_2;
+    case '하현 반달':
+      return Icons.brightness_3;
+    case '그믐달':
+      return Icons.nights_stay;
+    default:
+      return Icons.dark_mode;
+  }
+}
+
+/// Shows today's moon phase, illumination, moonset, and moonrise below the
+/// golden-hour cards in night mode (see `specs/039-moon-section-flutter.md`).
+/// Visually consistent with the golden-hour card styling above it.
+class _TodayMoonSection extends StatelessWidget {
+  const _TodayMoonSection({required this.moon});
+
+  final Moon moon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 27,
+            child: Semantics(
+              label: '${moon.phaseName}, 달빛 ${moon.illumination} 퍼센트',
+              child: Icon(
+                moonPhaseIcon(moon.phaseName),
+                color: colorScheme.secondary,
+                size: 28,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '오늘의 달 · ${moon.phaseName}',
+                  style: (textTheme.titleSmall ?? textTheme.labelLarge)
+                      ?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                ),
+                Text(
+                  '달빛 ${moon.illumination}%',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '월몰 ${moon.moonset ?? '—'}',
+                style: (textTheme.bodyMedium ?? textTheme.labelMedium)
+                    ?.copyWith(
+                      color: colorScheme.secondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              Text(
+                '월출 ${moon.moonrise ?? '—'}',
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -5,10 +5,16 @@ from app.suitability.models import (
     GoldenHour,
     Location,
     LayerScore,
+    Moon,
     SuitabilityResponse,
     TelemetryReading,
 )
-from app.suitability.providers.astronomy import AstronomyProvider
+from app.suitability.providers.astronomy import (
+    AstronomyProvider,
+    _format_hhmm,
+    _moon_phase_name,
+    _parse_hhmm,
+)
 from app.suitability.providers.base import LayerProvider, LayerReading
 from app.suitability.providers.light_pollution import LightPollutionProvider
 from app.suitability.providers.tide import TideProvider
@@ -54,6 +60,37 @@ class SuitabilityService:
         sqm_value = light_pollution_evidence.get("sqmValue", 0.0)
         sky_class = light_pollution_evidence.get("skyClass", "알 수 없음")
 
+        astronomy_reading = readings["astronomy"]
+        moon: Moon | None = None
+        if astronomy_reading.status == "live":
+            try:
+                evidence = astronomy_reading.evidence
+                phase_name = _moon_phase_name(evidence["lunarAgeDays"])
+
+                moonrise_str: str | None
+                try:
+                    hour, minute = _parse_hhmm(evidence["moonrise"])
+                    moonrise_str = _format_hhmm(hour, minute)
+                except (ValueError, TypeError):
+                    moonrise_str = None
+
+                moonset_str: str | None
+                try:
+                    hour, minute = _parse_hhmm(evidence["moonset"])
+                    moonset_str = _format_hhmm(hour, minute)
+                except (ValueError, TypeError):
+                    moonset_str = None
+
+                moon = Moon(
+                    illumination=evidence["illuminationPct"],
+                    phaseName=phase_name,
+                    moonrise=moonrise_str,
+                    moonset=moonset_str,
+                    status="live",
+                )
+            except KeyError:
+                moon = None
+
         return SuitabilityResponse(
             mode=mode,
             location=Location(lat=lat, lng=lng),
@@ -65,6 +102,7 @@ class SuitabilityService:
             goldenHours=golden_hours,
             telemetry=telemetry,
             layers=[LayerScore(**entry) for entry in fusion["layers"]],
+            moon=moon,
         )
 
 

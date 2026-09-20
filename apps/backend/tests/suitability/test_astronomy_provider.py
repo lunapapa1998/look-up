@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from app.suitability.providers.astronomy import AstronomyProvider
+from app.suitability.providers.astronomy import AstronomyProvider, _moon_phase_name
 
 _FIXTURES_DIR = Path(__file__).parent / "fixtures"
 _RISESET_FIXTURE = _FIXTURES_DIR / "kasi_riseset_sample.json"
@@ -82,7 +82,7 @@ def test_dark_sky_window_with_dim_moon_uses_full_twilight_span(riseset_item: dic
     assert reading.evidence["illuminationPct"] < 50
     entry = reading.golden_hours[0]
     assert entry["timeRange"] == "20:21 - 04:38"
-    assert "무월광 20:21~04:38" in entry["description"]
+    assert entry["description"] == "달빛 방해 없는 시간대"
 
 
 def test_missing_astm_falls_back_to_fixed_window(lunar_item: dict) -> None:
@@ -94,7 +94,7 @@ def test_missing_astm_falls_back_to_fixed_window(lunar_item: dict) -> None:
     entry = reading.golden_hours[0]
     # aste=20:21 + fixed 220 minutes (3h40m) = 00:01 next day
     assert entry["timeRange"] == "20:21 - 00:01"
-    assert entry["description"] == "월령 26.8일 · 광도 18%"
+    assert entry["description"] == "하늘이 어두운 시간대"
 
 
 def test_bright_full_moon_covering_entire_window_limits_observation() -> None:
@@ -107,7 +107,7 @@ def test_bright_full_moon_covering_entire_window_limits_observation() -> None:
     assert reading.evidence["illuminationPct"] >= 50
     entry = reading.golden_hours[0]
     assert entry["timeRange"] == "20:21 - 04:38"
-    assert "관측 제한" in entry["description"]
+    assert entry["description"] == "달이 밤새 떠 있어 어두운 별은 보기 어려워요"
     assert len(reading.golden_hours) == 1
     assert _TIME_RANGE_RE.match(entry["timeRange"])
 
@@ -124,7 +124,7 @@ def test_bright_moon_mid_window_picks_longer_moonless_segment() -> None:
     # dark window 20:21-04:38 (1221-1718min); moon up 23:00-01:00 (1380-1500min)
     # segments: 20:21-23:00 (159min) and 01:00-04:38 (218min) -> longer segment wins
     assert entry["timeRange"] == "01:00 - 04:38"
-    assert "무월광 01:00~04:38" in entry["description"]
+    assert "달빛 방해 없는 시간대" in entry["description"]
     assert len(reading.golden_hours) == 1
     assert _TIME_RANGE_RE.match(entry["timeRange"])
 
@@ -151,7 +151,7 @@ def test_bright_moon_risen_before_twilight_picks_post_moonset_segment() -> None:
     assert reading.evidence["windowSource"] == "darkSky"
     entry = reading.golden_hours[0]
     assert entry["timeRange"] == "23:00 - 04:38"
-    assert "무월광 23:00~04:38" in entry["description"]
+    assert "달빛 방해 없는 시간대" in entry["description"]
 
 
 def test_bright_moon_allnight_with_offset_endpoints_limits_observation() -> None:
@@ -163,7 +163,7 @@ def test_bright_moon_allnight_with_offset_endpoints_limits_observation() -> None
     assert reading.evidence["windowSource"] == "darkSky"
     entry = reading.golden_hours[0]
     assert entry["timeRange"] == "20:21 - 04:38"
-    assert "관측 제한" in entry["description"]
+    assert entry["description"] == "달이 밤새 떠 있어 어두운 별은 보기 어려워요"
 
 
 def test_missing_moon_fields_with_bright_illumination_does_not_claim_moonless() -> None:
@@ -176,4 +176,25 @@ def test_missing_moon_fields_with_bright_illumination_does_not_claim_moonless() 
     entry = reading.golden_hours[0]
     assert entry["timeRange"] == "20:21 - 04:38"
     assert "무월광" not in entry["description"]
-    assert "월출몰 정보 없음" in entry["description"]
+    assert entry["description"] == "하늘이 완전히 어두운 시간"
+
+
+def test_moon_phase_name_boundaries() -> None:
+    assert _moon_phase_name(0) == "삭"
+    assert _moon_phase_name(1.84) == "삭"
+    assert _moon_phase_name(1.85) == "초승달"
+    assert _moon_phase_name(5.53) == "초승달"
+    assert _moon_phase_name(5.54) == "상현 반달"
+    assert _moon_phase_name(9.22) == "상현 반달"
+    assert _moon_phase_name(9.23) == "차오르는 달"
+    assert _moon_phase_name(12.91) == "차오르는 달"
+    assert _moon_phase_name(12.92) == "보름달"
+    assert _moon_phase_name(16.60) == "보름달"
+    assert _moon_phase_name(16.61) == "기우는 달"
+    assert _moon_phase_name(20.29) == "기우는 달"
+    assert _moon_phase_name(20.30) == "하현 반달"
+    assert _moon_phase_name(23.98) == "하현 반달"
+    assert _moon_phase_name(23.99) == "그믐달"
+    assert _moon_phase_name(27.67) == "그믐달"
+    assert _moon_phase_name(27.68) == "삭"
+    assert _moon_phase_name(29.53) == "삭"
