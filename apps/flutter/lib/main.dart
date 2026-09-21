@@ -106,6 +106,7 @@ class _MyAppState extends ConsumerState<MyApp>
       animation: _controller,
       builder: (context, _) {
         return MaterialApp(
+          debugShowCheckedModeBanner: false,
           title: '위를 봐요',
           theme: ThemeData.lerp(
             _fromTheme!,
