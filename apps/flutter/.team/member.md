@@ -1,5 +1,14 @@
 # flutter handoff note
 
+## Spec 052 Phase 2 — sample-data fallback wrappers behind `DEMO_FALLBACK` (no contract change)
+
+- New `lib/api/demo/fallback_apis.dart`: `SampleSource` enum, `SampleSourceReporter` (2 plain callbacks, no Riverpod in api layer), `runWithFallback` (primary always first via `Future.sync`; on any failure returns sample + `onSample`, on success `onReal`), and `Fallback{Suitability,Starlight,ObservationMap,Trails,Regions,Tide,Species,Ecolog}Api` implementing the original interfaces. `FallbackEcologApi` serves failures from an in-memory `FakeEcologApi` (reused unmodified); locally-created ids are tracked (`isLocalOnly(id)`) and later update/delete for them never hit the server.
+- New `lib/api/demo/sample_data.dart`: all sample strings (`예시` names, `sample-`/`SAMPLE_` ids, round numbers, no real business names; `degraded`/`weatherRefreshing` false).
+- New `lib/state/sample_data_provider.dart`: `sampleSourcesProvider` (`NotifierProvider<SampleSourcesNotifier, Set<SampleSource>>`, `markSample`/`markReal`), `sampleReporterFor(Ref)` (uses `ref.read` only), re-exports `SampleSource`/`SampleSourceReporter`.
+- `lib/config.dart`: `demoFallbackEnabled = bool.fromEnvironment('DEMO_FALLBACK')`. The 8 api providers (7 in `discovery_providers.dart` + `ecologApiProvider`) wrap only when the flag is on; names/types unchanged, `gpxApiProvider` untouched. Flag off = previous behavior.
+- New `test/api/fallback_apis_test.dart` (plain tests + one `ProviderContainer` test). No screen/UI changes (Phase 3).
+- Backend contract: unchanged (same endpoints as Phase 1). No shell this session — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
 ## Spec 052 Phase 1 — HTTP request timeouts (no contract change)
 
 - All 9 `Http*Api` clients in `lib/api/` gained an optional named `timeout` ctor arg (default 10s); class names, interfaces, and existing params unchanged.

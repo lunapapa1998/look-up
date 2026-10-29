@@ -13,6 +13,11 @@ const String defaultApiBaseUrl = String.fromEnvironment(
   defaultValue: 'http://localhost:8000',
 );
 
+/// Demo fallback mode (spec 052). When true, API providers wrap their HTTP
+/// clients in `Fallback*Api`, which serve sample data if the backend fails.
+/// Off by default — enable with `--dart-define=DEMO_FALLBACK=true`.
+const bool demoFallbackEnabled = bool.fromEnvironment('DEMO_FALLBACK');
+
 // GPS 연동 전까지 사용하는 고정 관측 좌표(강화 갯벌)
 const double defaultObservationLat = 37.5921;
 const double defaultObservationLng = 126.3984;

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:latlong2/latlong.dart';
 
+import '../api/demo/fallback_apis.dart';
 import '../api/gpx_api.dart';
 import '../api/observation_map_api.dart';
 import '../api/regions_api.dart';
@@ -22,6 +23,7 @@ import '../models/starlight_forecast.dart';
 import '../models/tide.dart';
 import '../models/trails.dart';
 import '../services/location_service.dart';
+import 'sample_data_provider.dart';
 
 /// Wiring for the suitability engine backend API.
 ///
@@ -73,7 +75,9 @@ final obsModeProvider = NotifierProvider<ObsModeController, ObsModeState>(
 );
 
 final suitabilityApiProvider = Provider<SuitabilityApi>((ref) {
-  return HttpSuitabilityApi(defaultApiBaseUrl);
+  final api = HttpSuitabilityApi(defaultApiBaseUrl);
+  if (!demoFallbackEnabled) return api;
+  return FallbackSuitabilityApi(primary: api, reporter: sampleReporterFor(ref));
 });
 
 final locationServiceProvider = Provider<LocationService>((ref) {
@@ -146,11 +150,15 @@ final discoveryProvider =
     );
 
 final trailsApiProvider = Provider<TrailsApi>((ref) {
-  return HttpTrailsApi(defaultApiBaseUrl);
+  final api = HttpTrailsApi(defaultApiBaseUrl);
+  if (!demoFallbackEnabled) return api;
+  return FallbackTrailsApi(primary: api, reporter: sampleReporterFor(ref));
 });
 
 final regionsApiProvider = Provider<RegionsApi>((ref) {
-  return HttpRegionsApi(defaultApiBaseUrl);
+  final api = HttpRegionsApi(defaultApiBaseUrl);
+  if (!demoFallbackEnabled) return api;
+  return FallbackRegionsApi(primary: api, reporter: sampleReporterFor(ref));
 });
 
 final regionsProvider = FutureProvider<RegionsResponse>((ref) async {
@@ -163,7 +171,9 @@ final regionsProvider = FutureProvider<RegionsResponse>((ref) async {
 final selectedRegionProvider = StateProvider<String?>((ref) => null);
 
 final speciesApiProvider = Provider<SpeciesApi>((ref) {
-  return HttpSpeciesApi(defaultApiBaseUrl);
+  final api = HttpSpeciesApi(defaultApiBaseUrl);
+  if (!demoFallbackEnabled) return api;
+  return FallbackSpeciesApi(primary: api, reporter: sampleReporterFor(ref));
 });
 
 typedef SpeciesQuery = ({String? sci, String? ko});
@@ -177,7 +187,9 @@ final speciesInfoProvider = FutureProvider.family<SpeciesInfo, SpeciesQuery>((
 });
 
 final tideApiProvider = Provider<TideApi>((ref) {
-  return HttpTideApi(defaultApiBaseUrl);
+  final api = HttpTideApi(defaultApiBaseUrl);
+  if (!demoFallbackEnabled) return api;
+  return FallbackTideApi(primary: api, reporter: sampleReporterFor(ref));
 });
 
 typedef TideQuery = ({double lat, double lng});
@@ -279,7 +291,12 @@ final hotspotsProvider = Provider<List<Hotspot>>((ref) {
 });
 
 final observationMapApiProvider = Provider<ObservationMapApi>((ref) {
-  return HttpObservationMapApi(defaultApiBaseUrl);
+  final api = HttpObservationMapApi(defaultApiBaseUrl);
+  if (!demoFallbackEnabled) return api;
+  return FallbackObservationMapApi(
+    primary: api,
+    reporter: sampleReporterFor(ref),
+  );
 });
 
 class ObservationMapNotifier extends AsyncNotifier<ObservationMapResponse> {
@@ -323,7 +340,9 @@ final spotSuitabilityProvider =
     });
 
 final starlightApiProvider = Provider<StarlightApi>((ref) {
-  return HttpStarlightApi(defaultApiBaseUrl);
+  final api = HttpStarlightApi(defaultApiBaseUrl);
+  if (!demoFallbackEnabled) return api;
+  return FallbackStarlightApi(primary: api, reporter: sampleReporterFor(ref));
 });
 
 final tonightSkyForecastProvider = FutureProvider<StarlightForecast>((

@@ -1,16 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../api/demo/fallback_apis.dart';
 import '../api/ecolog_api.dart';
 import '../config.dart';
 import '../models/observation.dart';
+import 'sample_data_provider.dart';
 
 /// The [EcologApi] implementation used throughout the app.
 ///
 /// Defaults to [HttpEcologApi] against [defaultApiBaseUrl]. Override via
 /// `ProviderScope(overrides: [ecologApiProvider.overrideWithValue(...)])`
-/// in tests, e.g. with `FakeEcologApi`.
+/// in tests, e.g. with `FakeEcologApi`. With [demoFallbackEnabled], wrapped
+/// in [FallbackEcologApi] so writes fall back to an on-device store.
 final ecologApiProvider = Provider<EcologApi>((ref) {
-  return HttpEcologApi(defaultApiBaseUrl);
+  final api = HttpEcologApi(defaultApiBaseUrl);
+  if (!demoFallbackEnabled) return api;
+  return FallbackEcologApi(primary: api, reporter: sampleReporterFor(ref));
 });
 
 /// Observation list as async state (loading/error/data), backed by
