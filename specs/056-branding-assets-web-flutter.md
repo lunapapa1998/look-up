@@ -74,9 +74,14 @@ just flutter-check
 
 ## Notes (agent scratchpad)
 
-- **앱 표시 이름: "위를 봐요"** (사용자 확정, 2026-10-29). 현재 AndroidManifest `android:label`은 `"lookup"`이다.
+- **앱 표시 이름: "위를 봐요 : Look Up"** (한글과 영문 병기, 사용자 확정 2026-10-29). 현재 AndroidManifest `android:label`은 `"lookup"`이다.
+  - 전체 이름 "위를 봐요 : Look Up": `MaterialApp.title`, 웹 `<title>`, `manifest.json`의 `name`, 로그인 화면 워드마크 아래 부제.
+  - 짧은 이름 "위를 봐요": Android `android:label`(런처 아이콘 아래 공간이 좁아 긴 이름이 잘림), `manifest.json`의 `short_name`.
+  - 전체 이름이 런처에서 잘리지 않는 기기가 대부분이라고 확인되면 label을 전체 이름으로 바꿔도 된다(브레인 결정 필요).
 - `just flutter-icons`는 브레인이 justfile에 추가하는 maintenance recipe다(`dart run tool/gen_icon_sources.dart && dart run flutter_launcher_icons`).
 - 패키지 사진을 실제 사진(예: 한국관광공사 공공누리 1유형)으로 바꾸려면 사용자가 사진을 고르고 출처를 정해야 한다. 이 spec은 기존 사진 유지를 전제로 한다.
 
 ## Amendments (post-build change history, append-only)
+
+- 2026-10-29: 앱 표시 이름을 "위를 봐요"에서 "위를 봐요 : Look Up"(한글·영문 병기)으로 변경(사용자 요청). 런처·short_name은 "위를 봐요".
 
