@@ -87,3 +87,10 @@ just flutter-check
 
 ## Amendments (post-build change history, append-only)
 
+- 2026-10-29 (lead 분해 후 brain 확정):
+  - `SampleSource` enum과 `SampleSourceReporter`(콜백 2개)는 api 계층이 Riverpod을 import하지 않도록 `lib/api/demo/fallback_apis.dart`에 정의하고, `lib/state/sample_data_provider.dart`에서 re-export한다.
+  - 타임아웃은 각 클라이언트의 기존 예외 클래스로 `statusCode 408`, 메시지 '서버 응답 시간이 초과됐어요'로 던진다. starlight는 기존처럼 일반 `Exception`으로 던진다.
+  - 배너·'예시'·'이 기기에만 저장됨' 같은 UI 문구는 샘플 데이터가 아니므로 widgets/screens에 둔다.
+  - `Fake*Api`의 실제 업소명 데이터는 샘플로 재사용하지 않는다.
+  - `ObservationMarker`, `buildObservationMarkers`, `ObservationSpotSheet`, `CourseCard`에 기본값 false인 선택 인자 `isSample`을 추가하는 것을 허용한다. 샘플 코스에는 '두루누비 코스' 배지를 표시하지 않는다.
+
