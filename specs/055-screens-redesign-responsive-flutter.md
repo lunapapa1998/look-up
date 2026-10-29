@@ -10,6 +10,8 @@
 - risk: high
 - modified: 2026-10-29 brain — 058과 범위 분리(기록·참여 진입, 인사말, 패키지 예시 안내를 058로 이동), refs에 058 추가
 - refs: specs/058-today-observation-journey-flutter.md, specs/057-login-intro-copy-flutter.md
+- modified: 2026-10-29 brain — 색·조형 기준을 Flim + 053 흑백 토큰으로 갱신
+- refs: docs/design/README.md, docs/design/flim.md
 
 ## Purpose
 
@@ -89,9 +91,14 @@ just flutter-check
 ## Notes (agent scratchpad)
 
 - 기준 시안: 정보 배치와 우선순위는 `docs/ui-mockups-2-claude-design/`(세트2), 색·밀도·웹 와이드 레이아웃은 `docs/ui-mockups/`(세트1). 세트2의 "낮 모드도 어두운 배경", 9.5px 탭 라벨, 근거 없는 수치("ZHR 25+" 등)는 따르지 않는다.
+  - (2026-10-29 갱신) 색·모서리·여백·버튼·카드의 기준은 세트1이 아니라 **Flim**(`docs/design/flim.md`)과 053 흑백 토큰이다. 정보 배치 우선순위는 세트2를 계속 참고한다. 해석·충돌 우선순위는 `docs/design/README.md`.
+  - 앱 본문은 왼쪽 정렬(Flim). 로그인 화면은 브랜드 장면이라 가운데 정렬을 예외로 허용한다.
+  - Flim의 흩어진 폴라로이드 배치와 격자 무늬 바탕은 앱에 쓰지 않는다(기능 중심 목록 유지). 카드 모양(16, 경계선 1px, 그림자 없음)만 따른다.
+  - 로그인 화면의 자체 팔레트(남색 #08122D 등)는 053 밤 토큰(#141414 바탕)으로 정리한다. 문구는 057·056 범위.
 - 관찰 기록 백엔드(`/api/observations`)는 인메모리라 서버 재시작 시 사라진다. 샘플 모드에서는 1단계 `FallbackEcologApi`가 기기 메모리에 저장한다.
 
 ## Amendments (post-build change history, append-only)
 
 - 2026-10-29: spec 058 신설에 따라 범위 분리(사용자 승인). 058로 이동: 홈 '관찰 기록하기' 버튼, 작성 → "생태일기 보기" 흐름, 생태일기·배지 진입 경로, 점수 구간별 인사말(단정 문구 정리), 패키지 '예시' 안내·표시, `home_record_entry_test.dart`. 055에는 반응형 레이아웃, 화면 배치, 토큰·공용 컴포넌트 적용만 남김. 로그인 워드마크·aBeeZee 제거는 057에서 완료되어 삭제. 실행 순서: 053 → 054 → 058 → 055 → 056.
+- 2026-10-29: 디자인 레퍼런스 확정(사용자 결정). 색·조형 기준을 세트1에서 Flim + 053 흑백 토큰으로 변경(Notes 참고). 본문 왼쪽 정렬, 로그인 가운데 정렬 예외, 흩어진 배치·격자 무늬 미사용, 로그인 팔레트 토큰화 기준 명시. 기능 요구사항과 058 경계는 그대로.
 

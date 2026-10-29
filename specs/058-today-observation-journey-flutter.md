@@ -128,3 +128,4 @@ just flutter-check
 ## Amendments (post-build change history, append-only)
 
 - 2026-10-29: 신설. spec 055에서 홈 '관찰 기록하기'·생태일기·배지 진입, 점수 구간별 인사말, 패키지 예시 안내를 이 spec으로 이동(사용자 승인).
+- 2026-10-29: 디자인 레퍼런스 확정(`docs/design/README.md`). 이 spec의 새 UI(여정 카드, 미션 카드, 출처 표기, 예시·시범 표시)는 054 공용 컴포넌트와 053 흑백 토큰(Flim 기준)을 사용한다. 새 색·그림자·모서리 값을 직접 만들지 않는다. 기능 범위는 변경 없음.
