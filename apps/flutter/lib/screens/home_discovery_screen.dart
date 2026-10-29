@@ -8,6 +8,7 @@ import '../state/auth_providers.dart';
 import '../state/discovery_providers.dart';
 import '../state/sample_data_provider.dart';
 import '../theme/layout_tokens.dart';
+import '../theme/lookup_colors.dart';
 import '../widgets/app_header_logo.dart';
 import '../widgets/night_sky_scale.dart';
 import '../widgets/night_sky_tag.dart';
@@ -1062,10 +1063,14 @@ class _TodayMoonSection extends StatelessWidget {
   }
 }
 
-Color _nightSkyTierColor(int filledStars, ColorScheme colorScheme) {
+Color _nightSkyTierColor(
+  BuildContext context,
+  int filledStars,
+  ColorScheme colorScheme,
+) {
   if (filledStars >= 4) return colorScheme.tertiary;
   if (filledStars == 3) return colorScheme.onSurfaceVariant;
-  if (filledStars >= 1) return Colors.amber;
+  if (filledStars >= 1) return LookUpColors.of(context).rating;
   return colorScheme.outline;
 }
 
@@ -1082,7 +1087,8 @@ class _NightSkySection extends StatelessWidget {
       bortleClass: nightSky.bortleClass,
       status: nightSky.status ?? '',
     );
-    final tierColor = _nightSkyTierColor(display.filledStars, colorScheme);
+    final tierColor =
+        _nightSkyTierColor(context, display.filledStars, colorScheme);
 
     return Container(
       padding: const EdgeInsets.all(8),
@@ -1188,7 +1194,8 @@ class _NightSkyDayLine extends StatelessWidget {
       bortleClass: nightSky.bortleClass,
       status: nightSky.status ?? '',
     );
-    final tierColor = _nightSkyTierColor(display.filledStars, colorScheme);
+    final tierColor =
+        _nightSkyTierColor(context, display.filledStars, colorScheme);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),

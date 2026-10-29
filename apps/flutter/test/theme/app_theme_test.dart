@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:lookup/models/discovery.dart';
 import 'package:lookup/theme/app_theme.dart';
+import 'package:lookup/theme/lookup_colors.dart';
 
 /// WCAG 2.x contrast ratio between two colors, computed from their relative
 /// luminance: (lighter + 0.05) / (darker + 0.05).
@@ -17,13 +18,15 @@ double _contrastRatio(Color a, Color b) {
 void main() {
   group('nightColorScheme', () {
     test('frozen baseline values are unchanged', () {
+      // Baseline intentionally re-frozen for spec 053 Phase 2 (user-approved
+      // color direction B: Flim monochrome base + kept night accents).
       final scheme = AppTheme.nightColorScheme();
 
-      expect(scheme.surface, const Color(0xFF08122D));
+      expect(scheme.surface, const Color(0xFF141414));
       expect(scheme.secondary, const Color(0xFF42E1BE));
-      expect(scheme.onSecondary, const Color(0xFF00382D));
-      expect(scheme.primary, const Color(0xFFBEC5E5));
-      expect(scheme.onSurface, const Color(0xFFDBE1FF));
+      expect(scheme.onSecondary, const Color(0xFF141414));
+      expect(scheme.primary, const Color(0xFFFFFFFF));
+      expect(scheme.onSurface, const Color(0xFFFFFFFF));
     });
   });
 
@@ -196,5 +199,101 @@ void main() {
         }
       });
     }
+  });
+
+  group('colors (spec 053 Phase 2)', () {
+    final cases = <ObsMode, (ColorScheme, LookUpColors)>{
+      ObsMode.day: (AppTheme.dayColorScheme(), LookUpColors.day),
+      ObsMode.night: (AppTheme.nightColorScheme(), LookUpColors.night),
+    };
+
+    test('surface/onSurface/onSurfaceVariant use the confirmed values', () {
+      final day = AppTheme.dayColorScheme();
+      final night = AppTheme.nightColorScheme();
+
+      expect(day.surface, const Color(0xFFFFFFFF));
+      expect(day.onSurface, const Color(0xFF141414));
+      expect(day.onSurfaceVariant, const Color(0xFF5C5C5C));
+      expect(night.surface, const Color(0xFF141414));
+      expect(night.onSurface, const Color(0xFFFFFFFF));
+      expect(night.onSurfaceVariant, const Color(0xFFB8B8B8));
+    });
+
+    cases.forEach((mode, pair) {
+      final (scheme, extra) = pair;
+
+      test('$mode: text/fill pairs meet 4.5:1', () {
+        final pairs = <String, (Color, Color)>{
+          'onSurface/surface': (scheme.onSurface, scheme.surface),
+          'onSurfaceVariant/surface': (
+            scheme.onSurfaceVariant,
+            scheme.surface,
+          ),
+          'onSurfaceVariant/surfaceContainerHigh': (
+            scheme.onSurfaceVariant,
+            scheme.surfaceContainerHigh,
+          ),
+          'onPrimary/primary': (scheme.onPrimary, scheme.primary),
+          'onSecondary/secondary': (scheme.onSecondary, scheme.secondary),
+          'onTertiary/tertiary': (scheme.onTertiary, scheme.tertiary),
+          'secondary/surface': (scheme.secondary, scheme.surface),
+          'tertiary/surface': (scheme.tertiary, scheme.surface),
+          'onErrorContainer/errorContainer': (
+            scheme.onErrorContainer,
+            scheme.errorContainer,
+          ),
+          'error/surface': (scheme.error, scheme.surface),
+        };
+        pairs.forEach((name, colors) {
+          expect(
+            _contrastRatio(colors.$1, colors.$2),
+            greaterThanOrEqualTo(4.5),
+            reason: name,
+          );
+        });
+      });
+
+      test('$mode: non-text accents meet 3:1 on surface', () {
+        final accents = <String, Color>{
+          'outline': scheme.outline,
+          'rating': extra.rating,
+          'provenanceLive': extra.provenanceLive,
+          'warning': extra.warning,
+          'ratingEmpty': extra.ratingEmpty,
+        };
+        accents.forEach((name, color) {
+          expect(
+            _contrastRatio(color, scheme.surface),
+            greaterThanOrEqualTo(3.0),
+            reason: name,
+          );
+        });
+      });
+
+      testWidgets('$mode: themeFor registers the matching LookUpColors', (
+        WidgetTester tester,
+      ) async {
+        expect(AppTheme.themeFor(mode).extension<LookUpColors>(), extra);
+      });
+    });
+
+    test('LookUpColors.lerp is non-null and hits endpoints at 0 and 1', () {
+      const day = LookUpColors.day;
+      const night = LookUpColors.night;
+
+      expect(day.lerp(night, 0.5), isNotNull);
+      expect(day.lerp(night, 0), day);
+      expect(day.lerp(night, 1), night);
+    });
+
+    testWidgets('ThemeData.lerp between day and night does not throw', (
+      WidgetTester tester,
+    ) async {
+      final day = AppTheme.themeFor(ObsMode.day);
+      final night = AppTheme.themeFor(ObsMode.night);
+
+      final blended = ThemeData.lerp(day, night, 0.5);
+      expect(blended.extension<LookUpColors>(), isNotNull);
+    });
   });
 }

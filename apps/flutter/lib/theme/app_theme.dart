@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/discovery.dart' show ObsMode;
+import 'lookup_colors.dart';
 
 class AppTheme {
   /// Bundled Hangul-capable font family (pubspec `flutter.fonts`, spec 053).
@@ -44,79 +45,93 @@ class AppTheme {
     )!.copyWith(fontSize: fontSize, letterSpacing: 0.06 * fontSize);
   }
 
+  /// Night scheme (spec 053 Phase 2, user-approved direction B): Flim
+  /// monochrome base — `#141414` surface, `#FFFFFF` text, inverted white
+  /// primary fill — with the existing night accents kept on secondary (mint
+  /// `#42E1BE`) and tertiary (amber `#F5BC7E`). Secondary text is `#B8B8B8`
+  /// (~9:1 on surface) instead of a 70% white alpha. Every role is explicit
+  /// so nothing falls back to Flutter defaults (e.g. the old pink
+  /// errorContainer). `ColorScheme.background` is deprecated and falls back
+  /// to `surface`, so it is intentionally not set.
   static ColorScheme nightColorScheme() {
-    const background = Color(0xFF08122D);
-    const surfaceContainerLowest = Color(0xFF030C28);
-    const surfaceContainerLow = Color(0xFF111A36);
-    const surfaceContainer = Color(0xFF151E3A);
-    const surfaceContainerHigh = Color(0xFF202945);
-    const surfaceContainerHighest = Color(0xFF2B3450);
-    const secondary = Color(0xFF42E1BE);
-    const onSecondary = Color(0xFF00382D);
-    const tertiary = Color(0xFFF5BC7E);
-    const onTertiary = Color(0xFF482900);
-    const primary = Color(0xFFBEC5E5);
-    const onSurface = Color(0xFFDBE1FF);
-    const onSurfaceVariant = Color(0xFFC6C6CE);
-    const outline = Color(0xFF909098);
-    const error = Color(0xFFFFB4AB);
-
-    // `ColorScheme.background` is deprecated and falls back to `surface`
-    // when unset, so setting `surface` alone satisfies the background token
-    // without triggering a deprecation warning.
-    return ColorScheme.dark().copyWith(
-      surface: background,
-      surfaceContainerLowest: surfaceContainerLowest,
-      surfaceContainerLow: surfaceContainerLow,
-      surfaceContainer: surfaceContainer,
-      surfaceContainerHigh: surfaceContainerHigh,
-      surfaceContainerHighest: surfaceContainerHighest,
-      secondary: secondary,
-      onSecondary: onSecondary,
-      tertiary: tertiary,
-      onTertiary: onTertiary,
-      primary: primary,
-      onSurface: onSurface,
-      onSurfaceVariant: onSurfaceVariant,
-      outline: outline,
-      error: error,
+    return const ColorScheme(
+      brightness: Brightness.dark,
+      primary: Color(0xFFFFFFFF),
+      onPrimary: Color(0xFF141414),
+      primaryContainer: Color(0xFF2E2E2E),
+      onPrimaryContainer: Color(0xFFFFFFFF),
+      secondary: Color(0xFF42E1BE),
+      onSecondary: Color(0xFF141414),
+      secondaryContainer: Color(0xFF262626),
+      onSecondaryContainer: Color(0xFFFFFFFF),
+      tertiary: Color(0xFFF5BC7E),
+      onTertiary: Color(0xFF141414),
+      tertiaryContainer: Color(0xFF262626),
+      onTertiaryContainer: Color(0xFFFFFFFF),
+      error: Color(0xFFF2B8B5),
+      onError: Color(0xFF601410),
+      errorContainer: Color(0xFF601410),
+      onErrorContainer: Color(0xFFF9DEDC),
+      surface: Color(0xFF141414),
+      onSurface: Color(0xFFFFFFFF),
+      onSurfaceVariant: Color(0xFFB8B8B8),
+      surfaceContainerLowest: Color(0xFF0E0E0E),
+      surfaceContainerLow: Color(0xFF1A1A1A),
+      surfaceContainer: Color(0xFF1F1F1F),
+      surfaceContainerHigh: Color(0xFF262626),
+      surfaceContainerHighest: Color(0xFF2E2E2E),
+      outline: Color(0xFF8C8C8C),
+      outlineVariant: Color(0xFF333333),
+      inverseSurface: Color(0xFFFFFFFF),
+      onInverseSurface: Color(0xFF141414),
+      inversePrimary: Color(0xFF141414),
+      shadow: Color(0xFF000000),
+      scrim: Color(0xFF000000),
+      surfaceTint: Colors.transparent,
     );
   }
 
+  /// Day scheme (spec 053 Phase 2, user-approved direction B): Flim
+  /// monochrome base — `#FFFFFF` surface, `#141414` text, inverted
+  /// `#141414` primary fill, Canvas `#F5F5F5` / Mist `#E9E9E9` containers,
+  /// Hairline `#D9D9D9` outlineVariant — with the existing day accents kept
+  /// on secondary (teal `#0A7864`, ~5.4:1 with white) and tertiary
+  /// (`#8A5700`). Every role is explicit.
   static ColorScheme dayColorScheme() {
-    const surface = Color(0xFFF4F8FF);
-    const surfaceContainerLowest = Color(0xFFFFFFFF);
-    const surfaceContainerLow = Color(0xFFEDF2FC);
-    const surfaceContainer = Color(0xFFE4EAF7);
-    const surfaceContainerHigh = Color(0xFFD7DEF0);
-    const surfaceContainerHighest = Color(0xFFC9D3E8);
-    // Darkened from the initially proposed 0xFF0F8F76 to clear WCAG AA
-    // 4.5:1 against white onSecondary text (the starting value only
-    // reached ~4.0:1).
-    const secondary = Color(0xFF0A7864);
-    const onSecondary = Color(0xFFFFFFFF);
-    const tertiary = Color(0xFF8A5700);
-    const onTertiary = Color(0xFFFFFFFF);
-    const primary = Color(0xFF33417A);
-    const onSurface = Color(0xFF14213D);
-    const onSurfaceVariant = Color(0xFF4A5568);
-    const outline = Color(0xFF6B7488);
-
-    return ColorScheme.light().copyWith(
-      surface: surface,
-      surfaceContainerLowest: surfaceContainerLowest,
-      surfaceContainerLow: surfaceContainerLow,
-      surfaceContainer: surfaceContainer,
-      surfaceContainerHigh: surfaceContainerHigh,
-      surfaceContainerHighest: surfaceContainerHighest,
-      secondary: secondary,
-      onSecondary: onSecondary,
-      tertiary: tertiary,
-      onTertiary: onTertiary,
-      primary: primary,
-      onSurface: onSurface,
-      onSurfaceVariant: onSurfaceVariant,
-      outline: outline,
+    return const ColorScheme(
+      brightness: Brightness.light,
+      primary: Color(0xFF141414),
+      onPrimary: Color(0xFFFFFFFF),
+      primaryContainer: Color(0xFFE9E9E9),
+      onPrimaryContainer: Color(0xFF141414),
+      secondary: Color(0xFF0A7864),
+      onSecondary: Color(0xFFFFFFFF),
+      secondaryContainer: Color(0xFFE9E9E9),
+      onSecondaryContainer: Color(0xFF141414),
+      tertiary: Color(0xFF8A5700),
+      onTertiary: Color(0xFFFFFFFF),
+      tertiaryContainer: Color(0xFFE9E9E9),
+      onTertiaryContainer: Color(0xFF141414),
+      error: Color(0xFFB3261E),
+      onError: Color(0xFFFFFFFF),
+      errorContainer: Color(0xFFF9DEDC),
+      onErrorContainer: Color(0xFF410E0B),
+      surface: Color(0xFFFFFFFF),
+      onSurface: Color(0xFF141414),
+      onSurfaceVariant: Color(0xFF5C5C5C),
+      surfaceContainerLowest: Color(0xFFFFFFFF),
+      surfaceContainerLow: Color(0xFFF5F5F5),
+      surfaceContainer: Color(0xFFEFEFEF),
+      surfaceContainerHigh: Color(0xFFE9E9E9),
+      surfaceContainerHighest: Color(0xFFE0E0E0),
+      outline: Color(0xFF767676),
+      outlineVariant: Color(0xFFD9D9D9),
+      inverseSurface: Color(0xFF141414),
+      onInverseSurface: Color(0xFFFFFFFF),
+      inversePrimary: Color(0xFFFFFFFF),
+      shadow: Color(0xFF000000),
+      scrim: Color(0xFF000000),
+      surfaceTint: Colors.transparent,
     );
   }
 
@@ -182,6 +197,10 @@ class AppTheme {
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
       textTheme: textTheme,
+      // Spec 053 Phase 2: status/provenance accents, lerped with the theme.
+      extensions: <ThemeExtension<dynamic>>[
+        mode == ObsMode.night ? LookUpColors.night : LookUpColors.day,
+      ],
       cardTheme: CardThemeData(
         color: surfaceContainer,
         shape: RoundedRectangleBorder(

@@ -1,5 +1,15 @@
 # flutter handoff note
 
+## Spec 053 Phase 2 — color system, direction B (no contract change)
+
+- `lib/theme/app_theme.dart`: `nightColorScheme()`/`dayColorScheme()` now return a full `const ColorScheme(...)` with every role explicit — Flim monochrome base (day #FFFFFF/#141414, night #141414/#FFFFFF, inverted primary fill) + kept accents on secondary (day #0A7864 / night #42E1BE) and tertiary (#8A5700 / #F5BC7E); errorContainer no longer Flutter's default pink; surfaceTint transparent. `themeFor` registers `extensions: [LookUpColors.day|night]`; font code untouched.
+- New `lib/theme/lookup_colors.dart`: `LookUpColors` ThemeExtension (warning*, provenance*, rating/ratingEmpty, hairline, mapScrim, bird/starAccent, mapTrail/mapHeritage; day+night sets, copyWith, per-field lerp, `LookUpColors.of(context)` falling back to day). Only `rating` is wired now; the rest is for 054/055.
+- New `lib/theme/brand_palette.dart`: `BrandPalette` arte* consts (homepage/editorial only, not imported anywhere, never for ThemeData).
+- `Colors.amber` star tier → `LookUpColors.of(context).rating` in `home_discovery_screen.dart` `_nightSkyTierColor` and `night_sky_tag.dart` `_tierColor` (both gained a leading `BuildContext context` param; same-file call sites updated).
+- `test/theme/app_theme_test.dart`: night frozen baseline intentionally re-frozen (surface #141414, onSecondary #141414, primary/onSurface #FFFFFF); new group `colors (spec 053 Phase 2)` (exact values, 4.5:1 text pairs, 3:1 accents, extension registered, lerp). No existing contrast test needed changing. `login_screen.dart` keeps its own navy palette this phase.
+- Backend contract: none. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+- Fix after lead verify: `LookUpColors` now overrides `operator ==` (identical, or same runtimeType and all 15 fields equal) and `hashCode` (`Object.hashAll` over the 15 fields), so the lerp endpoint test passes on value equality.
+
 ## Spec 053 Phase 1 — Pretendard fonts (no contract change)
 
 - `pubspec.yaml`: `flutter.fonts` family `Pretendard` (Regular 400 / Medium 500 / SemiBold 600 / Bold 700 OTF in `assets/fonts/`). google_fonts kept; no new packages.
