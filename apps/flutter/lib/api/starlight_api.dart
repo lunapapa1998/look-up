@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -20,9 +21,25 @@ abstract class StarlightApi {
 class HttpStarlightApi implements StarlightApi {
   final String baseUrl;
   final http.Client client;
+  final Duration timeout;
 
-  HttpStarlightApi(this.baseUrl, {http.Client? client})
-      : client = client ?? http.Client();
+  HttpStarlightApi(
+    this.baseUrl, {
+    http.Client? client,
+    this.timeout = const Duration(seconds: 10),
+  }) : client = client ?? http.Client();
+
+  /// Awaits [request], mapping a [timeout] overrun to a plain [Exception]
+  /// like the existing non-200 path.
+  Future<http.Response> _send(Future<http.Response> request) async {
+    try {
+      return await request.timeout(timeout);
+    } on TimeoutException {
+      throw Exception(
+        'Failed to fetch starlight forecast (timeout after ${timeout.inSeconds}s)',
+      );
+    }
+  }
 
   @override
   Future<StarlightForecast> fetchForecast({
@@ -52,7 +69,7 @@ class HttpStarlightApi implements StarlightApi {
       queryParameters: queryParams,
     );
 
-    final response = await client.get(uri);
+    final response = await _send(client.get(uri));
     if (response.statusCode != 200) {
       throw Exception('Failed to fetch starlight forecast (${response.statusCode}): ${response.body}');
     }

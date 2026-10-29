@@ -16,13 +16,17 @@ abstract class GpxApi {
 /// is caught internally and resolves to an empty list.
 class HttpGpxApi implements GpxApi {
   final http.Client client;
+  final Duration timeout;
 
-  HttpGpxApi({http.Client? client}) : client = client ?? http.Client();
+  HttpGpxApi({
+    http.Client? client,
+    this.timeout = const Duration(seconds: 10),
+  }) : client = client ?? http.Client();
 
   @override
   Future<List<LatLng>> fetchGpxTrack(String gpxUrl) async {
     try {
-      final response = await client.get(Uri.parse(gpxUrl));
+      final response = await client.get(Uri.parse(gpxUrl)).timeout(timeout);
       if (response.statusCode != 200) return [];
       return parseGpxTrack(response.body);
     } catch (_) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -26,9 +27,23 @@ abstract class TideApi {
 class HttpTideApi implements TideApi {
   final String baseUrl;
   final http.Client client;
+  final Duration timeout;
 
-  HttpTideApi(this.baseUrl, {http.Client? client})
-      : client = client ?? http.Client();
+  HttpTideApi(
+    this.baseUrl, {
+    http.Client? client,
+    this.timeout = const Duration(seconds: 10),
+  }) : client = client ?? http.Client();
+
+  /// Awaits [request], mapping a [timeout] overrun to a 408
+  /// [TideApiException].
+  Future<http.Response> _send(Future<http.Response> request) async {
+    try {
+      return await request.timeout(timeout);
+    } on TimeoutException {
+      throw TideApiException(408, '서버 응답 시간이 초과됐어요');
+    }
+  }
 
   void _checkStatus(http.Response response, int expected) {
     if (response.statusCode == expected) return;
@@ -55,7 +70,7 @@ class HttpTideApi implements TideApi {
         'lng': lng.toString(),
       },
     );
-    final response = await client.get(uri);
+    final response = await _send(client.get(uri));
     _checkStatus(response, 200);
     return TodayTides.fromJson(
       json.decode(response.body) as Map<String, dynamic>,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -36,11 +37,25 @@ abstract class EcologApi {
 class HttpEcologApi implements EcologApi {
   final String baseUrl;
   final http.Client client;
+  final Duration timeout;
 
-  HttpEcologApi(this.baseUrl, {http.Client? client})
-      : client = client ?? http.Client();
+  HttpEcologApi(
+    this.baseUrl, {
+    http.Client? client,
+    this.timeout = const Duration(seconds: 10),
+  }) : client = client ?? http.Client();
 
   static const _headers = {'Content-Type': 'application/json'};
+
+  /// Awaits [request], mapping a [timeout] overrun to a 408
+  /// [EcologApiException].
+  Future<http.Response> _send(Future<http.Response> request) async {
+    try {
+      return await request.timeout(timeout);
+    } on TimeoutException {
+      throw EcologApiException(408, '서버 응답 시간이 초과됐어요');
+    }
+  }
 
   Uri _uri(String path, [Map<String, String>? queryParameters]) {
     final uri = Uri.parse('$baseUrl$path');
@@ -68,7 +83,7 @@ class HttpEcologApi implements EcologApi {
       '/api/observations',
       speciesType != null ? {'speciesType': speciesType.toJson()} : null,
     );
-    final response = await client.get(uri, headers: _headers);
+    final response = await _send(client.get(uri, headers: _headers));
     _checkStatus(response, 200);
     final data = json.decode(response.body) as List<dynamic>;
     return data
@@ -78,18 +93,21 @@ class HttpEcologApi implements EcologApi {
 
   @override
   Future<Observation> getObservation(int id) async {
-    final response =
-        await client.get(_uri('/api/observations/$id'), headers: _headers);
+    final response = await _send(
+      client.get(_uri('/api/observations/$id'), headers: _headers),
+    );
     _checkStatus(response, 200);
     return Observation.fromJson(json.decode(response.body) as Map<String, dynamic>);
   }
 
   @override
   Future<Observation> createObservation(ObservationCreate body) async {
-    final response = await client.post(
-      _uri('/api/observations'),
-      headers: _headers,
-      body: json.encode(body.toJson()),
+    final response = await _send(
+      client.post(
+        _uri('/api/observations'),
+        headers: _headers,
+        body: json.encode(body.toJson()),
+      ),
     );
     _checkStatus(response, 201);
     return Observation.fromJson(json.decode(response.body) as Map<String, dynamic>);
@@ -97,10 +115,12 @@ class HttpEcologApi implements EcologApi {
 
   @override
   Future<Observation> updateObservation(int id, ObservationUpdate body) async {
-    final response = await client.patch(
-      _uri('/api/observations/$id'),
-      headers: _headers,
-      body: json.encode(body.toJson()),
+    final response = await _send(
+      client.patch(
+        _uri('/api/observations/$id'),
+        headers: _headers,
+        body: json.encode(body.toJson()),
+      ),
     );
     _checkStatus(response, 200);
     return Observation.fromJson(json.decode(response.body) as Map<String, dynamic>);
@@ -108,14 +128,16 @@ class HttpEcologApi implements EcologApi {
 
   @override
   Future<void> deleteObservation(int id) async {
-    final response =
-        await client.delete(_uri('/api/observations/$id'), headers: _headers);
+    final response = await _send(
+      client.delete(_uri('/api/observations/$id'), headers: _headers),
+    );
     _checkStatus(response, 204);
   }
 
   @override
   Future<List<BadgeProgress>> listBadges() async {
-    final response = await client.get(_uri('/api/badges'), headers: _headers);
+    final response =
+        await _send(client.get(_uri('/api/badges'), headers: _headers));
     _checkStatus(response, 200);
     final data = json.decode(response.body) as List<dynamic>;
     return data

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -31,9 +32,23 @@ abstract class SuitabilityApi {
 class HttpSuitabilityApi implements SuitabilityApi {
   final String baseUrl;
   final http.Client client;
+  final Duration timeout;
 
-  HttpSuitabilityApi(this.baseUrl, {http.Client? client})
-    : client = client ?? http.Client();
+  HttpSuitabilityApi(
+    this.baseUrl, {
+    http.Client? client,
+    this.timeout = const Duration(seconds: 10),
+  }) : client = client ?? http.Client();
+
+  /// Awaits [request], mapping a [timeout] overrun to a 408
+  /// [SuitabilityApiException].
+  Future<http.Response> _send(Future<http.Response> request) async {
+    try {
+      return await request.timeout(timeout);
+    } on TimeoutException {
+      throw SuitabilityApiException(408, '서버 응답 시간이 초과됐어요');
+    }
+  }
 
   void _checkStatus(http.Response response, int expected) {
     if (response.statusCode == expected) return;
@@ -62,7 +77,7 @@ class HttpSuitabilityApi implements SuitabilityApi {
         'mode': mode.toQueryValue(),
       },
     );
-    final response = await client.get(uri);
+    final response = await _send(client.get(uri));
     _checkStatus(response, 200);
     return DiscoveryOverview.fromJson(
       json.decode(response.body) as Map<String, dynamic>,

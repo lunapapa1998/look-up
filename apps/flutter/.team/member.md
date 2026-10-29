@@ -1,5 +1,14 @@
 # flutter handoff note
 
+## Spec 052 Phase 1 — HTTP request timeouts (no contract change)
+
+- All 9 `Http*Api` clients in `lib/api/` gained an optional named `timeout` ctor arg (default 10s); class names, interfaces, and existing params unchanged.
+- 8 JSON clients route every request through a private `_send()` that maps `TimeoutException` to the file's existing exception: `XxxApiException(408, '서버 응답 시간이 초과됐어요')` (suitability, observation_map, trails x2, regions, tide, species, ecolog x6). Starlight has no exception class, so it throws `Exception('Failed to fetch starlight forecast (timeout after Ns)')`.
+- `HttpGpxApi` applies `.timeout(timeout)` inside the existing try; a timeout still resolves to `[]`.
+- New `test/api/http_timeout_test.dart` (plain `test()`, real time, `MockClient` delaying 200ms vs 10ms timeout).
+- Backend contract: unchanged (same `/api/suitability`, `/api/observation-map`, `/api/trails`, `/api/trails/detail`, `/api/regions`, `/api/tide/today`, `/api/species`, `/api/observations`, `/api/badges`, `/api/starlight-forecast` calls).
+- No shell this session. **Lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
 ## Day-mode night-sky line: badge adjacency fix (`_NightSkyDayLine`)
 
 Fixed a cross-model-verifier-flagged bug: in day mode, the '추정치' (estimated) badge was rendered far from the SQM/Bortle text (inside the star-icon `Row`), unlike `_NightSkySection` and `night_sky_tag.dart`'s spot-detail large mode, which both keep the badge immediately after the SQM/Bortle text.
