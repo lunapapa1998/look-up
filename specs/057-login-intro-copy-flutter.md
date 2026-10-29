@@ -51,9 +51,9 @@
 
 ### Phase 1: 문구 교체와 넘침 방지
 
-- [ ] 워드마크·태그라인을 새 문구 4단으로 교체
-- [ ] 작은 화면 스크롤 처리
-- [ ] `login_screen_test.dart` 작성
+- [x] 워드마크·태그라인을 새 문구 4단으로 교체
+- [x] 작은 화면 스크롤 처리
+- [x] `login_screen_test.dart` 작성
 
 **Phase validation**: `just flutter-check` 통과.
 
@@ -66,6 +66,8 @@ just flutter-check
 ## Notes (agent scratchpad)
 
 - 052 Phase 3 변경이 커밋 전이다. 이 spec은 `login_screen.dart`와 새 테스트 파일만 건드리므로 겹치지 않는다. 커밋도 따로 한다.
+- 완료 근거(2026-10-29 brain 정리): 커밋 d9ad5a6. 커밋 직전 실행: analyze 문제 없음, 로그인 테스트 6개 통과(320×568 넘침 테스트 포함), 전체 테스트 308개 통과. 문구 일치는 lead 검증과 테스트(`find.text`)로 확인. 로컬 웹에서 사용자가 문구·배치를 보고 수정 요청한 뒤 최종 배치(제목 → 로고 → 부제목)로 반영됨.
+- 후속: 2026-10-29 확정된 브랜드 메인 카피(056 Amendments)가 현재 로그인 문구와 다르다. 로그인 문구 갱신은 별도 승인 후 진행한다(이 spec의 완료 표시는 커밋 d9ad5a6 시점의 문구 기준).
 
 ## Amendments (post-build change history, append-only)
 

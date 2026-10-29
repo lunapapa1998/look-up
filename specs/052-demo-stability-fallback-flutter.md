@@ -52,24 +52,24 @@
 
 ### Phase 1: 타임아웃
 
-- [ ] 모든 `Http*Api`에 선택 인자 `timeout`(기본 10초)과 `.timeout()` 적용
-- [ ] 기존 테스트 전부 통과 확인
+- [x] 모든 `Http*Api`에 선택 인자 `timeout`(기본 10초)과 `.timeout()` 적용
+- [x] 기존 테스트 전부 통과 확인
 
 **Phase validation**: `just flutter-check` 통과.
 
 ### Phase 2: 샘플 데이터 + Fallback 래퍼 + 출처 상태
 
-- [ ] `sample_data.dart`, `fallback_apis.dart`, `sample_data_provider.dart` 작성
-- [ ] `config.dart`에 `demoFallbackEnabled` 추가, provider 생성부에서 플래그가 켜졌을 때만 래핑
-- [ ] `fallback_apis_test.dart` 작성 및 통과
+- [x] `sample_data.dart`, `fallback_apis.dart`, `sample_data_provider.dart` 작성
+- [x] `config.dart`에 `demoFallbackEnabled` 추가, provider 생성부에서 플래그가 켜졌을 때만 래핑
+- [x] `fallback_apis_test.dart` 작성 및 통과
 
 **Phase validation**: `just flutter-check` 통과. 플래그가 꺼진 기본 상태에서 기존 오류 상태 테스트(suitability_wiring, observation_map_wiring, trails_wiring 등)가 수정 없이 통과한다.
 
 ### Phase 3: 화면 표시
 
-- [ ] `SampleDataNotice` 배너와 `예시` 표시 위젯 작성 및 테스트
-- [ ] 홈, 관찰 지도, 둘레길 화면에 배너 연결. 샘플로 그린 카드와 스팟에 `예시` 표시
-- [ ] 생태일기 저장이 샘플 모드로 처리되면 "이 기기에만 저장됨" 안내
+- [x] `SampleDataNotice` 배너와 `예시` 표시 위젯 작성 및 테스트
+- [x] 홈, 관찰 지도, 둘레길 화면에 배너 연결. 샘플로 그린 카드와 스팟에 `예시` 표시
+- [x] 생태일기 저장이 샘플 모드로 처리되면 "이 기기에만 저장됨" 안내
 
 **Phase validation**: `just flutter-check` 통과.
 
@@ -84,6 +84,12 @@ just flutter-check
 - 실행 예(브레인이 수동 확인): `flutter run -d edge --dart-define=DEMO_FALLBACK=true --dart-define=API_BASE_URL=https://<CLOUD_RUN_SERVICE_URL>`
 - 테스트에서 플래그를 켜려면 `--dart-define` 대신 provider override로 Fallback 래퍼를 직접 주입한다.
 - 503 원인은 컨테이너가 아니라 Cloud Run 플랫폼 단계(Google Frontend HTML 응답)로 추정된다. 서버 쪽 조치는 이 spec 범위가 아니다.
+- 완료 근거(2026-10-29 brain 정리):
+  - Phase 1 → 커밋 c0c2e1b. lead 검증: analyze 문제 없음, 테스트 266개 통과(기존 257 + 타임아웃 9), diff 검토 PASS.
+  - Phase 2 → 커밋 606a1dc. lead 검증 + 커밋 직전 재실행: analyze 문제 없음, 테스트 293개 통과, 범위·실명 미포함·플래그 조건 확인.
+  - Phase 3 → 커밋 4abc1f3. lead 검증: analyze 문제 없음, 테스트 302개 통과, `DEMO_FALLBACK=true` 웹 빌드 성공, 범위·재시도 규칙 확인.
+  - 검증 방식의 한계: 홈·관찰 지도의 배너와 `예시` 표시는 위젯 테스트가 없고 diff 검토와 웹 빌드로만 확인했다(둘레길 화면과 생태일기 안내는 위젯 테스트로 확인). 로컬 웹(127.0.0.1:8080/8081)에서 사용자의 화면 확인 결과는 아직 회신되지 않았다.
+  - 체크박스는 위 검증으로 확인된 구현 항목만 표시했다.
 
 ## Amendments (post-build change history, append-only)
 
