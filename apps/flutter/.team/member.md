@@ -1,5 +1,14 @@
 # flutter handoff note
 
+## Spec 052 Phase 3 — sample-data banner and 예시 marks (no contract change)
+
+- New `lib/widgets/sample_data_notice.dart`: `SampleDataNotice` (ConsumerWidget; shows only when `sampleSourcesProvider ∩ sources` is non-empty, otherwise `SizedBox.shrink` so its optional `margin` also disappears; keys `sample_data_notice` / `sample_data_notice_retry`) and `SampleMark` (`예시` + dashed outline via CustomPainter, `Semantics('예시 데이터')`, `compact`). Only existing ColorScheme roles + AppSpacing/AppRadius; all styling lives in this file for 053/054.
+- Banners: home (suitability+starlight; retry invalidates `discoveryProvider(currentMode)` + `tonightSkyForecastProvider`), observation map header (observationMap/trails/tide/species; retry `observationMapProvider` + `trailsProvider`), trails catalog (trails/regions; retry `trailsProvider` + `regionsProvider`). No retry ever invalidates an `*ApiProvider`.
+- Marks: home suitability card + TonightSkySection; `buildObservationMarkers`/`ObservationMarker`/`ObservationSpotSheet`/`CourseCard`/`_TrailheadMarker`/`_HeritageCard` gained optional `isSample = false`. Sample featured CourseCard shows `SampleMark` in place of the '두루누비 코스' badge.
+- `ObservationFormScreen._save`: SnackBar '서버에 연결할 수 없어 이 기기에만 임시 저장됐어요' when `SampleSource.ecolog` is sampled.
+- Tests: new `test/widgets/sample_data_notice_test.dart`, `test/screens/demo_fallback_wiring_test.dart`. Flag off = sources empty = nothing renders, existing tests unchanged.
+- Backend contract: unchanged. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
 ## Spec 052 Phase 2 — sample-data fallback wrappers behind `DEMO_FALLBACK` (no contract change)
 
 - New `lib/api/demo/fallback_apis.dart`: `SampleSource` enum, `SampleSourceReporter` (2 plain callbacks, no Riverpod in api layer), `runWithFallback` (primary always first via `Future.sync`; on any failure returns sample + `onSample`, on success `onReal`), and `Fallback{Suitability,Starlight,ObservationMap,Trails,Regions,Tide,Species,Ecolog}Api` implementing the original interfaces. `FallbackEcologApi` serves failures from an in-memory `FakeEcologApi` (reused unmodified); locally-created ids are tracked (`isLocalOnly(id)`) and later update/delete for them never hit the server.

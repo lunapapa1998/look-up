@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/trails.dart';
 import '../theme/layout_tokens.dart';
 import '../state/discovery_providers.dart';
+import '../state/sample_data_provider.dart';
 import '../widgets/app_sliver_header.dart';
 import '../widgets/course_card.dart';
+import '../widgets/sample_data_notice.dart';
 import '../utils/trail_format.dart';
 import 'course_detail_screen.dart';
 import 'trail_route_screen.dart';
@@ -23,6 +25,9 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
   Widget build(BuildContext context) {
     final trails = ref.watch(trailsProvider);
     final regionsAsync = ref.watch(regionsProvider);
+    final isTrailsSample = ref
+        .watch(sampleSourcesProvider)
+        .contains(SampleSource.trails);
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     return Scaffold(
@@ -69,6 +74,21 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
               key: const Key('trails_catalog_scroll'),
               slivers: [
                 const AppSliverHeader(),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.page,
+                  ),
+                  sliver: SliverToBoxAdapter(
+                    child: SampleDataNotice(
+                      sources: const {SampleSource.trails, SampleSource.regions},
+                      margin: const EdgeInsets.only(top: AppSpacing.sm),
+                      onRetry: () {
+                        ref.invalidate(trailsProvider);
+                        ref.invalidate(regionsProvider);
+                      },
+                    ),
+                  ),
+                ),
                 const SliverPadding(
                   padding: EdgeInsets.fromLTRB(
                     AppSpacing.page,
@@ -175,6 +195,7 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
                           CourseCard(
                             course: courses.first,
                             featured: true,
+                            isSample: isTrailsSample,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) =>
@@ -208,6 +229,7 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
                         child: _HeritageCard(
                           eat: nearby[i].$1,
                           course: nearby[i].$2,
+                          isSample: isTrailsSample,
                         ),
                       ),
                     ),
@@ -238,6 +260,7 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
                           child: CourseCard(
                             course: courses[i + 1],
                             featured: false,
+                            isSample: isTrailsSample,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) =>
@@ -389,9 +412,14 @@ class _RouteStops extends StatelessWidget {
 }
 
 class _HeritageCard extends StatelessWidget {
-  const _HeritageCard({required this.eat, required this.course});
+  const _HeritageCard({
+    required this.eat,
+    required this.course,
+    this.isSample = false,
+  });
   final HeritageEat eat;
   final TrailCourse course;
+  final bool isSample;
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -429,7 +457,18 @@ class _HeritageCard extends StatelessWidget {
                       style: text.labelSmall?.copyWith(color: colors.tertiary),
                     ),
                     const SizedBox(height: AppSpacing.xs),
-                    Text(eat.name, style: text.titleMedium),
+                    if (isSample)
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(eat.name, style: text.titleMedium),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          const SampleMark(),
+                        ],
+                      )
+                    else
+                      Text(eat.name, style: text.titleMedium),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       eat.addr,

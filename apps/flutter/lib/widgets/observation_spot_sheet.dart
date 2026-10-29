@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../models/observation_map.dart';
 import '../models/trails.dart';
+import '../theme/layout_tokens.dart';
 import '../utils/observation_spot_filter.dart';
 import '../utils/spot_name.dart';
 import '../utils/trail_format.dart';
 import 'observation_spot_detail.dart';
+import 'sample_data_notice.dart';
 import 'spot_detail/species_detail.dart';
 
 /// Resting ("peek") extent of [ObservationSpotSheet] as a fraction of screen
@@ -53,6 +55,7 @@ class ObservationSpotSheet extends StatelessWidget {
     required this.onSortChanged,
     required this.sqmFilterActive,
     required this.onSqmFilterChanged,
+    this.isSample = false,
   });
 
   final List<ObservationSpot> spots;
@@ -69,6 +72,10 @@ class ObservationSpotSheet extends StatelessWidget {
   final ValueChanged<SpotSort> onSortChanged;
   final bool sqmFilterActive;
   final ValueChanged<bool> onSqmFilterChanged;
+
+  /// [spots] come from demo sample data (spec 052): each list row gets a
+  /// [SampleMark].
+  final bool isSample;
 
   /// Same kind -> color mapping as [ObservationMarker]'s pins.
   static Color kindColor(ColorScheme colorScheme, String kind) {
@@ -255,6 +262,10 @@ class ObservationSpotSheet extends StatelessWidget {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
+                                      if (isSample) ...[
+                                        const SizedBox(width: AppSpacing.xs),
+                                        const SampleMark(compact: true),
+                                      ],
                                       const SizedBox(width: 8),
                                       Flexible(
                                         child: Text(

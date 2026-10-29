@@ -4,6 +4,7 @@ import '../models/trails.dart';
 import '../theme/layout_tokens.dart';
 import '../utils/trail_format.dart';
 import 'night_sky_tag.dart';
+import 'sample_data_notice.dart';
 import 'trails/trail_map.dart';
 
 /// Both variants share the same course data and detail destination.
@@ -13,10 +14,15 @@ class CourseCard extends StatelessWidget {
     required this.course,
     required this.featured,
     required this.onTap,
+    this.isSample = false,
   });
   final TrailCourse course;
   final bool featured;
   final VoidCallback onTap;
+
+  /// [course] comes from demo sample data (spec 052): shows a [SampleMark]
+  /// and never the '두루누비 코스' badge.
+  final bool isSample;
 
   @override
   Widget build(BuildContext context) {
@@ -75,10 +81,13 @@ class CourseCard extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            _CourseBadge(
-                              label: '두루누비 코스',
-                              color: colors.secondary,
-                            ),
+                            if (isSample)
+                              const SampleMark()
+                            else
+                              _CourseBadge(
+                                label: '두루누비 코스',
+                                color: colors.secondary,
+                              ),
                             _CourseBadge(
                               label: 'Day-to-Night',
                               color: colors.tertiary,
@@ -118,7 +127,21 @@ class CourseCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (!featured) ...[
-                      Text(course.name, style: text.titleMedium),
+                      if (isSample)
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                course.name,
+                                style: text.titleMedium,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            const SampleMark(),
+                          ],
+                        )
+                      else
+                        Text(course.name, style: text.titleMedium),
                       const SizedBox(height: AppSpacing.sm),
                     ],
                     _CourseMeta(course: course),

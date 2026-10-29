@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart' hide Path;
 
 import '../models/observation_map.dart';
 import '../utils/spot_name.dart';
+import 'sample_data_notice.dart';
 
 /// Keeps only the spots whose [ObservationSpot.kind] is in [activeKinds].
 ///
@@ -119,6 +120,7 @@ List<Marker> buildObservationMarkers({
   double zoom = 12,
   Offset Function(ObservationSpot spot)? screenOffsetOf,
   bool scatterActive = false,
+  bool isSample = false,
 }) {
   final filtered = filterObservationSpots(spots, activeKinds);
   final labeledIds = computeLabeledSpotIds(
@@ -141,6 +143,7 @@ List<Marker> buildObservationMarkers({
         selected: spot.id == selectedSpotId,
         showLabel: showLabel,
         onTap: () => onSpotTap(spot),
+        isSample: isSample,
       ),
     );
   }).toList();
@@ -156,12 +159,17 @@ class ObservationMarker extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.showLabel = false,
+    this.isSample = false,
   });
 
   final ObservationSpot spot;
   final bool selected;
   final bool showLabel;
   final VoidCallback onTap;
+
+  /// Spot comes from demo sample data (spec 052): adds a [SampleMark] to
+  /// the pin and ", 예시" to its semantics label.
+  final bool isSample;
 
   /// Desaturated warm gray-brown, hardcoded because it must sit visibly away
   /// from the amber (star) tertiary token on the color wheel; every other
@@ -205,23 +213,42 @@ class ObservationMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pin = Semantics(
-      button: true,
-      label: '${_kindLabels[spot.kind] ?? '관찰 스팟'}, ${shortSpotName(spot.name)}',
-      child: SizedBox(
-        width: pinBoxSize,
-        height: pinBoxSize,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Center(
-            child: Transform.scale(
-              scale: selected ? 1.25 : 1.0,
-              child: _ObservationPin(spot: spot, selected: selected),
-            ),
+    final pinBox = SizedBox(
+      width: pinBoxSize,
+      height: pinBoxSize,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Center(
+          child: Transform.scale(
+            scale: selected ? 1.25 : 1.0,
+            child: _ObservationPin(spot: spot, selected: selected),
           ),
         ),
       ),
+    );
+    final pin = Semantics(
+      button: true,
+      label:
+          '${_kindLabels[spot.kind] ?? '관찰 스팟'}, ${shortSpotName(spot.name)}'
+          '${isSample ? ', 예시' : ''}',
+      child: isSample
+          ? Stack(
+              clipBehavior: Clip.none,
+              children: [
+                pinBox,
+                // Pointer- and semantics-transparent: taps still reach the
+                // pin, and the label above already says ", 예시".
+                const Positioned(
+                  top: 0,
+                  right: -4,
+                  child: IgnorePointer(
+                    child: ExcludeSemantics(child: SampleMark(compact: true)),
+                  ),
+                ),
+              ],
+            )
+          : pinBox,
     );
 
     if (!showLabel) return pin;

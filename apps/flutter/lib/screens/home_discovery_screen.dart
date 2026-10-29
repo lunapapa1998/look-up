@@ -6,9 +6,12 @@ import '../models/discovery.dart';
 import '../models/trails.dart';
 import '../state/auth_providers.dart';
 import '../state/discovery_providers.dart';
+import '../state/sample_data_provider.dart';
+import '../theme/layout_tokens.dart';
 import '../widgets/app_header_logo.dart';
 import '../widgets/night_sky_scale.dart';
 import '../widgets/night_sky_tag.dart';
+import '../widgets/sample_data_notice.dart';
 import '../widgets/score_gauge.dart';
 import '../widgets/tonight_sky_section.dart';
 import 'account_screen.dart';
@@ -64,6 +67,11 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
     final modeState = ref.watch(obsModeProvider);
     final currentMode = modeState.mode;
     final overviewAsync = ref.watch(discoveryProvider(currentMode));
+    final sampleSources = ref.watch(sampleSourcesProvider);
+    final isSuitabilitySample = sampleSources.contains(
+      SampleSource.suitability,
+    );
+    final isStarlightSample = sampleSources.contains(SampleSource.starlight);
     final user = ref.watch(authUserProvider);
     final displayName = (user?.displayName?.isNotEmpty ?? false)
         ? user!.displayName!
@@ -194,6 +202,17 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
               padding: const EdgeInsets.all(16),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
+                  SampleDataNotice(
+                    sources: const {
+                      SampleSource.suitability,
+                      SampleSource.starlight,
+                    },
+                    margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                    onRetry: () {
+                      ref.invalidate(discoveryProvider(currentMode));
+                      ref.invalidate(tonightSkyForecastProvider);
+                    },
+                  ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -304,6 +323,16 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                 data: (overview) => Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    if (isSuitabilitySample)
+                                      const Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Padding(
+                                          padding: EdgeInsets.only(
+                                            bottom: AppSpacing.sm,
+                                          ),
+                                          child: SampleMark(),
+                                        ),
+                                      ),
                                     if (overview.weatherRefreshing)
                                       Container(
                                         width: double.infinity,
@@ -773,10 +802,21 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                       child: ref
                           .watch(tonightSkyForecastProvider)
                           .when(
-                            data: (forecast) => TonightSkySection(
-                              targets: forecast.allVisibleTargets,
-                              isApprox: forecast.degraded,
-                            ),
+                            data: (forecast) {
+                              final section = TonightSkySection(
+                                targets: forecast.allVisibleTargets,
+                                isApprox: forecast.degraded,
+                              );
+                              if (!isStarlightSample) return section;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SampleMark(),
+                                  const SizedBox(height: AppSpacing.sm),
+                                  section,
+                                ],
+                              );
+                            },
                             loading: () => const SizedBox.shrink(),
                             error: (err, st) => const SizedBox.shrink(),
                           ),

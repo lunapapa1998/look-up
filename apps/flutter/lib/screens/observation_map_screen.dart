@@ -12,12 +12,15 @@ import '../models/observation_map.dart';
 import '../models/trails.dart';
 import '../services/location_service.dart';
 import '../state/discovery_providers.dart';
+import '../state/sample_data_provider.dart';
+import '../theme/layout_tokens.dart';
 import '../utils/bird_scatter.dart';
 import '../utils/observation_spot_filter.dart';
 import '../widgets/observation_map_overlays.dart';
 import '../widgets/app_header_logo.dart';
 import '../widgets/observation_marker.dart';
 import '../widgets/observation_spot_sheet.dart';
+import '../widgets/sample_data_notice.dart';
 
 /// Map scaffold for the observation map tab: the tile floor, the day-mode
 /// tint overlay, the top layer-toggle bar, the observation spot markers, and
@@ -473,6 +476,9 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
         ? null
         : _goldenHourDescriptionFor(discoveryOverview.goldenHours, obsMode);
     final peekHeight = MediaQuery.sizeOf(context).height * kObsSheetPeek;
+    final sampleSources = ref.watch(sampleSourcesProvider);
+    final isMapSample = sampleSources.contains(SampleSource.observationMap);
+    final isTrailsSample = sampleSources.contains(SampleSource.trails);
 
     return Scaffold(
       key: const Key('obsmap_screen'),
@@ -533,6 +539,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                         LatLng(spot.coord.lat, spot.coord.lng),
                       ),
                       scatterActive: _scatterSpot != null,
+                      isSample: isMapSample,
                     ),
                   );
                 },
@@ -604,6 +611,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                         child: _TrailheadMarker(
                           course: track.course,
                           onTap: () => _selectTrail(track.course),
+                          isSample: isTrailsSample,
                         ),
                       ),
                   ],
@@ -724,6 +732,19 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                         ),
                       ],
                     ),
+                    SampleDataNotice(
+                      sources: const {
+                        SampleSource.observationMap,
+                        SampleSource.trails,
+                        SampleSource.tide,
+                        SampleSource.species,
+                      },
+                      margin: const EdgeInsets.only(top: AppSpacing.sm),
+                      onRetry: () {
+                        _retryObservationMap();
+                        ref.invalidate(trailsProvider);
+                      },
+                    ),
                     if (_showResearchButton)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
@@ -827,6 +848,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
             onSortChanged: _setSortBy,
             sqmFilterActive: _sqmFilterActive,
             onSqmFilterChanged: _toggleSqmFilter,
+            isSample: isMapSample,
           ),
         ],
       ),
@@ -1002,32 +1024,54 @@ String? _goldenHourDescriptionFor(List<GoldenHour> goldenHours, ObsMode mode) {
 /// of whether that course's GPX track fetch succeeded -- the trailhead must
 /// stay visible even when [TrailTrack.points] is empty.
 class _TrailheadMarker extends StatelessWidget {
-  const _TrailheadMarker({required this.course, required this.onTap});
+  const _TrailheadMarker({
+    required this.course,
+    required this.onTap,
+    this.isSample = false,
+  });
 
   final TrailCourse course;
   final VoidCallback onTap;
+  final bool isSample;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: '탐방로 시작점, ${course.name}',
+      label: '탐방로 시작점, ${course.name}${isSample ? ', 예시' : ''}',
       child: SizedBox(
         width: 44,
         height: 44,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
-          child: Center(
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: const BoxDecoration(
-                color: _ObservationMapScreenState._trailColor,
-                shape: BoxShape.circle,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Center(
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    color: _ObservationMapScreenState._trailColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.hiking,
+                    size: 13,
+                    color: Colors.white,
+                  ),
+                ),
               ),
-              child: const Icon(Icons.hiking, size: 13, color: Colors.white),
-            ),
+              if (isSample)
+                const Positioned(
+                  top: 0,
+                  right: -4,
+                  child: IgnorePointer(
+                    child: ExcludeSemantics(child: SampleMark(compact: true)),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

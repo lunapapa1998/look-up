@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/ecolog_api.dart';
 import '../models/observation.dart';
 import '../state/providers.dart';
+import '../state/sample_data_provider.dart';
 
 /// Create/edit form for a single [Observation].
 ///
@@ -96,6 +97,13 @@ class _ObservationFormScreenState extends ConsumerState<ObservationFormScreen> {
         );
       }
       if (!mounted) return;
+      // Demo fallback (spec 052) kept the write on-device only. It vanishes
+      // from the list once the server answers again, hence "임시".
+      if (ref.read(sampleSourcesProvider).contains(SampleSource.ecolog)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('서버에 연결할 수 없어 이 기기에만 임시 저장됐어요')),
+        );
+      }
       Navigator.of(context).pop();
     } on EcologApiException catch (e) {
       if (!mounted) return;
