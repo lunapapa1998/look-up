@@ -110,4 +110,91 @@ void main() {
       expect(blended.surfaceContainerLow, isNot(day.surfaceContainerLow));
     });
   });
+
+  group('fonts (spec 053 Phase 1)', () {
+    Map<String, TextStyle?> allStyles(TextTheme t) => <String, TextStyle?>{
+      'displayLarge': t.displayLarge,
+      'displayMedium': t.displayMedium,
+      'displaySmall': t.displaySmall,
+      'headlineLarge': t.headlineLarge,
+      'headlineMedium': t.headlineMedium,
+      'headlineSmall': t.headlineSmall,
+      'titleLarge': t.titleLarge,
+      'titleMedium': t.titleMedium,
+      'titleSmall': t.titleSmall,
+      'bodyLarge': t.bodyLarge,
+      'bodyMedium': t.bodyMedium,
+      'bodySmall': t.bodySmall,
+      'labelLarge': t.labelLarge,
+      'labelMedium': t.labelMedium,
+      'labelSmall': t.labelSmall,
+    };
+
+    for (final mode in [ObsMode.day, ObsMode.night]) {
+      testWidgets('$mode: body/title/labelLarge use Pretendard', (
+        WidgetTester tester,
+      ) async {
+        final t = AppTheme.themeFor(mode).textTheme;
+        final styles = <String, TextStyle?>{
+          'bodyLarge': t.bodyLarge,
+          'bodyMedium': t.bodyMedium,
+          'bodySmall': t.bodySmall,
+          'titleLarge': t.titleLarge,
+          'titleMedium': t.titleMedium,
+          'titleSmall': t.titleSmall,
+          'labelLarge': t.labelLarge,
+        };
+        styles.forEach((name, style) {
+          expect(style, isNotNull, reason: name);
+          expect(style!.fontFamily, 'Pretendard', reason: name);
+        });
+      });
+
+      testWidgets('$mode: every style resolves Hangul to Pretendard', (
+        WidgetTester tester,
+      ) async {
+        final styles = allStyles(AppTheme.themeFor(mode).textTheme);
+        expect(styles, hasLength(15));
+        styles.forEach((name, style) {
+          expect(style, isNotNull, reason: name);
+          final viaFamily = style!.fontFamily == 'Pretendard';
+          final viaFallback =
+              style.fontFamilyFallback?.contains('Pretendard') ?? false;
+          expect(viaFamily || viaFallback, isTrue, reason: name);
+        });
+      });
+
+      testWidgets('$mode: headlineSmall falls back to Pretendard, height >= 1.2',
+          (WidgetTester tester) async {
+        final headline = AppTheme.themeFor(mode).textTheme.headlineSmall!;
+        expect(headline.fontFamilyFallback, contains('Pretendard'));
+        expect(headline.height, isNotNull);
+        expect(headline.height!, greaterThanOrEqualTo(1.2));
+      });
+
+      testWidgets('$mode: no style has a line height below 1.1', (
+        WidgetTester tester,
+      ) async {
+        final styles = allStyles(AppTheme.themeFor(mode).textTheme);
+        styles.forEach((name, style) {
+          final height = style?.height;
+          if (height != null) {
+            expect(height, greaterThanOrEqualTo(1.1), reason: name);
+          }
+        });
+      });
+
+      testWidgets('$mode: Korean-bearing mono labels are not widely tracked', (
+        WidgetTester tester,
+      ) async {
+        final t = AppTheme.themeFor(mode).textTheme;
+        for (final style in [t.labelSmall, t.labelMedium]) {
+          final spacing = style!.letterSpacing;
+          if (spacing != null) {
+            expect(spacing, lessThanOrEqualTo(0.5));
+          }
+        }
+      });
+    }
+  });
 }

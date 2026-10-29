@@ -99,6 +99,20 @@ flutter:
     - assets/packages/
     - assets/auth/
 
+  # Spec 053 Phase 1: bundled Hangul font (SIL OFL 1.1, assets/fonts/OFL.txt).
+  # Default app font; Google Fonts styles fall back to it for Hangul glyphs.
+  fonts:
+    - family: Pretendard
+      fonts:
+        - asset: assets/fonts/Pretendard-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Pretendard-Medium.otf
+          weight: 500
+        - asset: assets/fonts/Pretendard-SemiBold.otf
+          weight: 600
+        - asset: assets/fonts/Pretendard-Bold.otf
+          weight: 700
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

@@ -1,5 +1,13 @@
 # flutter handoff note
 
+## Spec 053 Phase 1 — Pretendard fonts (no contract change)
+
+- `pubspec.yaml`: `flutter.fonts` family `Pretendard` (Regular 400 / Medium 500 / SemiBold 600 / Bold 700 OTF in `assets/fonts/`). google_fonts kept; no new packages.
+- `lib/theme/app_theme.dart`: `ThemeData(fontFamily: 'Pretendard')`; title/body/labelLarge = `ThemeData(brightness).textTheme.apply(fontFamily: 'Pretendard')` (Inter no longer used in the theme); display/headline keep Space Grotesk + Pretendard fallback, -0.02em tracking, height max(M3 geometry, 1.2); labelSmall/Medium keep JetBrains Mono + Pretendard fallback, no wide tracking. New `AppTheme.pretendard` const and `AppTheme.monoLabel(theme)` (Latin/number-only, 0.06em) — defined, not applied. Colors untouched (Phase 2).
+- `lib/screens/login_screen.dart`: 3 `GoogleFonts.spaceGrotesk(...)` sites `.copyWith(fontFamilyFallback: const ['Pretendard'])`.
+- `test/theme/app_theme_test.dart`: new group `fonts (spec 053 Phase 1)` (day+night); existing tests unchanged.
+- Backend contract: none. No shell — **lead must run** `cd apps/flutter && flutter pub get && flutter analyze && flutter test`; web build size for Phase 1 note still to be measured (`flutter build web --release`).
+
 ## Spec 057 — login intro copy (no contract change)
 
 - `lib/screens/login_screen.dart` `_buildHero`: 'LOOK UP' (aBeeZee) wordmark + two-span tagline replaced by centered 4-tier copy — title `위를 봐요.` (26/w700, `_wordmark`, default font), subtitle `여행이 시작됩니다.` (17/w600, `_wordmark`), lead (14/w500, `_taglineBright`), body (13/1.6, `_taglineDim`, maxWidth 320). Existing palette constants only; `google_fonts` import kept (spaceGrotesk still used by buttons).

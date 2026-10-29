@@ -4,6 +4,46 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/discovery.dart' show ObsMode;
 
 class AppTheme {
+  /// Bundled Hangul-capable font family (pubspec `flutter.fonts`, spec 053).
+  static const String pretendard = 'Pretendard';
+
+  /// Appends Pretendard to [style]'s fallback chain (keeping any existing
+  /// fallbacks) so Hangul glyphs missing from Google Fonts render in it.
+  static TextStyle? _withPretendardFallback(TextStyle? style) {
+    if (style == null) return null;
+    return style.copyWith(
+      fontFamilyFallback: <String>[
+        ...?style.fontFamilyFallback,
+        pretendard,
+      ],
+    );
+  }
+
+  /// Display/headline role: Space Grotesk kept (Latin/number emphasis) with
+  /// Pretendard fallback, -0.02em tracking, and line height not below 1.2 so
+  /// Hangul titles are not clipped. Size/height resolve against [geometry]
+  /// when the Google Fonts style leaves them unset.
+  static TextStyle? _headline(TextStyle? style, TextStyle? geometry) {
+    if (style == null) return null;
+    final fontSize = style.fontSize ?? geometry?.fontSize;
+    final height = style.height ?? geometry?.height;
+    return _withPretendardFallback(style)!.copyWith(
+      letterSpacing: fontSize == null ? style.letterSpacing : -0.02 * fontSize,
+      height: (height == null || height < 1.2) ? 1.2 : height,
+    );
+  }
+
+  /// English/number-only mono label (Flim label style): JetBrains Mono,
+  /// 0.06em tracking, Pretendard fallback. Callers pass already-uppercased
+  /// Latin text; never use for Korean labels. Defined for later phases only.
+  static TextStyle monoLabel(ThemeData theme) {
+    final base = theme.textTheme.labelSmall ?? const TextStyle();
+    final fontSize = base.fontSize ?? 11;
+    return _withPretendardFallback(
+      GoogleFonts.jetBrainsMono(textStyle: base),
+    )!.copyWith(fontSize: fontSize, letterSpacing: 0.06 * fontSize);
+  }
+
   static ColorScheme nightColorScheme() {
     const background = Color(0xFF08122D);
     const surfaceContainerLowest = Color(0xFF030C28);
@@ -91,24 +131,54 @@ class AppTheme {
     final onSecondary = colorScheme.onSecondary;
     final onSurface = colorScheme.onSurface;
 
+    // Spec 053 Phase 1: title/body/labelLarge use the bundled Pretendard
+    // (Hangul-capable). The family is set explicitly on each style because a
+    // style's own fontFamily wins over `ThemeData.fontFamily` when merged.
+    final bodyTextTheme = ThemeData(
+      useMaterial3: true,
+      brightness: colorScheme.brightness,
+    ).textTheme.apply(fontFamily: pretendard);
+    // M3 geometry (sizes/heights) the theme is localized with at runtime;
+    // used to resolve em-based tracking and the Hangul line-height floor.
+    final geometry = Typography.material2021().englishLike;
     final displayTextTheme = GoogleFonts.spaceGroteskTextTheme();
-    final bodyTextTheme = GoogleFonts.interTextTheme();
     final telemetryTextTheme = GoogleFonts.jetBrainsMonoTextTheme();
     final textTheme = bodyTextTheme
         .copyWith(
-          displayLarge: displayTextTheme.displayLarge,
-          displayMedium: displayTextTheme.displayMedium,
-          displaySmall: displayTextTheme.displaySmall,
-          headlineLarge: displayTextTheme.headlineLarge,
-          headlineMedium: displayTextTheme.headlineMedium,
-          headlineSmall: displayTextTheme.headlineSmall,
-          labelSmall: telemetryTextTheme.labelSmall,
-          labelMedium: telemetryTextTheme.labelMedium,
+          displayLarge: _headline(
+            displayTextTheme.displayLarge,
+            geometry.displayLarge,
+          ),
+          displayMedium: _headline(
+            displayTextTheme.displayMedium,
+            geometry.displayMedium,
+          ),
+          displaySmall: _headline(
+            displayTextTheme.displaySmall,
+            geometry.displaySmall,
+          ),
+          headlineLarge: _headline(
+            displayTextTheme.headlineLarge,
+            geometry.headlineLarge,
+          ),
+          headlineMedium: _headline(
+            displayTextTheme.headlineMedium,
+            geometry.headlineMedium,
+          ),
+          headlineSmall: _headline(
+            displayTextTheme.headlineSmall,
+            geometry.headlineSmall,
+          ),
+          // Mono stays for these roles but they carry Korean labels, so no
+          // uppercase/wide tracking here; Hangul falls back to Pretendard.
+          labelSmall: _withPretendardFallback(telemetryTextTheme.labelSmall),
+          labelMedium: _withPretendardFallback(telemetryTextTheme.labelMedium),
         )
         .apply(bodyColor: onSurface, displayColor: onSurface);
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: pretendard,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
       textTheme: textTheme,
