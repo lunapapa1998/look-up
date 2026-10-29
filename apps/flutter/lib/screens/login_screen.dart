@@ -108,16 +108,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ],
             ),
           ),
+          // Scrolls only when the viewport is shorter than the content; the
+          // min-height + IntrinsicHeight pair keeps the Spacer layout otherwise.
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-              child: Column(
-                children: [
-                  const Spacer(flex: 3),
-                  _buildHero(context),
-                  const Spacer(flex: 4),
-                  _buildLoginZone(context),
-                ],
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints:
+                      BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                      child: Column(
+                        children: [
+                          const Spacer(flex: 3),
+                          _buildHero(context),
+                          const Spacer(flex: 4),
+                          _buildLoginZone(context),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -126,10 +138,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
+  /// Shared style for the title and subtitle so both render identically
+  /// (Hangul, so the default font — aBeeZee has no Hangul glyphs).
+  static const TextStyle _headlineStyle = TextStyle(
+    fontSize: 26,
+    height: 34 / 26,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.3,
+    color: LoginScreen._wordmark,
+  );
+
   Widget _buildHero(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Title.
+        const Text(
+          '위를 봐요.',
+          textAlign: TextAlign.center,
+          style: _headlineStyle,
+        ),
+        const SizedBox(height: 20),
         // Center logo & optical frame.
         Container(
           width: 96,
@@ -154,34 +183,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           padding: const EdgeInsets.all(10),
           child: Image.asset('assets/auth/logo.png', fit: BoxFit.contain),
         ),
-        const SizedBox(height: 28),
-        // Wordmark.
-        Text(
-          'LOOK UP',
-          style: GoogleFonts.aBeeZee(
-            fontSize: 26,
-            height: 34 / 26,
-            letterSpacing: -0.65,
-            color: LoginScreen._wordmark,
-          ),
+        const SizedBox(height: 20),
+        // Subtitle (same style as the title).
+        const Text(
+          '여행이 시작됩니다.',
+          textAlign: TextAlign.center,
+          style: _headlineStyle,
         ),
         const SizedBox(height: 20),
-        // Poetic dual-world tagline.
-        Text.rich(
-          TextSpan(
-            style: const TextStyle(fontSize: 13, height: 21.13 / 13),
-            children: const [
-              TextSpan(
-                text: '낮의 갯벌 철새부터 밤의 칠흑 은하수까지,\n',
-                style: TextStyle(color: LoginScreen._taglineDim),
-              ),
-              TextSpan(
-                text: '시선을 높여 자연을 만나는 24시간 생태 여정',
-                style: TextStyle(color: LoginScreen._taglineBright),
-              ),
-            ],
-          ),
+        // Lead line.
+        const Text(
+          '하늘을 보는 일이, 여행이 되도록.',
           textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: LoginScreen._taglineBright,
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Body copy; width-capped so wide screens keep a readable line length.
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 320),
+          child: const Text(
+            '하늘을 따라 시작되는 여정\n'
+            '새가 날아드는 낮부터 별이 쏟아지는 밤까지\n'
+            '하늘을 길잡이 삼아 그곳의 자연과 생태를 발견해보세요',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.6,
+              color: LoginScreen._taglineDim,
+            ),
+          ),
         ),
       ],
     );
@@ -363,12 +397,17 @@ class _GuestButton extends StatelessWidget {
           const Icon(Icons.explore_outlined,
               size: 15, color: LoginScreen._teal),
           const SizedBox(width: 8),
-          Text(
-            '로그인 없이 둘러보기 (체험 모드)',
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 13,
-              letterSpacing: -0.325,
-              color: LoginScreen._teal,
+          Flexible(
+            child: Text(
+              '로그인 없이 둘러보기 (체험 모드)',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 13,
+                letterSpacing: -0.325,
+                color: LoginScreen._teal,
+              ),
             ),
           ),
           const SizedBox(width: 8),

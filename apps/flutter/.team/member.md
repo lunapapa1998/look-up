@@ -1,5 +1,15 @@
 # flutter handoff note
 
+## Spec 057 — login intro copy (no contract change)
+
+- `lib/screens/login_screen.dart` `_buildHero`: 'LOOK UP' (aBeeZee) wordmark + two-span tagline replaced by centered 4-tier copy — title `위를 봐요.` (26/w700, `_wordmark`, default font), subtitle `여행이 시작됩니다.` (17/w600, `_wordmark`), lead (14/w500, `_taglineBright`), body (13/1.6, `_taglineDim`, maxWidth 320). Existing palette constants only; `google_fonts` import kept (spaceGrotesk still used by buttons).
+- `build`: SafeArea content wrapped in LayoutBuilder → SingleChildScrollView → ConstrainedBox(minHeight) → IntrinsicHeight → Padding → original Spacer Column, so short screens scroll instead of overflowing. Buttons, `_signIn`, auth, background, glows untouched.
+- New `test/screens/login_screen_test.dart`: copy present/old copy absent, no overflow at 360x640 / 320x568 / 1280x720, guest tap → `onGuestPressed`.
+- Backend contract: none consumed. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test test/screens/login_screen_test.dart`.
+- Amendment 2026-10-29: body replaced by three explicit lines in one `Text` joined with `\n` (`하늘을 따라 시작되는 여정` / `새가 날아드는 낮부터 별이 쏟아지는 밤까지` / `하늘을 길잡이 삼아 그곳의 자연과 생태를 발견해보세요` — no trailing periods per follow-up user update; '발견해보세요' verbatim, no space); same style; test expects the exact string and `findsNothing` for '하늘의 변화를 따라'.
+- Amendment 2026-10-29 (배치 변경): hero order now title → 20 → logo → 20 → subtitle → 20 → lead → 10 → body; title and subtitle share one `static const _headlineStyle` (26, 34/26, w700, -0.3, `_wordmark`); old 28px logo→title gap removed; test asserts title.dy < logo.dy < subtitle.dy and equal fontSize.
+- Amendment 2026-10-29 (A안, 320×568 overflow fix): `_GuestButton` label `Text` alone wrapped in `Flexible` with `maxLines: 2`, `TextOverflow.ellipsis`, `TextAlign.center`; Row (mainAxisAlignment.center), icons, spacing, style, colors, onPressed unchanged. Test file untouched.
+
 ## Spec 052 Phase 3 — sample-data banner and 예시 marks (no contract change)
 
 - New `lib/widgets/sample_data_notice.dart`: `SampleDataNotice` (ConsumerWidget; shows only when `sampleSourcesProvider ∩ sources` is non-empty, otherwise `SizedBox.shrink` so its optional `margin` also disappears; keys `sample_data_notice` / `sample_data_notice_retry`) and `SampleMark` (`예시` + dashed outline via CustomPainter, `Semantics('예시 데이터')`, `compact`). Only existing ColorScheme roles + AppSpacing/AppRadius; all styling lives in this file for 053/054.
