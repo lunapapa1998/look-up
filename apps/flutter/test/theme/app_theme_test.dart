@@ -296,4 +296,37 @@ void main() {
       expect(blended.extension<LookUpColors>(), isNotNull);
     });
   });
+
+  group('component defaults (spec 053 Phase 3)', () {
+    for (final mode in [ObsMode.day, ObsMode.night]) {
+      testWidgets('$mode: FilledButton uses primary fill, radius 8, flat', (
+        WidgetTester tester,
+      ) async {
+        final theme = AppTheme.themeFor(mode);
+        final scheme = theme.colorScheme;
+        final style = theme.filledButtonTheme.style!;
+        const states = <WidgetState>{};
+
+        expect(style.backgroundColor!.resolve(states), scheme.primary);
+        expect(style.foregroundColor!.resolve(states), scheme.onPrimary);
+        expect(style.elevation!.resolve(states), 0);
+        final shape = style.shape!.resolve(states) as RoundedRectangleBorder;
+        expect(shape.borderRadius, BorderRadius.circular(8));
+      });
+
+      testWidgets('$mode: Card is flat, radius 16, outlineVariant hairline', (
+        WidgetTester tester,
+      ) async {
+        final theme = AppTheme.themeFor(mode);
+        final scheme = theme.colorScheme;
+        final card = theme.cardTheme;
+
+        expect(card.elevation, 0);
+        final shape = card.shape! as RoundedRectangleBorder;
+        expect(shape.borderRadius, BorderRadius.circular(16));
+        expect(shape.side.color, scheme.outlineVariant);
+        expect(shape.side.width, 1);
+      });
+    }
+  });
 }

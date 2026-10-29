@@ -848,7 +848,7 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             border: Border.all(color: colorScheme.outline),
-            borderRadius: BorderRadius.circular(9999),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: Text(
             'AUTO',
@@ -870,7 +870,7 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: colorScheme.secondary,
-            borderRadius: BorderRadius.circular(9999),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: Text(
             'MANUAL',

@@ -1,5 +1,13 @@
 # flutter handoff note
 
+## Spec 053 Phase 3 — radius/spacing/layout tokens (no contract change)
+
+- `lib/theme/layout_tokens.dart`: `AppSpacing` + x40/x52/x64/x80; `AppRadius` + link 4 / button 8 / card 16 / legacyBar 20, pill 20 → 999 (sm/md/lg unchanged); new `AppBreakpoints` (360/600/1024) and `AppLayout` (maxContentWidth 1120, maxReadingWidth 680, `pageGutter`, `pageInsets[Of]` without safe area, `overlayInsets[Of]` with viewPadding once). Not applied to any screen yet (spec 055).
+- `lib/theme/app_theme.dart`: FilledButton default → primary/onPrimary, radius 8, elevation 0 (was secondary pill); Card default → radius 16, 1px outlineVariant side, elevation 0 (color kept). Unused `secondary`/`onSecondary` locals removed.
+- Token swaps (shape identical): `circular(9999)` → `AppRadius.pill` in home_discovery_screen, mode_header, tonight_sky_section; packages_catalog notice bar `pill` → `legacyBar`.
+- Tests: new `test/theme/layout_tokens_test.dart`; `app_theme_test.dart` group `component defaults (spec 053 Phase 3)`.
+- Backend contract: none. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
 ## Spec 053 Phase 2 — color system, direction B (no contract change)
 
 - `lib/theme/app_theme.dart`: `nightColorScheme()`/`dayColorScheme()` now return a full `const ColorScheme(...)` with every role explicit — Flim monochrome base (day #FFFFFF/#141414, night #141414/#FFFFFF, inverted primary fill) + kept accents on secondary (day #0A7864 / night #42E1BE) and tertiary (#8A5700 / #F5BC7E); errorContainer no longer Flutter's default pink; surfaceTint transparent. `themeFor` registers `extensions: [LookUpColors.day|night]`; font code untouched.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/starlight_forecast.dart';
+import '../theme/layout_tokens.dart';
 
 const int _previewCount = 3;
 
@@ -209,7 +210,7 @@ class _TonightSkyRow extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(9999),
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
                     child: Text(
                       pillLabel,

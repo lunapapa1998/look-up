@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/discovery.dart' show ObsMode;
+import 'layout_tokens.dart';
 import 'lookup_colors.dart';
 
 class AppTheme {
@@ -142,8 +143,6 @@ class AppTheme {
     final background = colorScheme.surface;
     final surfaceContainer = colorScheme.surfaceContainer;
     final surfaceContainerHigh = colorScheme.surfaceContainerHigh;
-    final secondary = colorScheme.secondary;
-    final onSecondary = colorScheme.onSecondary;
     final onSurface = colorScheme.onSurface;
 
     // Spec 053 Phase 1: title/body/labelLarge use the bundled Pretendard
@@ -201,10 +200,13 @@ class AppTheme {
       extensions: <ThemeExtension<dynamic>>[
         mode == ObsMode.night ? LookUpColors.night : LookUpColors.day,
       ],
+      // Spec 053 Phase 3: flat cards with a hairline outline, radius 16.
       cardTheme: CardThemeData(
         color: surfaceContainer,
+        elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadius.card),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
       ),
       appBarTheme: AppBarTheme(
@@ -220,12 +222,14 @@ class AppTheme {
           borderSide: BorderSide.none,
         ),
       ),
+      // Spec 053 Phase 3: monochrome primary fill, radius 8, flat.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: secondary,
-          foregroundColor: onSecondary,
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(9999),
+            borderRadius: BorderRadius.circular(AppRadius.button),
           ),
         ),
       ),

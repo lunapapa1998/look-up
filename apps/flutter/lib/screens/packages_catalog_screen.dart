@@ -167,7 +167,7 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
             ),
             decoration: BoxDecoration(
               color: colors.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(AppRadius.pill),
+              borderRadius: BorderRadius.circular(AppRadius.legacyBar),
             ),
             child: Row(
               children: [

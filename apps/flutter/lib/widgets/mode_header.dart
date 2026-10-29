@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/discovery.dart';
 import '../state/discovery_providers.dart';
+import '../theme/layout_tokens.dart';
 
 /// Day/night mode header control, meant to be embedded twice in the home
 /// screen app bar: once in the expanded flexible space (`collapsed: false`)
@@ -133,7 +134,7 @@ class _ModeHeaderState extends State<ModeHeader> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             border: Border.all(color: colorScheme.outline),
-            borderRadius: BorderRadius.circular(9999),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: Text(
             'AUTO',
@@ -155,7 +156,7 @@ class _ModeHeaderState extends State<ModeHeader> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: colorScheme.secondary,
-            borderRadius: BorderRadius.circular(9999),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: Text(
             'MANUAL',
