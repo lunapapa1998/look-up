@@ -33,6 +33,10 @@ suitability-live:
 flutter-check:
     cd apps/flutter && flutter pub get && flutter analyze && flutter test
 
+# flutter lane: regenerate icon sources (tool/gen_icon_sources.dart) + Android/web launcher icons.
+flutter-icons:
+    cd apps/flutter && dart run tool/gen_icon_sources.dart && dart run flutter_launcher_icons
+
 # Local backend for simulator/physical-device development. Always load the
 # repo-root secrets; running uvicorn directly from apps/backend skips them.
 backend-dev:
