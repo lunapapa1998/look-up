@@ -38,11 +38,11 @@
 ### Existing Files
 
 - `apps/flutter/lib/screens/app_shell.dart` - 폭 <600: `NavigationBar`, 600–1023: `NavigationRail`(라벨 모두 표시), ≥1024: 확장 레일. 탭: 홈(`home_outlined`/`home`), 관찰 지도(`map_outlined`/`map`), 둘레길(`hiking`), 패키지(`luggage_outlined`/`luggage`). 각 탭에 `selectedIcon`. 탭 순서와 `IndexedStack`은 유지. 058이 올린 탭 상태(Riverpod)를 그대로 사용.
-- `apps/flutter/lib/screens/home_discovery_screen.dart` - 배치만: `LookUpHeader`(모드 토글 포함) → 점수 카드(scoreDisplay 숫자 + "/100" + 등급 + 게이지 + `ProvenanceChip`) → 058의 인사말과 '오늘의 관찰 여정' 카드(내용·동작 유지) → 텔레메트리 2×2 → 골든타임 → (밤) 달·오늘 밤 하늘 → `DataSourceFooter`. 하드코딩된 간격·모서리·색을 토큰으로 교체. 본문은 `maxContentWidth`로 가운데 정렬.
+- `apps/flutter/lib/screens/home_discovery_screen.dart` - 배치만: `LookUpHeader`(모드 토글 포함) → 점수 카드(scoreDisplay 숫자 + "/100" + 등급 + 게이지 + `ProvenanceChip`) → 058의 인사말과 '오늘의 관찰 여정' 카드(내용·동작 유지) → 텔레메트리 2×2 → 골든타임 → (밤) 달·오늘 밤 하늘 → `DataSourceFooter`. 하드코딩된 간격·모서리·색을 토큰으로 교체. 화면 전체는 `AppLayout.pageInsets`(최대 `maxContentWidth`=1120 가운데 정렬), 긴 설명문은 `maxReadingWidth`(680, 왼쪽 정렬).
 - `apps/flutter/lib/screens/observation_form_screen.dart` - 토큰·헤더만 적용. 필드·검증 로직, 058의 미리 채우기와 "생태일기 보기" 흐름은 유지.
 - `apps/flutter/lib/screens/diary_list_screen.dart`, `apps/flutter/lib/screens/badges_screen.dart` - 토큰·`StatusView`·헤더만 적용(진입 경로는 058).
 - `apps/flutter/lib/screens/observation_map_screen.dart` - 공용 헤더(모드 토글 포함) 적용, ≥1024에서 바텀시트 대신 오른쪽 사이드 패널(폭 400), ≥600에서 칩 줄 `Wrap`, 기존 오류 배너를 `StatusView`로, 하드코딩 값 토큰화. 지도 타일 어트리뷰션을 실제 사용하는 타일 제공자에 맞게 정정.
-- `apps/flutter/lib/screens/trails_catalog_screen.dart`, `apps/flutter/lib/widgets/course_card.dart` - 탭 제목 "둘레길", 장식용 영문 eyebrow 제거 또는 한글화, 오류·빈 상태를 `StatusView`로, ≥1024에서 2열 그리드(`maxGridWidth`), 관광공사 식당 정보에 출처 표시.
+- `apps/flutter/lib/screens/trails_catalog_screen.dart`, `apps/flutter/lib/widgets/course_card.dart` - 탭 제목 "둘레길", 장식용 영문 eyebrow 제거 또는 한글화, 오류·빈 상태를 `StatusView`로, ≥1024에서 2열 그리드(`AppLayout.maxContentWidth`=1120), 관광공사 식당 정보에 출처 표시.
 - `apps/flutter/lib/screens/packages_catalog_screen.dart`, `apps/flutter/lib/widgets/packages/package_card.dart` - ≥1024에서 2열, 토큰 적용. '예시' 안내·표시는 058이 넣은 것을 유지하고 058 결과물의 스타일만 054 컴포넌트(`ProvenanceChip.sample` 등)로 맞춘다.
 - `apps/flutter/lib/screens/login_screen.dart` - 자체 팔레트 10색을 토큰으로, 넓은 화면에서 최대 폭 420 카드로 가운데 정렬. (워드마크 'LOOK UP'과 `GoogleFonts.aBeeZee` 제거는 057에서 완료. 문구는 057·056 범위)
 - `apps/flutter/lib/widgets/spot_detail/*.dart`, `apps/flutter/lib/widgets/score_gauge.dart` - 11px 한글 라벨을 12px 이상으로, 토큰화, 점수 구간별 색.
@@ -104,7 +104,7 @@ just flutter-check
   6. 화면 제목·설명문·카드·버튼의 좌우 정렬선을 같은 여백 값으로 맞춘다(화면마다 16/20 등 제각각인 현재 값을 하나의 기준으로).
   7. 지도와 전체 화면 배경 이미지는 가장자리까지 채우는 예외로 하되, 그 위의 텍스트·칩·조작 버튼에는 같은 안전 여백(+ SafeArea)을 적용한다.
   8. 작은 화면(320·360px)에서 글자 잘림, 버튼 넘침, 가로 스크롤이 없어야 한다(테스트로 확인).
-  - 구현 방식(안): 폭에 따라 여백·최대 너비를 돌려주는 공용 레이아웃 도우미(예: `AppLayout.pagePadding(width)`, `maxContentWidth`, `maxReadingWidth`)를 053 Phase 3 토큰에 두고, 각 화면은 이것만 쓴다. 053 Phase 3의 기존 계획(`maxContentWidth=720`, `maxGridWidth=1120`)은 이 기준에 맞게 이름·값을 조정해야 한다(053 Phase 3 착수 전 사용자 확인).
+  - 구현 방식(안): 폭에 따라 여백·최대 너비를 돌려주는 공용 레이아웃 도우미(`AppLayout.pageGutter(width)`, `pageInsets`/`pageInsetsOf`, `overlayInsets`/`overlayInsetsOf`, `maxContentWidth`=1120, `maxReadingWidth`=680)를 053 Phase 3 토큰에 두고, 각 화면은 이것만 쓴다(2026-10-29 확정: 이전 `maxGridWidth`는 `maxContentWidth`로 통합, 이전 `maxContentWidth=720`은 `maxReadingWidth=680`으로 분리). 좌우 페이지 여백은 화면 최상위 한 곳에서만 `pageInsets`로 주고, 지도 위 조작 요소는 `overlayInsets`(안전 영역 포함 — SafeArea와 함께 쓰지 않음)를 쓴다. 이 spec에서 `AppSpacing.page`(20) 사용처와 `AppRadius.md`(12)·`AppRadius.legacyBar`(20) 사용처를 재분류한다.
   - 테스트(안): 320/360/412/800/1280 폭에서 홈·지도·둘레길·패키지·작성 화면의 넘침 없음, 좌우 여백 값 확인, 1280 폭에서 콘텐츠 너비 ≤ 1120.
 - 관찰 기록 백엔드(`/api/observations`)는 인메모리라 서버 재시작 시 사라진다. 샘플 모드에서는 1단계 `FallbackEcologApi`가 기기 메모리에 저장한다.
 
