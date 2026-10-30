@@ -1,5 +1,14 @@
 # flutter handoff note
 
+## Spec 054-2a — ProvenanceChip, EyebrowLabel (no contract change)
+
+- New `lib/widgets/common/provenance_chip.dart`: `ProvenanceKind {live, approx, sample, stale}`, `resolveProvenance(sample/stale/approx/live)` (sample > stale > approx > live, none -> null), `ProvenanceChip` (`.live/.approx/.sample/.stale` + generic ctor; `at` ignored for approx/sample). Texts 실시간[ · HH:mm] / 추정 / 예시 / 지연[ · HH:mm 기준], time only when `at` given (private `_hhmm`, local 24h). Stadium on `surface`, 1px solid `outline` (live/approx/stale) or dashed outline (sample, private copy of the SampleMark painter — dedupe in 054-2c); markers dot 6/ring 6 x1.5/`warning_amber_rounded` 12 in `LookUpColors.provenance*` (compact 5/10); text labelSmall w500 `onSurface`, 11/9px. `Semantics(container, excludeSemantics)` labels "데이터 상태: …[, HH:mm 기준]" / "예시 데이터". Test keys `ProvenanceChip.markerKey/dashedOutlineKey/solidOutlineKey`.
+- New `lib/widgets/common/eyebrow_label.dart`: `EyebrowLabel(text, {color})` — any Hangul -> labelMedium w600, no uppercase/tracking override; otherwise `AppTheme.monoLabel` + `toUpperCase()` with `semanticsLabel: text`. Color defaults to `onSurfaceVariant`; maxLines 1, ellipsis.
+- Deviation: chip label is `Flexible` + `TextOverflow.ellipsis` (besides maxLines 1/softWrap false) so a chip squeezed below its intrinsic width ellipsizes instead of throwing a RenderFlex overflow.
+- Not applied to any screen (055/058); SampleDataNotice/SampleMark untouched (054-2c).
+- Tests: `test/widgets/common/provenance_chip_test.dart`, `test/widgets/common/eyebrow_label_test.dart` (both modes).
+- Backend contract: none. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
 ## Spec 060 Phase 1 — fade-through scene transition (no contract change)
 
 - `lib/main.dart` `_MyAppState`: `ThemeData.lerp` transition replaced by a fade-through. `MaterialApp.theme` is always the cached day or night theme (`_themeFor`, built once per mode); `themeAnimationStyle: AnimationStyle.noAnimation` so MaterialApp's built-in AnimatedTheme no longer lerps 200ms after a swap. `builder:` = `AnimatedBuilder(controller) -> Stack[SceneInputGuard(navigator), SceneCurtain]`; only the curtain/guard rebuild per frame, MaterialApp rebuilds once at the swap. Controller value = curtain opacity: rise (`kCurtainRiseFraction` of the 800/640/560ms total) -> swap when value reaches 1 -> fall. Reduce motion OR `accessibleNavigation` -> instant swap, no curtain. Haptic unchanged (1 per accepted manual change).
