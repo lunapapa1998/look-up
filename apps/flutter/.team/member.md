@@ -1,5 +1,106 @@
 # flutter handoff note
 
+## Default font -> bundled Bithumb Gothic (no contract change)
+
+- `app_theme.dart`: `AppTheme.bithumbGothic = 'BithumbGothic'`; `ThemeData(fontFamily: bithumbGothic, fontFamilyFallback: [pretendard])`; all 15 TextTheme roles BithumbGothic + Pretendard fallback; Space Grotesk / JetBrains Mono (GoogleFonts) removed (google_fonts dep now unused, left in pubspec). Height floors: display/headline/title >= 1.25, body >= 1.4; headline -0.02em kept. `monoLabel` = Bithumb, 0.06em, tabular figures.
+- Weights: only a 700 face exists; login title w800 -> w700 (height 1.2 -> 1.25) so no style requests above w700 (no synthetic bold). login/packages `AppTheme.pretendard` -> `bithumbGothic`. Chips unchanged (labelLarge 14 + catalogChipPadding).
+- New `lib/legal/font_licenses.dart` `registerFontLicenses()` (LicenseRegistry: 'Bithumb Gothic', 'Pretendard'), called in `main()`.
+- Follow-up: `keepAll` + `semanticsLabel` on SampleDataNotice text (`sampleDataNoticeText`), trails intro (`trailsIntroDescription`), packages intro (`packagesIntroDescription`); notice tests use `keepAll(sampleDataNoticeText)`. Login top gap ratio now 0.22->0.37 over 568->844 (844 unchanged), copy->buttons gap 24 below 640 tall; real-font test asserts all 3 buttons <= 568-32 unscrolled at 320x568.
+- Home night: moon title `keepAll` + 8px gap before the right-aligned 월몰/월출 column; night-sky label `keepAll` (semanticsLabel plain). New keys `homeMoonTitleKey`/`homeMoonsetKey`/`homeMoonriseKey`/`homeNightSkyLabelKey`; home tests switched from `textContaining` to these keys.
+- Tests: app_theme_test font group rewritten; login/catalog chip family asserts; new `test/theme/bithumb_font_layout_test.dart` (real FontLoader font, 320x568, scale 1.0/1.3, day/night) and `test/legal/font_licenses_test.dart`. No shell: lead runs `cd apps/flutter && flutter analyze && flutter test`.
+
+## Catalog chip label truncation fix (no contract change)
+
+- Cause: region chips (`trails_catalog_screen.dart`) and category chips (`packages_catalog_screen.dart`) set `labelStyle: text.labelMedium` = runtime-loaded Google Fonts JetBrains Mono (Pretendard only as fallback). On web the chip measured the label before that font loaded, then painted wider mono spaces/digits/'·', so RawChip's built-in `TextOverflow.fade` clipped it ('인천 강화', '전체 패키지 (').
+- Fix: both call sites now use `text.labelLarge?.copyWith(color: ...)` (bundled Pretendard 14/h1.43) + new tokens `catalogChipPadding` (h4/v10) / `catalogChipLabelPadding` (h8) in `layout_tokens.dart` (12px per side, visual height ≈40), `VisualDensity.standard`, `MaterialTapTargetSize.padded` (48 tap). Selection colors/avatar/filter logic unchanged; packages headline (keepAll, gaps 6/12) left as is.
+- Tests: new `test/screens/catalog_chip_labels_test.dart` (320×568/360×640/390×844 × day/night, both screens, AppTheme.themeFor): RenderParagraph `didExceedMaxLines == false`, width ≥ maxIntrinsicWidth, Pretendard family, size ≥14, chip ≥40 visual / ≥44 tap, label inside chip, before and after selecting.
+- No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test test/screens/catalog_chip_labels_test.dart && flutter test`.
+
+## Package pixel-art image display (no contract change)
+
+- Display-only change for the 6 replaced near-square illustrations; no data/price/booking/copy changes, no pubspec changes.
+- `package_card.dart`: hero = `Center > ConstrainedBox(max 360×360, const packageHeroMaxExtent) > AspectRatio(1, key package_hero_<id>) > Stack(expand)`; `Image.asset` cover/center/`FilterQuality.none`; bottom fade stops `[0.8, 1]` (was 0.4); badges overlay top-left kept. Wide screens: 360 square centred in the card.
+- `package_extras.dart`: kit tile = `AspectRatio(1, key package_kit_<name>) > ClipRRect(md) > Image.asset` cover/center/`FilterQuality.none` (was width×0.55). Tiles are not capped (≈590px at 1280).
+- Tests (`packages_catalog_screen_test.dart`): all 6 assets rendered via AssetImage name + no overflow at 320×568/360×640/1280×800 day/night; hero square = card width at 360, 360×360 at 1280; kit tiles square. No old 180/0.55 assertions existed.
+- No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test test/screens/packages_catalog_screen_test.dart && flutter test`.
+
+## Packages copy review (no contract change)
+
+- Copy-only polish (spacing, typo, phrasing) in `stay_package.dart` (sample data strings only; ids/prices/stops/structure untouched), `packages_catalog_screen.dart` (help + intro), `package_extras.dart` (impact note). Booking date button now zero-pads like the dialog (`2026.01.05`).
+- Intro headline (user decision): '낮에는 탐조, 밤에는 별자리' + large '24시간' '수직적 여행' → main `packagesIntroTitle` '낮에는 새를 만나고, 밤에는 별을 만나요.' (Pretendard w700, `packagesIntroTitleFontSize` 22/24/28 at ≤360/<600/≥600, h1.3, maxLines 2) + sub `packagesIntroSubtitle` '하늘을 따라 이어지는 여행' (w500 16/18≥600, h1.4, onSurfaceVariant); gaps 6/12; both `keepAll()` + plain `semanticsLabel`. Keys `packages_intro_title`/`_subtitle`. New tests: copy/old-gone + no overflow 320×568, 360×640 day/night.
+- No providers/DTOs changed; no backend contract consumed (local sample data). No image/pubspec changes.
+- Tests: no test looks up a changed string; none edited. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test test/screens/packages_catalog_screen_test.dart && flutter test`.
+
+## UI finishing pass — pin colors, home copy/typography/spacing (no contract change)
+
+- Pins: new `mapPinColorsFor(kind, LookUpColors)` in `observation_marker.dart` — bird = `modeDayAccent` #F4C247 + glyph `onModeDayAccent` #141414; star = `modeNightAccent` #9CA3F5 + glyph `onModeNightAccent` #FFFFFF; heritage/restaurant/other = `kMapPinFill` #141414 + white. White ring 2 (3 selected) and shapes unchanged; TrailMap/route lines still neutral (supersedes the "all pins neutral" line below).
+- Home: title `homeGreetingTitle` '오늘은 하늘을 보기 좋은 날이에요.' (displayName/`authUserProvider` dropped from home), description `homeGreetingDescription` '갯벌을 찾은 새부터 밤하늘의 별까지, 오늘의 관찰을 시작해 보세요.'. Title = titleLarge (Pretendard) `homeTitleFontSize` 22/24/28 (≤360/<600/≥600), w700, h1.3, maxLines 2 ellipsis; description bodyMedium 15/h1.5/onSurfaceVariant/maxLines 3; both via new `lib/utils/keep_all.dart` `keepAll()` (U+2060 between chars of each word) with `semanticsLabel` = plain string.
+- Spacing: home SliverPadding = `AppLayout.pageInsets(width)` + 16 top/bottom (was all 16); journey→title 24, title→desc 8, desc→conditions card 20, conditions card→next 16; conditions card + JourneyCard padding 16 (20 at ≥600). Journey steps: vertical padding 12 (was 8), minHeight 44, title titleMedium w700 (16, maxLines 1 so keepAll not needed). Step detail lines and the '시연 지역' region line now render `keepAll(...)` with `semanticsLabel` = plain string (fixes mid-word breaks at 320); `journey_card_test` finders use `keepAll(...)`.
+- Tests: `branding_map_colors_test` (yellow/lavender/neutral pins + helper), `home_discovery_screen_test` (copy, keepAll, maxLines, 22/24/28, no overflow + title ≤2 lines at 320×568/360×640/1280×800 × day/night), new `test/utils/keep_all_test.dart`, `journey_card_test` (padding 16/20, w700, 12 padding). Follow-up: `home_discovery_screen_test` + `suitability_wiring_test` default view → 800×1600 @1x via setUp (conditions card had moved below the 800×600 view + sliver cache, so it was never built); assertions unchanged. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## Branding mismatch fixes — header logo + map/detail colors (no contract change)
+
+- `AppHeaderLogo`: asset → `assets/brand/app_icon_ui.png` (`AppHeaderLogo.assetPath`), 32×32, `ClipRRect(r8)`, cover, FilterQuality.medium; semantics/API unchanged. Old `assets/packages/logo.png` left on disk. `pubspec.yaml` NOT touched (brain registers the asset).
+- Map ink tokens in `observation_marker.dart`: `kMapPinFill` #141414, `kMapPinRing`/`kMapPinGlyph` #FFFFFF, `kMapPinRingWidth` 2 / `kMapPinRingSelected` 3. Bird/star/heritage pins, obs-map trailhead, `TrailMap` start/end/eatery pins all use them; kinds/start/end differ by shape+glyph only (start `play_arrow_rounded`, end `flag_rounded`, eatery `restaurant`). Route lines #141414 + white `borderColor` casing. Spot-list teal/amber/brown dots → neutral kind glyphs (`kindColor` removed).
+- `species_detail`: coords → onSurfaceVariant; 관측 시각 + 군집 count → `accentText(modeDayAccent)`. `today_tides_section`: 만조기 dot/tint → modeDayAccent, its label + high-tide 조위 → accentText(day); station → onSurfaceVariant; "지금" purple #8152C9 (3.1:1 at night) → onSurface.
+- Tests: `observation_spot_sheet_detail_test` (coords/time/count colors), new `test/widgets/branding_map_colors_test.dart` (marker set, featured CourseCard, TrailMap, logo). No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## Login screen matches final mockup (no contract change)
+
+- `LoginScreen`: logo + frame and the scrim gradient removed; intro_day/night backdrop kept (cover, topCenter). Copy: title 44/w800/h1.2, subtitle 20/w500/h1.4, body 16/w400/h1.5 (Pretendard, FittedBox scaleDown, no wrap); day #1F2A44 / body #3A4560, night #FFFFFF / body white@85%; night-only faint navy text halo (0x661B1F45, blur 12) for contrast over the sunset glow. Title is a Semantics header.
+- Layout: top gap = height × lerp(0.28@568 → 0.37@844) (≥ safe top + 16), Spacer, ≥32 gap, buttons; gutters max(24, (w-480)/2); bottom 32 + safe area; scrolls on short screens.
+- Buttons: `_IntroButton` (Material, 56h, radius 12, elevation 0, 12 gap, chevron_right 24): guest white/#141414 w700 17; Kakao + Google navy #1E2333 (night: 0xD91E2333 + 1px border 0x40FFFFFF), white w600 17; Kakao symbol 20px in 32×32 #FEE500 radius-8 square; Google G 28px. Old teal FilledButton removed. Public keys `guestButtonKey`/`kakaoButtonKey`/`googleButtonKey`, palette consts public. Handlers/busy logic unchanged.
+- Tests rewritten for the above + overflow at 390×844/360×640/320×568/1280×720 × day/night. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test test/screens/login_screen_test.dart && flutter test`.
+
+## Login brand intro backgrounds (no contract change)
+
+- `LoginScreen`: starfield_bg + glow orbs replaced by `Image.asset(intro_day|intro_night, cover, topCenter, gaplessPlayback, excludeFromSemantics)` picked by `Theme.of(context).brightness` (swaps with the 060 fade-through; no extra animation). Both precached once in `didChangeDependencies`. New public consts `LoginScreen.introDayAsset` / `introNightAsset`.
+- Flat scrim gradient (stops 0/0.35/0.6/1 → 0/0/0.6×max/max): day `colorScheme.surface` max 0.85, night #141414 max 0.75. Title/subtitle → `onSurface`, body → `onSurfaceVariant` (sizes/weights unchanged). Scaffold bg → `surface`. Buttons, logo frame, copy, handlers, busy logic, scroll layout unchanged. `_GlowOrb` and `_taglineDim` removed (unused).
+- Tests: day/night asset tests, overflow at 360×640/320×568/1280×720 × day/night, AuthGate guest → AppShell × day/night. `pubspec.yaml` NOT touched — brain must register `assets/brand/`.
+- No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test test/screens/login_screen_test.dart && flutter test`.
+
+## ModeToggle final night colors + login copy/buttons (no contract change)
+
+- `ModeToggle`: selected night '밤' text AND moon icon → `LookUpColors.onModeNightAccent` = #FFFFFF (both sets); `onModeNightAccentIcon` removed (folded). Day (#F4C247 fill, #141414 text/icon), '자동', no-border unchanged. White on #9CA3F5 ~2.34:1 (< 4.5 text, < 3.0 icon) — user-accepted limitation asserted in `mode_toggle_test` (supersedes line 9 below).
+- `LoginScreen`: hero copy → '위를 봐요.' / logo / '고개를 들면 여행이 시작됩니다.' / 3-line body; old lead line, old body, and '소셜 계정으로 3초 만에 시작하기' prompt removed. Buttons: `_GuestButton` = full-width teal `FilledButton` (52h) '로그인 없이 둘러보기' first → '카카오로 시작하기' → 'Google로 계속하기' (48h, flat, brand marks/handlers/busy-disable kept). Background untouched; scroll layout kept.
+- Tests: `login_screen_test` rewritten (copy, order/FilledButton/height/width, overflow at 360×640/320×568/1280×720 with ensureVisible on every button, guest callback, new AuthGate guest → AppShell).
+- No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## Final color cleanup — day/night accents vs neutral (colors only, no contract change)
+
+- New `accentText(context, accent)` in `lookup_colors.dart`: accent on dark theme, `onSurface` on light. All yellow/lavender TEXT now goes through it (home golden-hour labels, moonset, CourseCard panel label/score, course/trail-spot detail gauge numbers + '실시간', SuitabilityBlock score, package timeline night/day times). `ScoreGauge` gained optional `scoreTextColor` (default = progressColor, unchanged).
+- Day/night meaning → `modeDayAccent`/`modeNightAccent`: home moon icon, home star-guidance icon, tonight-sky target icons, course/trail-spot detail gauges + glows, SuitabilityBlock gauge, package timeline day/night icons, diary bird/star placeholder icons.
+- Old teal/brown non-day/night → neutral (onSurface/onSurfaceVariant/outline/primary): home overall gauge, greeting name, glow, suitability label + verified icon, star rating rows (home + `NightSkyTag`, filled count kept), LookUpHeader subtitle, CourseCard border/badges/eyebrow/link, trails/packages selected chips (primary/onPrimary), eyebrows, intro highlights, route-stop numbers, heritage icons/distances, package tags/eyebrows/impact numbers/booking total, badges achieved icon, account guest icon.
+- Left on secondary/tertiary: map layers (`trail_map.dart`, `observation_marker.dart`, `observation_spot_sheet.dart` kind colors, `species_detail.dart`, `today_tides_section.dart`), unused `mode_header.dart`, `AppSliverHeader` (per instruction). Global `colorScheme` untouched.
+- `ModeToggle`: selected night moon icon → new token `LookUpColors.onModeNightAccentIcon` (#FFFFFF, both sets, wired into copyWith/lerp/==/hashCode); '밤' text stays #141414, fill #9CA3F5. White on lavender ~2.34:1 < 3:1 — user-accepted limitation, documented in doc + test.
+- Tests: lookup_header_test subtitle → onSurfaceVariant; course_card_test + home golden-hour test assert onSurface text on day theme, accent on night.
+- No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
+## Demo integration — sheet overflow, headers, StatusView, record SnackBar (no contract change)
+
+- `observation_spot_sheet.dart`: sheet Column now laid out at `max(sheet height, 160)` via private `_MinHeightLayoutDelegate` (`CustomSingleChildLayout`) + `ClipRect` → peek at 800×600 (h=124.8) clips instead of overflowing 7.2px; unchanged at heights >= 160. Test: app_shell_test "map tab spot sheet peek does not overflow at 800x600".
+- Trails + packages: `AppSliverHeader` → `LookUpSliverHeader(modeToggle: ObsModeToggle())` (AppSliverHeader kept). Packages test pump now wrapped in `ProviderScope` (toggle watches `obsModeProvider`); header tests added in packages/trails tests.
+- Trails: `_DegradedBanner` → `StatusView.degraded` (default copy '일부 정보를 불러오지 못했어요'; trails_wiring_test text updated), `_ErrorState` → `StatusView.error(message: '트레일 정보를 불러오지 못했어요')`; private widgets deleted.
+- Map `_ObservationMapStatusBanner` → `StatusView.loading/error/degraded/empty` (top 8 via Padding); `_Loading/_Error/_EmptyStatusBanner` deleted. Degraded is now warning-tone (was errorContainer).
+- `ObservationFormScreen`: NEW save → SnackBar '기록했어요' (sample: existing on-device copy) + action '생태일기 보기' → push `DiaryListScreen`; still pops. Edit mode unchanged. Contracts: `POST /api/observations` (unchanged).
+
+## Day/night accent swap (user decision, no contract change)
+
+- `LookUpColors` (both sets): `modeDayAccent` = yellow #F4C247, `modeNightAccent` = lavender #9CA3F5 (swapped); on-accents stay #141414. Doc: day/night-meaning accents (ModeToggle selection + home day/night elements), never status/provenance/warnings/ratings.
+- `ModeToggle`: doc comments only (fg ~11.1 day / ~7.9 night; fill vs white page ~1.66 / ~2.34, documented limitation). Tests: fills and per-mode fg floors (day >= 11.0, night >= 7.5) updated.
+- Home golden-hour rows (`home_discovery_screen.dart`): icon (forest / dark_mode), label text, 6px dot now use `modeDayAccent` / `modeNightAccent` instead of `colorScheme.tertiary` / `secondary`. New home test asserts #F4C247 / #9CA3F5 in both themes.
+- `CourseCard` (featured) `_ObservationPanel`s: '낮 적합도' / '밤 적합도' icon, label, 'NN / 100' score, progress bar + 0.12 track now `modeDayAccent` / `modeNightAccent` (was tertiary/secondary). Badges, featured border, 'ECO OBSERVATION ROUTE', '코스 자세히 보기' untouched. New `test/widgets/course_card_test.dart`. Panel bg #F5F5F5 day: text ~1.52 / ~2.15; #1A1A1A night: ~10.5 / ~7.4.
+- Known contrast gap (not fixed by design): golden-hour label text on the day theme row bg (~#F4F4F4) is ~1.5:1 (yellow) / ~2.1:1 (lavender), below 4.5; night theme ~10.4 / ~7.4.
+
+## Spec 058 Phases 1–3 (minimal, demo) — home journey card (no contract change)
+
+- Home header → `LookUpSliverHeader(modeToggle: ObsModeToggle, actions: [location chip (max 140, ellipsis), '내 계정' IconButton])`; removed the in-body "지금 시선의 초점" AUTO/MANUAL badge + `_FocusModeSegmentButton`s (keys `focusMode*` gone; tests now use `ModeToggle.dayKey/nightKey`).
+- New `lib/state/journey_providers.dart` (`AppTab`, `appTabIndexProvider`, `pendingMapSpotIdProvider`); `AppShell` is now a ConsumerWidget on that provider. `ObservationMapScreen` listens to `pendingMapSpotIdProvider` and selects the spot like a marker tap post-frame, then clears it. `ObservationFormScreen(initialSpeciesType, initialSpeciesName)` prefill new records only (edit mode unchanged).
+- New `lib/utils/journey_recommender.dart` (`recommendJourneySpot`: day = most eBird species, recency tiebreak, "최근 14일 시민과학 데이터(eBird) 기준 N종 기록" — backend `ebird.fetch_recent_obs(back=14)`; night = max SQM "SQM x.x · 빛공해 참고 데이터"; `goldenTimeLine` "지금 관찰 시간 · HH:mm까지"/"다음 관찰 시간 HH:mm"/raw fallback).
+- New `lib/widgets/journey/journey_card.dart` (`JourneyCard`, first block under the header): 5 steps → ① scroll to conditions ② map tab + pending spot ③ 발견 tab ④ push prefilled form ⑤ push `BadgesScreen` ('시범'); loading = static `StatusView.loading` (no spinner, no animation), failure = `StatusView.empty` (no retry); `SampleMark` on ①/②/③ per sample source.
+- Contracts consumed (unchanged): `GET /api/suitability` (score/label/goldenHours.timeRange 'HH:mm - HH:mm'), `GET /api/observation-map` (spots[].birds.speciesCount/mostRecentObsDt, nightSky.sqmValue).
+- No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
 ## Spec 054-3b — LookUpHeader (no contract change)
 
 - New `lib/widgets/common/lookup_header.dart`: provider-independent `LookUpHeader({title='위를 봐요', subtitle='LOOK UP', modeToggle, actions=[]})` + `LookUpSliverHeader` (same params). Leading = `AppHeaderLogo(excludeFromSemantics: true)` + 8 + Column(title `titleMedium` maxLines 1 ellipsis in `Semantics(container, header)`; subtitle `labelSmall` `colorScheme.secondary` letterSpacing 1.1 in `ExcludeSemantics`). Background = flat `Material(color: appBarTheme.backgroundColor ?? colorScheme.surface, elevation 0)` (key `LookUpHeader.backgroundKey`), shared by both variants. Inner horizontal padding 16, no outer margin.
