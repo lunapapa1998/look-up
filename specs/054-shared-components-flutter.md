@@ -100,3 +100,14 @@ just flutter-check
   - 전환 완료 후 칩 글자와 선택 상태: **자동 테스트 통과**.
   - 전환 도중(최대 0.8초) 화면 전체 글자 대비 저하(낮·밤 테마 색 보간으로 중간에 1:1): **알려진 이슈**, 054-1 범위 밖. `specs/060-scene-transition-fade-through-flutter.md`에서 해결 예정.
   - 생태일기 카드, 320px 실제 화면: 사용자가 직접 확인하지 않은 항목은 **미확인**(자동 테스트의 320px 넘침 없음 확인과는 별개).
+
+- 2026-10-30: 054-2 사전 조사 후 사용자 결정. 054-2를 2a(ProvenanceChip·EyebrowLabel) → 2b(StatusView·DataSourceFooter) → 2c(SampleDataNotice·SampleMark 내부 통합) → 2d(LookUpScrollBehavior 등록)로 나누고 단계마다 별도 승인·커밋한다. 화면 적용은 055/058.
+  - '참고값' 문구는 유지한다. 실시간이 아닌 값을 일괄 '추정'으로 바꾸지 않는다. ProvenanceChip 상태는 live/approx/sample/stale 네 가지이며, '참고값'을 없애려고 다섯 번째 상태를 추가하지 않는다(적합도가 참고 지표라는 설명은 별도 유지).
+  - 상태 우선순위: 예시 > 지연 > 추정 > 실시간. 예시 데이터에는 '실시간'을 붙이지 않는다. 데이터에 없는 갱신 시각을 만들어 표시하지 않는다(시각은 있을 때만).
+  - `SampleDataNotice` 배경은 중립 회색 유지(예시는 오류·지연과 다르므로 주황 경고 톤 금지). 위 불변 조건의 "`SampleDataNotice`를 `StatusView.degraded`로" 문구는 이 결정으로 대체한다.
+  - 일부 실패(degraded)는 "일부 정보를 불러오지 못했어요"의 의미를 유지하고 단순 지연으로 표현하지 않는다. 마지막 갱신 시각이 없으면 시간을 표시하지 않는다. 오류·일부 실패의 색 구분은 054-2b에서 설계, 화면 적용은 별도 승인.
+  - `DataSourceFooter`는 실제 사용되는 출처만 표시한다. 후보: 한국관광공사(관광정보·두루누비), 기상청, 한국천문연구원, 국립해양조사원, eBird, VIIRS/World Atlas(빛공해), Wikipedia. 모든 출처를 모든 화면에 고정 표시하지 않고, 실제 사용 여부와 표기 요건을 확인한다. 공공누리 유형은 검증 전까지 적지 않는다.
+  - compact "예시" 태그 9px는 유지하고, 크기 조정은 055 지도 핀 디자인 검토 때 한다.
+  - 개발용 갤러리 `tool/dev_preview_components.dart`(커밋 금지, 확인 후 삭제)를 8115에서 띄워 낮/밤·일반/320px·출처 4상태를 확인한다.
+
+- 2026-10-30: **054-2a 완료.** `lib/widgets/common/provenance_chip.dart`(live/approx/sample/stale, 우선순위 예시 > 지연 > 추정 > 실시간, 시각은 있을 때만 표시, 글자는 본문색·출처색은 점·테두리·아이콘에만), `lib/widgets/common/eyebrow_label.dart`(한글은 labelMedium w600·대문자/자간 변경 없음, 영문·숫자만 있으면 `AppTheme.monoLabel` 대문자 + 원문 시맨틱 라벨)와 테스트. 기존 화면 미적용. 검증: analyze 문제 없음, 테스트 419개 통과, 웹 빌드 DEMO_FALLBACK ON/OFF 성공. **사용자 시각 검증 통과**(8115 갤러리, 낮·밤·320px, 수정 요청 없음). 054-2b·2c·2d는 미착수.
