@@ -81,3 +81,22 @@ just flutter-check
 
 - 2026-10-29: 디자인 레퍼런스 확정(사용자 결정)에 따라 스타일 기준을 Flim + 053 흑백 토큰으로 명시. `eyebrow_label.dart` 추가, `SampleMark`·`SampleDataNotice` 통합 원칙(외부 API 유지) 추가. 기존 기능 요구사항(LookUpHeader, ModeToggle, StatusView, ProvenanceChip, DataSourceFooter, ScrollBehavior)은 유지.
 
+- 2026-10-29: 단계 구분과 승인된 디자인 기준 추가(사용자 결정). 기존 요구사항은 유지하며, 아래 단계를 각각 별도 승인으로 진행한다.
+  - **054-1 테마 단계 컴포넌트 스타일**(`lib/theme/app_theme.dart`, 모든 화면에 즉시 적용): ChipTheme, NavigationBarTheme, OutlinedButtonTheme, TextButtonTheme, 보조 행동용 tonal 버튼 스타일. 053에서 화면으로 확인하지 못한 카드 4곳(둘레길 식당 카드, 생태일기 카드, 코스 상세, 둘레길 상세)의 시각 검증과 밤 모드 주요 버튼 눈부심 검토 포함. 새 공용 위젯은 만들지 않는다.
+  - **054-2 기반 위젯**: `ProvenanceChip`, `StatusView`, `EyebrowLabel`, `DataSourceFooter`, `LookUpScrollBehavior` 등록, `SampleDataNotice`·`SampleMark` 내부 통합(이름·매개변수 유지).
+  - **054-3 헤더·모드 토글**: `LookUpHeader`, `ModeToggle`(B안 강조색 유지), 기존 헤더 흡수(이름 유지). 화면 적용은 055/058.
+  - 승인된 기준:
+    - 칩: 선택 안 됨 = 1px 테두리(`outline`) + 기본 글자색. 선택됨 = 흑백 반전 채움(낮 검정 배경·흰 글자 / 밤 흰 배경·검정 글자). FilterChip은 다중 선택 표시로 체크 아이콘 사용 가능, ChoiceChip은 체크 아이콘을 강제하지 않고 반전 채움과 글자 굵기로 구분.
+    - 하단 탭: 활성 아이콘·라벨을 명확히 구분(채운 아이콘, 굵은 라벨, 흑백 반전 표시)하되 선택 표시 면적이 과도하지 않게.
+    - 주요 행동: 흑백 반전 FilledButton 유지(053). 재시도·새로고침 등 보조 행동은 tonal(낮 옅은 회색 면 + 검정 글자 / 밤 어두운 회색 면 + 흰 글자). 화면당 흰 버튼이 과도하게 반복되지 않도록 시각 검증.
+    - B안 강조색(청록·민트·앰버)은 점수, 관찰 상태, 골든타임, 새·별 등 의미 있는 정보에만 유지하고, 칩·탭의 선택 표시는 흑백 반전으로 한다.
+    - 공용 컴포넌트는 페이지 바깥 좌우 여백을 넣지 않는다. 화면 좌우 여백은 055에서 `AppLayout.pageInsets`로만 관리하고, 컴포넌트는 내부 패딩과 자체 디자인만 담당한다.
+    - 검증: 키보드 포커스, 선택 상태, 대비, 터치 영역(44px 이상), 320px 넘침 없음.
+  - 사용처가 없는 `ModeHeader`, `CompassButton`은 삭제하지 않는다(삭제·대체는 별도 승인).
+
+- 2026-10-30: 054-1 구현 완료와 검증 상태(사용자 확인 반영). 사용자가 직접 확인한 054-1 화면에서 디자인 오류는 발견되지 않았다.
+  - 추가 결정: ChoiceChip은 체크 아이콘 숨김(테마 `showCheckmark: false`), 다중 선택 FilterChip 3곳(`observation_map_screen.dart` 레이어 칩 2곳, `observation_spot_sheet.dart` SQM 필터)만 `showCheckmark: true`로 체크 표시.
+  - 회귀 수정: 앱 루트가 전환이 끝난 뒤에도 `ThemeData.lerp`를 거쳐 칩 글자색(`WidgetStateColor`)이 고정색이 되던 문제를 `sceneTheme(from, to, t)`로 수정(전환 시작·완료 시점에는 테마를 그대로 사용).
+  - 전환 완료 후 칩 글자와 선택 상태: **자동 테스트 통과**.
+  - 전환 도중(최대 0.8초) 화면 전체 글자 대비 저하(낮·밤 테마 색 보간으로 중간에 1:1): **알려진 이슈**, 054-1 범위 밖. `specs/060-scene-transition-fade-through-flutter.md`에서 해결 예정.
+  - 생태일기 카드, 320px 실제 화면: 사용자가 직접 확인하지 않은 항목은 **미확인**(자동 테스트의 320px 넘침 없음 확인과는 별개).

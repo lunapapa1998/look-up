@@ -58,24 +58,24 @@ Pretendard(OFL, 이미 `assets/fonts/`에 있음)를 등록해 기본 폰트로 
 
 ### Phase 1: 폰트
 
-- [ ] pubspec에 Pretendard 등록, 테마 기본 폰트를 Pretendard로, 기존 Google Fonts 스타일에 Pretendard fallback 지정
-- [ ] 폰트 역할 정리(한글 제목·본문·라벨은 Pretendard, mono는 영문·숫자 전용 스타일로 분리) — 기존 폰트 제거 없음
-- [ ] 위젯 테스트에서 폰트 로딩이 문제를 일으키지 않는지 확인, 웹 빌드 크기 기록
+- [x] pubspec에 Pretendard 등록, 테마 기본 폰트를 Pretendard로, 기존 Google Fonts 스타일에 Pretendard fallback 지정
+- [x] 폰트 역할 정리(한글 제목·본문·라벨은 Pretendard, mono는 영문·숫자 전용 스타일로 분리) — 기존 폰트 제거 없음
+- [x] 위젯 테스트에서 폰트 로딩이 문제를 일으키지 않는지 확인, 웹 빌드 크기 기록
 
 **Phase validation**: `just flutter-check` 통과.
 
 ### Phase 2: 색 체계
 
-- [ ] 두 ColorScheme을 흑백 기준으로 전 역할 명시, `LookUpColors` 추가 및 lerp
-- [ ] 밤 보조 글자 대비 검사 후 확정, `Colors.amber` 교체
-- [ ] `app_theme_test.dart` 확장(frozen baseline 의도적 갱신 포함) 및 통과
+- [x] 두 ColorScheme을 흑백 기준으로 전 역할 명시, `LookUpColors` 추가 및 lerp
+- [x] 밤 보조 글자 대비 검사 후 확정, `Colors.amber` 교체
+- [x] `app_theme_test.dart` 확장(frozen baseline 의도적 갱신 포함) 및 통과
 
 **Phase validation**: `just flutter-check` 통과 + 로컬 웹에서 낮·밤 전환 사용자 확인.
 
 ### Phase 3: 모서리·간격·레이아웃·그림자
 
-- [ ] `AppRadius` 재정의(4/8/16/원형)와 기존 사용처 이전, 간격·브레이크포인트·최대 폭 토큰 추가
-- [ ] 컴포넌트 테마 기본값(버튼 8, 카드 16, 그림자 0, 경계선 1px)
+- [x] `AppRadius` 재정의(4/8/16/원형)와 기존 사용처 이전, 간격·브레이크포인트·최대 폭 토큰 추가
+- [x] 컴포넌트 테마 기본값(버튼 8, 카드 16, 그림자 0, 경계선 1px)
 
 **Phase validation**: `just flutter-check` 통과.
 
@@ -93,6 +93,8 @@ just flutter-check
 - (2026-10-29) Pretendard 4굵기는 커밋 afaa8ac로 이미 저장소에 있다(약 6.1MB). Phase 1에서 웹 첫 로딩 영향을 측정해 보고한다.
 - (2026-10-29) 흰 바탕 기준 보조색 대비(근사): Forest `#21935b` 약 3.9:1, Signal Green `#30a81d` 약 3.1:1 → 점·아이콘 가능, 글자 불가. Ember `#ff8400` 약 2.4:1, Highlight Yellow는 그보다 낮음 → 낮 모드용 진한 변형 필요. `#141414` 바탕에서는 네 색 모두 3:1 이상.
 - (2026-10-29) 밤 모드 `#141414` + 순백 글자는 별 관측 시 눈부심이 크다. 주요 글자는 사용자 확정대로 `#FFFFFF`, 보조 글자만 낮춘다.
+
+- (2026-10-30 brain 정리) 완료 근거: Phase 1 → 커밋 774aeaa(테스트 318 통과, Pretendard 4굵기 웹 렌더링·전송량 측정 완료). Phase 2 → 커밋 9981974(테스트 327 통과, B안 미리보기와 구현 화면 일치 확인). Phase 3 → 커밋 9764982 + 문서 199f0af(테스트 341 통과, lead 검증 PASS). 체크박스는 위 검증으로 확인된 항목만 표시했다. 053에서 화면으로 확인하지 못한 카드 4곳 중 생태일기 카드는 054-1 검증에서 확인한다.
 
 ## Amendments (post-build change history, append-only)
 
