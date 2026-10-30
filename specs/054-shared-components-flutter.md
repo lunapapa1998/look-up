@@ -58,7 +58,7 @@
 ### Phase 1: 기반 위젯
 
 - [ ] `LookUpScrollBehavior` 작성 및 등록
-- [ ] `ProvenanceChip`, `StatusView`, `DataSourceFooter` 작성과 테스트
+- [x] `ProvenanceChip`, `StatusView`, `DataSourceFooter` 작성과 테스트 — 054-2a(ProvenanceChip·EyebrowLabel), 054-2b(StatusView·DataSourceFooter) 완료, 사용자 시각 검증 통과. 화면 적용은 055/058
 
 **Phase validation**: `just flutter-check` 통과.
 
@@ -111,3 +111,12 @@ just flutter-check
   - 개발용 갤러리 `tool/dev_preview_components.dart`(커밋 금지, 확인 후 삭제)를 8115에서 띄워 낮/밤·일반/320px·출처 4상태를 확인한다.
 
 - 2026-10-30: **054-2a 완료.** `lib/widgets/common/provenance_chip.dart`(live/approx/sample/stale, 우선순위 예시 > 지연 > 추정 > 실시간, 시각은 있을 때만 표시, 글자는 본문색·출처색은 점·테두리·아이콘에만), `lib/widgets/common/eyebrow_label.dart`(한글은 labelMedium w600·대문자/자간 변경 없음, 영문·숫자만 있으면 `AppTheme.monoLabel` 대문자 + 원문 시맨틱 라벨)와 테스트. 기존 화면 미적용. 검증: analyze 문제 없음, 테스트 419개 통과, 웹 빌드 DEMO_FALLBACK ON/OFF 성공. **사용자 시각 검증 통과**(8115 갤러리, 낮·밤·320px, 수정 요청 없음). 054-2b·2c·2d는 미착수.
+
+- 2026-10-30: **054-2b 구현·자동 검증(완료 판정은 사용자 시각 확인 후).** 기존 화면 미적용.
+  - `lib/widgets/common/status_view.dart`: `StatusView.loading/empty/error/degraded`. loading·empty = 중립(`surfaceContainer`, 아이콘 `onSurfaceVariant`, 글자 `onSurface`), error = `errorContainer`/`onErrorContainer` + `error_outline` 아이콘, degraded = `LookUpColors.warningContainer` + `warning` 경고 아이콘, 글자 `onSurface`. 기본 문구: error '정보를 불러오지 못했어요', degraded '일부 정보를 불러오지 못했어요', loading '불러오는 중이에요'(교체 가능), empty는 화면이 문구 지정. degraded의 '마지막 갱신 HH:mm'은 시각이 주어질 때만 표시, '지연' 문구 없음(degraded ≠ stale). 재시도('다시 시도', tonal, 44px 이상)는 콜백이 있을 때만. 움직임 줄이기면 회전 표시 대신 정적 아이콘. loading/error/degraded는 화면 낭독기 live region. 그림자·바깥 여백 없음, 폭 300 미만이면 버튼이 글자 아래로.
+  - `lib/widgets/common/data_source_footer.dart`: `DataSource(name, url?, attribution?)` — 출처명·링크·저작자/라이선스 고지를 별도 필드로 받음. 화면이 실제 쓰는 출처만 전달(고정 목록 없음). 중복은 공백·대소문자 정규화 후 첫 항목 유지, 빈 이름 제외, 0개면 공간 없음. 머리글(44px 이상)은 키보드 Enter/Space·화면 낭독기(button, expanded, '데이터 출처 N개')로 접기/펼치기, 접힘 상태는 이름 한 줄 미리보기. 링크는 url과 열기 콜백이 모두 있을 때만(밑줄 + 새 창 아이콘 + link 시맨틱), 아니면 일반 글자. 새 패키지(url_launcher) 없음 — 링크 열기는 화면이 콜백으로 처리.
+  - 설계 대비 차이(수용): 오류 아이콘은 `cloud_off` 대신 `error_outline`, loading은 정적 스켈레톤 대신 작은 회전 표시(움직임 줄이기 시 정적 아이콘).
+  - **미확인으로 남김(화면 적용 전 별도 검토):** eBird, Wikipedia, VIIRS/World Atlas, 한국관광공사(공공누리 유형), 기상청·한국천문연구원·국립해양조사원의 구체적 표기·라이선스·저작자 고지 요건과 공식 링크. 위젯에는 기본 라이선스 문구나 URL이 없다.
+  - 검증: analyze 문제 없음, 테스트 463개 통과(새 44개, 낮·밤 대비·접근성·320px 포함), 웹 빌드 DEMO_FALLBACK ON/OFF 성공. 첫 검증에서 출처 바닥글 테스트 1개(낮·밤)가 테스트 작성 오류(같은 위치 재사용으로 이전 State 유지)로 실패 → 테스트만 수정 후 통과. 시각 검증(8115 갤러리)은 **미확인**.
+
+- 2026-10-30: **054-2b 완료.** 사용자 시각 검증 통과(8115 갤러리: 낮·밤, 320px, 오류·일부 실패 색 구분, 출처 0개·1개·여러 개, 긴 출처명, 접기·펼치기 — 수정 요청 없음). 후속 확인 항목으로 유지: 출처별 공식 링크·저작자·라이선스 표기 요건(위 미확인 목록)은 화면 적용 전에 검증한다. 054-2c·2d는 미착수.
