@@ -10,6 +10,13 @@ import 'package:flutter/material.dart';
 ///
 /// Only [rating] is wired in this phase; the other fields are defined for
 /// later phases (specs 054/055) and are not referenced by screens yet.
+///
+/// Mode-toggle accents ([modeDayAccent], [onModeDayAccent],
+/// [modeNightAccent], [onModeNightAccent], spec 054-3a) are the exception to
+/// the small-area rule: they are the selected-segment fill and its
+/// text/icon foreground in `ModeToggle` ONLY, identical in the day and
+/// night sets. Never use them for data, scores, golden-hour, provenance, or
+/// any other meaning.
 @immutable
 class LookUpColors extends ThemeExtension<LookUpColors> {
   const LookUpColors({
@@ -28,6 +35,10 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
     required this.starAccent,
     required this.mapTrail,
     required this.mapHeritage,
+    required this.modeDayAccent,
+    required this.onModeDayAccent,
+    required this.modeNightAccent,
+    required this.onModeNightAccent,
   });
 
   /// Day set: darkened variants so dots/icons clear 3:1 on `#FFFFFF`.
@@ -47,6 +58,10 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
     starAccent: Color(0xFF8A5700),
     mapTrail: Color(0xFF5C8A72),
     mapHeritage: Color(0xFF8A7A68),
+    modeDayAccent: Color(0xFF9CA3F5),
+    onModeDayAccent: Color(0xFF141414),
+    modeNightAccent: Color(0xFFF4C247),
+    onModeNightAccent: Color(0xFF141414),
   );
 
   /// Night set: Flim signal colors, all >= 3:1 on `#141414`.
@@ -66,6 +81,10 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
     starAccent: Color(0xFFF5BC7E),
     mapTrail: Color(0xFF5C8A72),
     mapHeritage: Color(0xFF8A7A68),
+    modeDayAccent: Color(0xFF9CA3F5),
+    onModeDayAccent: Color(0xFF141414),
+    modeNightAccent: Color(0xFFF4C247),
+    onModeNightAccent: Color(0xFF141414),
   );
 
   final Color warning;
@@ -83,6 +102,18 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
   final Color starAccent;
   final Color mapTrail;
   final Color mapHeritage;
+
+  /// ModeToggle-only: selected '낮' segment fill (same in both sets).
+  final Color modeDayAccent;
+
+  /// ModeToggle-only: text/icon on [modeDayAccent].
+  final Color onModeDayAccent;
+
+  /// ModeToggle-only: selected '밤' segment fill (same in both sets).
+  final Color modeNightAccent;
+
+  /// ModeToggle-only: text/icon on [modeNightAccent].
+  final Color onModeNightAccent;
 
   /// The [LookUpColors] registered on the ambient theme, falling back to
   /// [day] when the theme has no extension (e.g. bare test harnesses).
@@ -106,6 +137,10 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
     Color? starAccent,
     Color? mapTrail,
     Color? mapHeritage,
+    Color? modeDayAccent,
+    Color? onModeDayAccent,
+    Color? modeNightAccent,
+    Color? onModeNightAccent,
   }) {
     return LookUpColors(
       warning: warning ?? this.warning,
@@ -123,6 +158,10 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
       starAccent: starAccent ?? this.starAccent,
       mapTrail: mapTrail ?? this.mapTrail,
       mapHeritage: mapHeritage ?? this.mapHeritage,
+      modeDayAccent: modeDayAccent ?? this.modeDayAccent,
+      onModeDayAccent: onModeDayAccent ?? this.onModeDayAccent,
+      modeNightAccent: modeNightAccent ?? this.modeNightAccent,
+      onModeNightAccent: onModeNightAccent ?? this.onModeNightAccent,
     );
   }
 
@@ -145,7 +184,11 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
         other.birdAccent == birdAccent &&
         other.starAccent == starAccent &&
         other.mapTrail == mapTrail &&
-        other.mapHeritage == mapHeritage;
+        other.mapHeritage == mapHeritage &&
+        other.modeDayAccent == modeDayAccent &&
+        other.onModeDayAccent == onModeDayAccent &&
+        other.modeNightAccent == modeNightAccent &&
+        other.onModeNightAccent == onModeNightAccent;
   }
 
   @override
@@ -165,6 +208,10 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
         starAccent,
         mapTrail,
         mapHeritage,
+        modeDayAccent,
+        onModeDayAccent,
+        modeNightAccent,
+        onModeNightAccent,
       ]);
 
   /// Per-field [Color.lerp]; required because the day/night scene transition
@@ -191,6 +238,11 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
       starAccent: Color.lerp(starAccent, other.starAccent, t)!,
       mapTrail: Color.lerp(mapTrail, other.mapTrail, t)!,
       mapHeritage: Color.lerp(mapHeritage, other.mapHeritage, t)!,
+      modeDayAccent: Color.lerp(modeDayAccent, other.modeDayAccent, t)!,
+      onModeDayAccent: Color.lerp(onModeDayAccent, other.onModeDayAccent, t)!,
+      modeNightAccent: Color.lerp(modeNightAccent, other.modeNightAccent, t)!,
+      onModeNightAccent:
+          Color.lerp(onModeNightAccent, other.onModeNightAccent, t)!,
     );
   }
 }
