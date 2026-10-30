@@ -682,6 +682,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                                     child: Center(
                                       child: FilterChip(
                                         key: const Key('obsmap_chip_all'),
+                                        showCheckmark: true,
                                         label: const Text('전체'),
                                         selected:
                                             _activeKinds.length ==
@@ -708,6 +709,7 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                                       child: Center(
                                         child: FilterChip(
                                           key: Key('obsmap_chip_$kind'),
+                                          showCheckmark: true,
                                           label: Text(_layerLabels[kind]!),
                                           selected: _activeKinds.contains(kind),
                                           onSelected: (selected) =>

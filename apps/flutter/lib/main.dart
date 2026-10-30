@@ -74,7 +74,7 @@ class _MyAppState extends ConsumerState<MyApp>
       final reduceMotion =
           MediaQuery.maybeOf(context)?.disableAnimations ?? false;
 
-      final capturedTheme = ThemeData.lerp(
+      final capturedTheme = sceneTheme(
         _fromTheme!,
         _toTheme!,
         _activeTarget == null
@@ -108,7 +108,7 @@ class _MyAppState extends ConsumerState<MyApp>
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: '위를 봐요',
-          theme: ThemeData.lerp(
+          theme: sceneTheme(
             _fromTheme!,
             _toTheme!,
             _activeTarget == null

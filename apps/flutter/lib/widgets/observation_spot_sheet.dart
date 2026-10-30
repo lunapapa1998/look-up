@@ -393,6 +393,7 @@ class _SpotFilterChips extends StatelessWidget {
               child: Center(
                 child: FilterChip(
                   key: const Key('obsmap_filter_sqm'),
+                  showCheckmark: true,
                   label: const Text('SQM 21.5 이상 · 빛공해 적음'),
                   selected: sqmFilterActive,
                   onSelected: onSqmFilterChanged,

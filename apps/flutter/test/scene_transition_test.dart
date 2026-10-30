@@ -8,6 +8,7 @@ import 'package:lookup/models/discovery.dart';
 import 'package:lookup/services/location_service.dart';
 import 'package:lookup/state/discovery_providers.dart';
 import 'package:lookup/theme/app_theme.dart';
+import 'package:lookup/theme/scene_transition.dart';
 
 /// [MyApp] renders [AppShell] -> [HomeDiscoveryScreen], which reads
 /// [suitabilityApiProvider]/[locationServiceProvider]; overridden to fakes so
@@ -50,7 +51,47 @@ MaterialApp _materialApp(WidgetTester tester) {
   return tester.widget<MaterialApp>(find.byType(MaterialApp));
 }
 
+/// Selected-state chip label color, resolved like RawChip does.
+Color? _selectedChipLabel(ThemeData theme) {
+  return WidgetStateProperty.resolveAs<Color?>(
+    theme.chipTheme.labelStyle!.color,
+    <WidgetState>{WidgetState.selected},
+  );
+}
+
 void main() {
+  // Themes are built inside testWidgets bodies: themeFor touches
+  // GoogleFonts/AssetManifest, which needs the test binding.
+  group('sceneTheme', () {
+    testWidgets('returns `to` unchanged when the transition is finished', (
+      tester,
+    ) async {
+      final day = AppTheme.themeFor(ObsMode.day);
+      final night = AppTheme.themeFor(ObsMode.night);
+      expect(identical(sceneTheme(day, night, 1.0), night), isTrue);
+      expect(identical(sceneTheme(day, night, 1.2), night), isTrue);
+    });
+
+    testWidgets('returns `from` unchanged before the transition starts', (
+      tester,
+    ) async {
+      final day = AppTheme.themeFor(ObsMode.day);
+      final night = AppTheme.themeFor(ObsMode.night);
+      expect(identical(sceneTheme(day, night, 0.0), day), isTrue);
+      expect(identical(sceneTheme(day, night, -0.1), day), isTrue);
+    });
+
+    testWidgets('lerps mid-transition', (tester) async {
+      final day = AppTheme.themeFor(ObsMode.day);
+      final night = AppTheme.themeFor(ObsMode.night);
+      final mid = sceneTheme(day, night, 0.5);
+      expect(identical(mid, day), isFalse);
+      expect(identical(mid, night), isFalse);
+      expect(mid.colorScheme.surface, isNot(day.colorScheme.surface));
+      expect(mid.colorScheme.surface, isNot(night.colorScheme.surface));
+    });
+  });
+
   testWidgets(
     'mode change converges on the target theme after pumpAndSettle',
     (tester) async {
@@ -60,6 +101,11 @@ void main() {
       await tester.pumpWidget(_harness(container));
       await tester.pump();
 
+      // At rest on first build the state-dependent chip label survives.
+      final initial = _materialApp(tester).theme!;
+      expect(initial.chipTheme.labelStyle!.color, isA<WidgetStateColor>());
+      expect(_selectedChipLabel(initial), initial.colorScheme.surface);
+
       container.read(obsModeProvider.notifier).setManual(ObsMode.night);
       await tester.pumpAndSettle();
 
@@ -67,6 +113,18 @@ void main() {
       final theme = _materialApp(tester).theme!;
       expect(theme.colorScheme, target.colorScheme);
       expect(theme.scaffoldBackgroundColor, target.scaffoldBackgroundColor);
+      expect(theme.chipTheme.labelStyle!.color, isA<WidgetStateColor>());
+      expect(_selectedChipLabel(theme), target.colorScheme.surface);
+
+      // And back to day (night-to-day glare curve path).
+      container.read(obsModeProvider.notifier).setManual(ObsMode.day);
+      await tester.pumpAndSettle();
+
+      final dayTarget = AppTheme.themeFor(ObsMode.day);
+      final dayTheme = _materialApp(tester).theme!;
+      expect(dayTheme.colorScheme, dayTarget.colorScheme);
+      expect(dayTheme.chipTheme.labelStyle!.color, isA<WidgetStateColor>());
+      expect(_selectedChipLabel(dayTheme), dayTarget.colorScheme.surface);
     },
   );
 

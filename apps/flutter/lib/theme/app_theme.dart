@@ -222,17 +222,161 @@ class AppTheme {
           borderSide: BorderSide.none,
         ),
       ),
-      // Spec 053 Phase 3: monochrome primary fill, radius 8, flat.
+      // Spec 053 Phase 3 / 054-1: radius 8, flat. Colors are intentionally
+      // NOT set: FilledButtonTheme.style also applies to FilledButton.tonal,
+      // so the M3 defaults give FilledButton = primary/onPrimary (inverted
+      // monochrome) and FilledButton.tonal = secondaryContainer/
+      // onSecondaryContainer (day #E9E9E9/#141414, night #262626/#FFFFFF).
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: colorScheme.primary,
-          foregroundColor: colorScheme.onPrimary,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.button),
           ),
         ),
       ),
+      // Spec 054-1: secondary actions — hairline outline, radius 8, flat.
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: onSurface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.button),
+          ),
+        ).copyWith(
+          // Disabled falls through (null) to the M3 default side.
+          side: WidgetStateProperty.resolveWith<BorderSide?>(
+            (states) => states.contains(WidgetState.disabled)
+                ? null
+                : BorderSide(color: colorScheme.outline, width: 1),
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: onSurface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.button),
+          ),
+        ),
+      ),
+      chipTheme: _chipTheme(colorScheme, textTheme),
+      navigationBarTheme: _navigationBarTheme(colorScheme, textTheme),
+    );
+  }
+
+  /// Spec 054-1 chips: unselected = 1px `outline` border on a transparent
+  /// fill with the default label color; selected = monochrome inverted fill
+  /// (`onSurface`, day #141414 / night #FFFFFF) with a `surface` label.
+  /// ChoiceChip additionally gets a w600 label when selected (via
+  /// [ChipThemeData.secondaryLabelStyle], which only ChoiceChip reads);
+  /// The theme's `showCheckmark: false` is the ChoiceChip default (no
+  /// checkmark; selection = inverted fill + w600 + `surface` label). Since
+  /// ChipThemeData.showCheckmark applies to both chip types, multi-select
+  /// FilterChip call sites opt in with `showCheckmark: true`; the checkmark
+  /// is painted in `checkmarkColor` = `surface` (≈18:1 vs the `onSurface`
+  /// selected fill).
+  static ChipThemeData _chipTheme(ColorScheme scheme, TextTheme textTheme) {
+    final onSurface = scheme.onSurface;
+    final disabledLabel = onSurface.withValues(alpha: 0.38);
+    final base = textTheme.labelLarge ?? const TextStyle();
+    return ChipThemeData(
+      shape: const StadiumBorder(),
+      color: WidgetStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return scheme.surfaceContainerLow;
+        }
+        if (states.contains(WidgetState.selected)) return onSurface;
+        // Setting `color` makes RawChip drop its hover ink, so hover/focus
+        // feedback for unselected chips is resolved here.
+        if (states.contains(WidgetState.focused)) {
+          return onSurface.withValues(alpha: 0.12);
+        }
+        if (states.contains(WidgetState.hovered)) {
+          return onSurface.withValues(alpha: 0.08);
+        }
+        return Colors.transparent;
+      }),
+      side: WidgetStateBorderSide.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return BorderSide(color: scheme.outlineVariant, width: 1);
+        }
+        final focused = states.contains(WidgetState.focused);
+        if (states.contains(WidgetState.selected)) {
+          // Same geometry as the unselected border; a 2px outline-colored
+          // ring marks keyboard focus on the inverted fill.
+          return focused
+              ? BorderSide(color: scheme.outline, width: 2)
+              : BorderSide(color: onSurface, width: 1);
+        }
+        return focused
+            ? BorderSide(color: onSurface, width: 2)
+            : BorderSide(color: scheme.outline, width: 1);
+      }),
+      // RawChip resolves a WidgetStateColor label color against the chip's
+      // states, so FilterChip (which ignores secondaryLabelStyle) still
+      // flips to `surface` on the inverted fill.
+      labelStyle: base.copyWith(
+        fontWeight: FontWeight.w500,
+        color: WidgetStateColor.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) return disabledLabel;
+          if (states.contains(WidgetState.selected)) return scheme.surface;
+          return onSurface;
+        }),
+      ),
+      secondaryLabelStyle: base.copyWith(
+        fontWeight: FontWeight.w600,
+        color: WidgetStateColor.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? disabledLabel
+              : scheme.surface,
+        ),
+      ),
+      showCheckmark: false,
+      checkmarkColor: scheme.surface,
+      iconTheme: IconThemeData(color: onSurface),
+    );
+  }
+
+  /// Spec 054-1 bottom tabs: flat surfaceContainer bar, default-size
+  /// inverted pill indicator (`onSurface`) with a `surface` icon on it, and
+  /// a w700 `onSurface` label vs w400 `onSurfaceVariant` when unselected.
+  static NavigationBarThemeData _navigationBarTheme(
+    ColorScheme scheme,
+    TextTheme textTheme,
+  ) {
+    final disabled = scheme.onSurface.withValues(alpha: 0.38);
+    final label = textTheme.labelMedium ?? const TextStyle();
+    return NavigationBarThemeData(
+      backgroundColor: scheme.surfaceContainer,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      indicatorColor: scheme.onSurface,
+      iconTheme: WidgetStateProperty.resolveWith<IconThemeData?>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return IconThemeData(color: disabled, size: 24);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return IconThemeData(color: scheme.surface, size: 24);
+        }
+        return IconThemeData(color: scheme.onSurfaceVariant, size: 24);
+      }),
+      labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
+        if (states.contains(WidgetState.disabled)) {
+          return label.copyWith(fontWeight: FontWeight.w400, color: disabled);
+        }
+        if (states.contains(WidgetState.selected)) {
+          return label.copyWith(
+            fontWeight: FontWeight.w700,
+            color: scheme.onSurface,
+          );
+        }
+        return label.copyWith(
+          fontWeight: FontWeight.w400,
+          color: scheme.onSurfaceVariant,
+        );
+      }),
     );
   }
 }

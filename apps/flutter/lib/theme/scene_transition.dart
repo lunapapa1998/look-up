@@ -1,4 +1,4 @@
-import 'package:flutter/animation.dart';
+import 'package:flutter/material.dart';
 
 import '../models/discovery.dart' show ObsMode;
 import '../state/discovery_providers.dart' show ObsModeSource;
@@ -49,6 +49,15 @@ Curve sceneTransitionCurve({required ObsMode to, required bool reduceMotion}) {
   return to == ObsMode.night
       ? Curves.easeInOutCubic
       : const NightToDayGlareCurve();
+}
+
+/// Returns [to] when the transition is finished (t >= 1) and [from] when it
+/// hasn't started (t <= 0), so state-dependent theme values (e.g.
+/// WidgetStateColor chip labels) survive at rest; lerps only mid-transition.
+ThemeData sceneTheme(ThemeData from, ThemeData to, double t) {
+  if (t >= 1.0) return to;
+  if (t <= 0.0) return from;
+  return ThemeData.lerp(from, to, t);
 }
 
 /// Manual transitions get a haptic tap on entry; auto (ambient) ones don't.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:lookup/models/discovery.dart';
@@ -302,16 +303,64 @@ void main() {
       testWidgets('$mode: FilledButton uses primary fill, radius 8, flat', (
         WidgetTester tester,
       ) async {
+        // Spec 054-1: the theme no longer sets colors (the style is shared
+        // with FilledButton.tonal), so the rendered colors are checked.
         final theme = AppTheme.themeFor(mode);
         final scheme = theme.colorScheme;
         final style = theme.filledButtonTheme.style!;
         const states = <WidgetState>{};
 
-        expect(style.backgroundColor!.resolve(states), scheme.primary);
-        expect(style.foregroundColor!.resolve(states), scheme.onPrimary);
         expect(style.elevation!.resolve(states), 0);
         final shape = style.shape!.resolve(states) as RoundedRectangleBorder;
         expect(shape.borderRadius, BorderRadius.circular(8));
+
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: Column(
+                children: [
+                  FilledButton(
+                    key: const Key('primary'),
+                    onPressed: () {},
+                    child: const Text('기록하기'),
+                  ),
+                  FilledButton.tonal(
+                    key: const Key('tonal'),
+                    onPressed: () {},
+                    child: const Text('다시 시도'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        Material materialOf(String key) => tester.widget<Material>(
+          find
+              .descendant(
+                of: find.byKey(Key(key)),
+                matching: find.byType(Material),
+              )
+              .first,
+        );
+        Color? textColorOf(String text) =>
+            tester.renderObject<RenderParagraph>(find.text(text)).text.style
+                ?.color;
+
+        final primary = materialOf('primary');
+        expect(primary.color, scheme.primary);
+        expect(primary.elevation, 0);
+        expect(
+          (primary.shape! as RoundedRectangleBorder).borderRadius,
+          BorderRadius.circular(8),
+        );
+        expect(textColorOf('기록하기'), scheme.onPrimary);
+
+        final tonal = materialOf('tonal');
+        expect(tonal.color, scheme.secondaryContainer);
+        expect(tonal.elevation, 0);
+        expect(textColorOf('다시 시도'), scheme.onSecondaryContainer);
       });
 
       testWidgets('$mode: Card is flat, radius 16, outlineVariant hairline', (
@@ -326,6 +375,150 @@ void main() {
         expect(shape.borderRadius, BorderRadius.circular(16));
         expect(shape.side.color, scheme.outlineVariant);
         expect(shape.side.width, 1);
+      });
+    }
+  });
+
+  group('component themes (spec 054-1)', () {
+    const selected = <WidgetState>{WidgetState.selected};
+    const none = <WidgetState>{};
+    const disabled = <WidgetState>{WidgetState.disabled};
+
+    for (final mode in [ObsMode.day, ObsMode.night]) {
+      testWidgets('$mode: chips — outline unselected, inverted selected', (
+        WidgetTester tester,
+      ) async {
+        final theme = AppTheme.themeFor(mode);
+        final scheme = theme.colorScheme;
+        final chip = theme.chipTheme;
+
+        expect(chip.shape, isA<StadiumBorder>());
+        expect(chip.color!.resolve(selected), scheme.onSurface);
+        expect(chip.color!.resolve(none), Colors.transparent);
+        expect(chip.color!.resolve(disabled), scheme.surfaceContainerLow);
+
+        final unselectedSide = WidgetStateProperty.resolveAs<BorderSide?>(
+          chip.side,
+          none,
+        )!;
+        expect(unselectedSide.color, scheme.outline);
+        expect(unselectedSide.width, 1);
+        final disabledSide = WidgetStateProperty.resolveAs<BorderSide?>(
+          chip.side,
+          disabled,
+        )!;
+        expect(disabledSide.color, scheme.outlineVariant);
+
+        expect(
+          WidgetStateProperty.resolveAs<Color?>(chip.labelStyle!.color, none),
+          scheme.onSurface,
+        );
+        expect(
+          WidgetStateProperty.resolveAs<Color?>(
+            chip.labelStyle!.color,
+            selected,
+          ),
+          scheme.surface,
+        );
+        expect(chip.labelStyle!.fontWeight, FontWeight.w500);
+        expect(
+          WidgetStateProperty.resolveAs<Color?>(
+            chip.secondaryLabelStyle!.color,
+            selected,
+          ),
+          scheme.surface,
+        );
+        expect(chip.secondaryLabelStyle!.fontWeight, FontWeight.w600);
+        expect(chip.checkmarkColor, scheme.surface);
+        expect(chip.showCheckmark, isFalse);
+        expect(chip.iconTheme!.color, scheme.onSurface);
+
+        expect(
+          _contrastRatio(scheme.surface, scheme.onSurface),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          _contrastRatio(scheme.outline, scheme.surface),
+          greaterThanOrEqualTo(3.0),
+        );
+      });
+
+      testWidgets('$mode: navigation bar — inverted pill, bold active label', (
+        WidgetTester tester,
+      ) async {
+        final theme = AppTheme.themeFor(mode);
+        final scheme = theme.colorScheme;
+        final nav = theme.navigationBarTheme;
+
+        expect(nav.backgroundColor, scheme.surfaceContainer);
+        expect(nav.elevation, 0);
+        expect(nav.surfaceTintColor, Colors.transparent);
+        expect(nav.shadowColor, Colors.transparent);
+        expect(nav.indicatorColor, scheme.onSurface);
+        expect(nav.indicatorShape, isNull);
+        expect(nav.labelBehavior, isNull);
+
+        expect(nav.iconTheme!.resolve(selected)!.color, scheme.surface);
+        expect(nav.iconTheme!.resolve(none)!.color, scheme.onSurfaceVariant);
+
+        final selectedLabel = nav.labelTextStyle!.resolve(selected)!;
+        final unselectedLabel = nav.labelTextStyle!.resolve(none)!;
+        expect(selectedLabel.fontWeight, FontWeight.w700);
+        expect(selectedLabel.color, scheme.onSurface);
+        expect(unselectedLabel.fontWeight, FontWeight.w400);
+        expect(unselectedLabel.color, scheme.onSurfaceVariant);
+
+        expect(
+          _contrastRatio(scheme.surface, scheme.onSurface),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          _contrastRatio(scheme.onSurfaceVariant, scheme.surfaceContainer),
+          greaterThanOrEqualTo(4.5),
+        );
+        expect(
+          _contrastRatio(scheme.onSurface, scheme.surfaceContainer),
+          greaterThanOrEqualTo(4.5),
+        );
+      });
+
+      testWidgets('$mode: outlined/text buttons — onSurface, radius 8', (
+        WidgetTester tester,
+      ) async {
+        final theme = AppTheme.themeFor(mode);
+        final scheme = theme.colorScheme;
+
+        final outlined = theme.outlinedButtonTheme.style!;
+        expect(outlined.foregroundColor!.resolve(none), scheme.onSurface);
+        expect(outlined.elevation!.resolve(none), 0);
+        final outlinedSide = outlined.side!.resolve(none)!;
+        expect(outlinedSide.color, scheme.outline);
+        expect(outlinedSide.width, 1);
+        expect(
+          (outlined.shape!.resolve(none)! as RoundedRectangleBorder)
+              .borderRadius,
+          BorderRadius.circular(8),
+        );
+
+        final text = theme.textButtonTheme.style!;
+        expect(text.foregroundColor!.resolve(none), scheme.onSurface);
+        expect(
+          (text.shape!.resolve(none)! as RoundedRectangleBorder).borderRadius,
+          BorderRadius.circular(8),
+        );
+      });
+
+      testWidgets('$mode: tonal (secondaryContainer) pair meets 4.5:1', (
+        WidgetTester tester,
+      ) async {
+        final scheme = AppTheme.themeFor(mode).colorScheme;
+        expect(
+          _contrastRatio(
+            scheme.onSecondaryContainer,
+            scheme.secondaryContainer,
+          ),
+          greaterThanOrEqualTo(4.5),
+        );
       });
     }
   });

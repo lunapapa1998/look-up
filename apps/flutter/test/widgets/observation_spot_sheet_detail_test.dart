@@ -329,6 +329,33 @@ void main() {
     );
   });
 
+  group('spec 054-1: multi-select FilterChips opt into the checkmark', () {
+    testWidgets(
+      'SQM filter chip and layer chips set showCheckmark: true; the sort '
+      'ChoiceChip leaves it to the theme (no checkmark)',
+      (tester) async {
+        await _pumpMapScreen(tester);
+        await tester.pump();
+
+        for (final key in const [
+          Key('obsmap_filter_sqm'),
+          Key('obsmap_chip_all'),
+          Key('obsmap_chip_bird'),
+        ]) {
+          final chip = tester.widget<FilterChip>(
+            find.byKey(key, skipOffstage: false),
+          );
+          expect(chip.showCheckmark, isTrue, reason: '$key');
+        }
+
+        final sortChip = tester.widget<ChoiceChip>(
+          find.byKey(const Key('obsmap_sort_distance'), skipOffstage: false),
+        );
+        expect(sortChip.showCheckmark, isNull);
+      },
+    );
+  });
+
   group('spec 021 Phase 2: species detail (list -> spot -> species stack)', () {
     testWidgets(
       'tapping a topSpecies row in BirdSpotDetail transitions to '
