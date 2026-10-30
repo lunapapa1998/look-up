@@ -1,19 +1,22 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/sample_data_provider.dart';
 import '../theme/layout_tokens.dart';
+import 'common/provenance_chip.dart';
 
 /// "Showing sample data" banner (spec 052 Phase 3). Renders only while at
 /// least one of [sources] is in [sampleSourcesProvider]; otherwise it is a
 /// zero-size box, so [margin] (spacing to its neighbors) also disappears.
 ///
-/// Neutral surfaceContainerHigh tone, never error colors: the screen still
-/// works, it is just not showing live data. All styling for the banner and
-/// [SampleMark] lives in this file so a later design pass can restyle both
-/// in one place.
+/// Neutral surfaceContainerHigh tone, never error or warning colors: sample
+/// data is not an error and not stale data (spec 054 amendment 2026-10-30);
+/// the screen still works, it is just not showing live data. Failures use
+/// `StatusView`, old data uses `ProvenanceChip.stale`.
+///
+/// Spec 054-2c: the retry action is a `FilledButton.tonal` with the same
+/// style override as `StatusView`'s retry, so its hit area stays >= 44 (48)
+/// on web/desktop too.
 class SampleDataNotice extends ConsumerWidget {
   const SampleDataNotice({
     super.key,
@@ -29,6 +32,14 @@ class SampleDataNotice extends ConsumerWidget {
   final VoidCallback onRetry;
   final EdgeInsetsGeometry margin;
 
+  /// Keeps a >= 44px (48) hit area even where the platform default would
+  /// shrink-wrap the button (desktop/web: compact density, shrinkWrap).
+  /// Same override as `StatusView`'s retry button.
+  static const ButtonStyle _retryStyle = ButtonStyle(
+    visualDensity: VisualDensity.standard,
+    tapTargetSize: MaterialTapTargetSize.padded,
+  );
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visible = ref.watch(sampleSourcesProvider).intersection(sources);
@@ -42,6 +53,7 @@ class SampleDataNotice extends ConsumerWidget {
       margin: margin,
       padding: const EdgeInsets.only(
         left: AppSpacing.md,
+        right: AppSpacing.xs,
         top: AppSpacing.xs,
         bottom: AppSpacing.xs,
       ),
@@ -65,8 +77,9 @@ class SampleDataNotice extends ConsumerWidget {
               ),
             ),
           ),
-          TextButton(
+          FilledButton.tonal(
             key: const Key('sample_data_notice_retry'),
+            style: _retryStyle,
             onPressed: onRetry,
             child: const Text('다시 시도'),
           ),
@@ -77,8 +90,12 @@ class SampleDataNotice extends ConsumerWidget {
 }
 
 /// Small "예시" tag for a card, list row or map pin drawn from sample data.
-/// Distinguished by a dashed outline and text, not by color alone.
-/// [compact] shrinks it for map pins and dense list rows.
+///
+/// Spec 054-2c: delegates to [ProvenanceChip.sample] (text '예시', dashed
+/// outline, semantics '예시 데이터'), so there is a single sample-tag
+/// implementation. Distinguished by the dashed outline and text, not by
+/// color alone. [compact] shrinks it for map pins and dense list rows.
+/// Map pins wrap it in `ExcludeSemantics` themselves.
 class SampleMark extends StatelessWidget {
   const SampleMark({super.key, this.compact = false});
 
@@ -86,83 +103,14 @@ class SampleMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    // Keep the pre-054-2c screen-reader behavior: a NON-container
+    // Semantics label, so '예시 데이터' merges into the enclosing card/row
+    // node instead of becoming its own node. excludeSemantics drops the
+    // chip's own `Semantics(container: true)` node underneath.
     return Semantics(
       label: '예시 데이터',
       excludeSemantics: true,
-      child: CustomPaint(
-        painter: _DashedBorderPainter(
-          color: colorScheme.outline,
-          fill: colorScheme.surfaceContainerHigh,
-          radius: AppRadius.sm,
-        ),
-        child: Padding(
-          padding: compact
-              ? const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xs,
-                  vertical: 1,
-                )
-              : const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: 2,
-                ),
-          child: Text(
-            '예시',
-            maxLines: 1,
-            style: textTheme.labelSmall?.copyWith(
-              fontSize: compact ? 9 : 11,
-              height: 1.2,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ),
+      child: ProvenanceChip.sample(compact: compact),
     );
   }
-}
-
-/// Filled rounded rect with a dashed 1px outline for [SampleMark].
-class _DashedBorderPainter extends CustomPainter {
-  const _DashedBorderPainter({
-    required this.color,
-    required this.fill,
-    required this.radius,
-  });
-
-  final Color color;
-  final Color fill;
-  final double radius;
-
-  static const double _dash = 3;
-  static const double _gap = 2;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rrect = RRect.fromRectAndRadius(
-      (Offset.zero & size).deflate(0.5),
-      Radius.circular(radius),
-    );
-    canvas.drawRRect(rrect, Paint()..color = fill);
-
-    final stroke = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final outline = Path()..addRRect(rrect);
-    for (final metric in outline.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final end = math.min(distance + _dash, metric.length);
-        canvas.drawPath(metric.extractPath(distance, end), stroke);
-        distance += _dash + _gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
-      oldDelegate.color != color ||
-      oldDelegate.fill != fill ||
-      oldDelegate.radius != radius;
 }

@@ -1,5 +1,14 @@
 # flutter handoff note
 
+## Spec 054-2c — SampleDataNotice/SampleMark on ProvenanceChip (no contract change)
+
+- `lib/widgets/sample_data_notice.dart`: `SampleMark` (same ctor/path) now returns `Semantics(label: '예시 데이터', excludeSemantics: true, child: ProvenanceChip.sample(compact:))` — non-container wrapper keeps the old screen-reader behavior (label merges into the enclosing card node; chip's container node is excluded); its private `_DashedBorderPainter` + `dart:math` import deleted (single painter lives in `provenance_chip.dart`, doc comment updated there only). Same paddings/11-9px/height 1.2, so box height is unchanged; look changes to the chip's (fill `surface`, `provenanceSample` dashed pill, `onSurface` w500 text).
+- `SampleDataNotice`: only the retry changed — `TextButton` -> `FilledButton.tonal` (same key `sample_data_notice_retry`, text '다시 시도') with StatusView's `ButtonStyle(visualDensity: standard, tapTargetSize: padded)` (>=48 hit area on web, so the banner is a little taller there). Background/text/icon/visibility/keys unchanged; never error/warning colors.
+- Notice padding gained `right: AppSpacing.xs` so the filled tonal pill no longer sits flush against the banner's rounded right edge (the old TextButton's inner padding hid this).
+- Semantics: unchanged from the old SampleMark (coordinator correction) — '예시 데이터' still merges into the enclosing card/row node (CourseCard, home cards, spot sheet); map pins keep `ExcludeSemantics` (no node). Proven by the card-merge test.
+- Tests: new `test/widgets/sample_data_notice_integration_test.dart` (day+night). Existing tests untouched.
+- Backend contract: none. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
 ## Spec 054-2b — StatusView, DataSourceFooter (no contract change)
 
 - New `lib/widgets/common/status_view.dart`: `StatusKind {loading, empty, error, degraded}`, `StatusView.loading/.empty/.error/.degraded`. Flat container (radius 8, padding md/sm, full width, no shadow/margin), Row(icon 18 + bodySmall text max 3 lines + optional action); below 300px the action moves under the text (LayoutBuilder). Colors: loading/empty `surfaceContainer`, error `errorContainer`/`onErrorContainer`, degraded `warningContainer` + `warning` icon + `onSurface` text. Degraded second line "마지막 갱신 HH:mm" only with `lastUpdated`; never '지연'. Retry `FilledButton.tonal` "다시 시도" (`StatusView.retryKey`) only with `onRetry`; empty `TextButton` only with label+callback. Loading spinner 16/stroke 2, static `hourglass_empty` under reduce motion. Root `Semantics(container, liveRegion: kind != empty)` keyed `status_view_<kind>`.

@@ -229,8 +229,8 @@ String _hhmm(DateTime at) {
   return '$h:$m';
 }
 
-/// Filled rounded rect with a dashed 1px outline. Private copy of the
-/// painter in `sample_data_notice.dart`; deduplicated in spec 054-2c.
+/// Filled rounded rect with a dashed 1px outline. The single implementation
+/// since spec 054-2c (`SampleMark` now renders [ProvenanceChip.sample]).
 class _DashedBorderPainter extends CustomPainter {
   const _DashedBorderPainter({
     required this.color,
