@@ -260,13 +260,13 @@ provider 상태를 바꾸는 경로는 세 가지이며 **모두 같은 규칙**
 
 테마는 낮/밤 둘 중 하나만 쓰고, 커튼이 완전히 덮였을 때 교체한다. 콘텐츠는 현행대로 즉시 바뀐다(5절 알려진 한계).
 
-- [ ] `scene_transition.dart`: `curtainOpacity`, `hasSwapped`, `kCurtainRiseFraction`, `SceneCurtain` 추가, `sceneTheme` 삭제, 움직임 줄이기 시간 0
-- [ ] `main.dart`: 표시 테마(낮/밤 중 하나) + `builder` 커튼, `AnimatedBuilder`는 커튼만 다시 그림, 3절 규칙(입력 차단·재토글·수렴·세대 번호), 완료·dispose 시 커튼 0
-- [ ] 햅틱·자동/수동 시간 유지 확인
-- [ ] 테스트 수정·추가(아래 "테스트 계획" 1~8)
-- [ ] analyze, 전체 테스트, 웹 빌드(DEMO_FALLBACK 켬·끔)
-- [ ] 미리보기 확인(아래 "시각 검증" 목록) — 사용자 확인 전까지 시각 항목은 "미확인"
-- [ ] o ≥ 0.5 구간 실제 시간을 측정해 Notes에 기록
+- [x] `scene_transition.dart`: (Amendment ①) `kCurtainRiseFraction`, `SceneCurtain`, `SceneInputGuard`, 커튼 곡선 추가, `sceneTheme` 삭제, 움직임 줄이기 시간 0
+- [x] `main.dart`: 표시 테마(낮/밤 중 하나) + `builder` 커튼, `AnimatedBuilder`는 커튼만 다시 그림, 3절 규칙(입력 차단·재토글·수렴·세대 번호), 완료·dispose 시 커튼 0
+- [x] 햅틱·자동/수동 시간 유지 확인
+- [x] 테스트 수정·추가(아래 "테스트 계획" 1~8)
+- [x] analyze, 전체 테스트, 웹 빌드(DEMO_FALLBACK 켬·끔)
+- [x] 미리보기 확인 — 사용자 전반 확인 완료(약간 부자연스러우나 사용에 지장 없음). "시각 검증" 세부 항목은 개별 미확인
+- [x] o ≥ 0.5 구간 시간을 곡선으로 계산해 Notes에 기록
 
 **Phase validation**: 앱 경로의 `MaterialApp.theme`이 전환 중 모든 프레임에서 낮 또는 밤 테마와 동일하고, 커튼이 끝나면 0이며, 기존 테스트 전체 통과.
 
@@ -350,12 +350,26 @@ just check
 
 ## Notes (agent scratchpad)
 
+- 2026-10-30 brain: **Phase 1 완료(사용자 승인, 추가 애니메이션 조정 없음).** 검증 기록:
+  - `flutter analyze`: PASS(문제 없음).
+  - 전체 Flutter 테스트: 389개 통과.
+  - 웹 빌드 DEMO_FALLBACK ON/OFF: 성공.
+  - 사용자 미리보기 확인(8112 실제 속도, 8114 느린 재생): 낮·밤 전환이 약간 부자연스럽지만 사용에 큰 지장은 없음.
+  - 회색으로 글자가 사라지던 기존 색상 보간 문제는 새 구조(테마는 낮/밤 둘 중 하나만, 커튼이 덮인 순간 교체)로 해결. 근거: 자동 테스트(모든 표본 프레임에서 순수 낮/밤 테마, 교체 시 커튼 1.0).
+  - Phase 1에서 콘텐츠가 테마보다 먼저 바뀌는 현상은 알려진 한계(5절)로 남는다.
+  - Phase 2 콘텐츠 동기화는 승인되지 않았으며 보류.
+  - 아래 "시각 검증" 세부 항목과 실제 접근성 환경(화면 낭독기, 웹 `accessibleNavigation` 신호, 키보드 실사용)은 개별로 확인하지 않았으므로 PASS로 기재하지 않는다(미확인). 자동 테스트로 확인된 것은 테스트 계획 1~8 범위뿐이다.
 - 2026-10-30 brain: 설계 검토(B안 페이드 스루) 승인 후 문서 초안 작성. 구현·커밋 미승인.
+- 2026-10-30 brain: Phase 1 구현(engineer) → lead 검증 PASS. analyze 문제 없음, 테스트 389개 통과(기준 365, sceneTheme 3개 삭제 포함 순증 24), 웹 빌드 DEMO_FALLBACK 켬·끔 성공. 커밋 전.
+  - 입력 차단 구간(o ≥ 0.5) 곡선 계산값: 밤으로 수동 280ms(전반 140 + 후반 140), 낮으로 수동 160ms(66 + 94), 자동 밤으로 400ms, 자동 낮으로 200ms.
+  - Flutter 웹에서 화면 낭독기 사용 시 `accessibleNavigation` 신호가 들어오는지는 미확인(자동 테스트는 MediaQuery로 강제한 경우만 검증). 신호가 없으면 4-3의 2번 규칙 적용.
+  - `MaterialApp`의 기본 `AnimatedTheme`(200ms)이 교체 후 커튼 아래에서 테마를 다시 보간하는 것을 발견해 `themeAnimationStyle: AnimationStyle.noAnimation`으로 막음(기존 lerp 구조에도 있던 중첩 보간).
 - 2026-10-30 brain: 054-1 커밋 완료(4f52099 코드, 8c3172c 문서). spec 기본 설계 승인, 키보드·접근성 규칙 보완 후 문서 커밋. 현행 기준선 미리보기(8113)는 만들지 않음. Phase 1 구현은 미승인.
 - 2026-10-30 brain: 사용자 결정 반영(확정된 결정 1~6). 남은 결정: Phase 1 구현 승인, (Phase 1 미리보기 후) Phase 2 진행 여부와 전반부 비율 조정 여부.
 
 ## Amendments (post-build change history, append-only)
 
 - 2026-10-30: 초안 작성.
+- 2026-10-30: Phase 1 구현 중 설계 문구 정리(기능 동일) — ① `curtainOpacity`·`hasSwapped` 함수는 만들지 않음: 컨트롤러 값이 곧 커튼 불투명도이고, 교체는 값이 1에 닿은 틱에서 판정. ② 세대 번호 g는 두지 않음: 매 틱 현재 필드만 읽고 이전 목표를 붙잡는 콜백이 없어 같은 효과. ③ 키 차단 인텐트는 `DoNothingAndStopPropagationIntent` 대신 `DoNothingIntent`(키를 소비해 웹 브라우저 기본 동작 — Tab 이동·Space 스크롤 — 까지 막음). 부작용: 가려진 구간에는 글자 입력란 안의 Space·방향키도 소비됨. ④ `MaterialApp.themeAnimationStyle: AnimationStyle.noAnimation` 추가(기본 AnimatedTheme 보간 차단).
 - 2026-10-30: 키보드·접근성 규칙 보완(사용자 요청) — 가려진 구간(o ≥ 0.5)에 Navigator 위 `Shortcuts`로 실행·이동·Escape 키 소비(포커스 유지), 모드 상태 변경은 차단과 별도로 수렴, o < 0.5에서 즉시 복구, 커튼은 `ExcludeSemantics`, 접근성 탐색이 켜져 있으면 즉시 전환, 그 밖의 접근성 동작은 막지 않음. 테스트 4-1~4-6 추가.
 - 2026-10-30: 사용자 검토 반영 — 입력 차단(포인터만, o ≥ 0.5)과 재토글(provider 상태 변화 기준) 규칙 분리, 연속 요청 수렴·이전 콜백 무효화 규칙, Phase 2 대상(5개 파일, 읽기 7곳) 표, 대비 기준(일반·큰 텍스트·비텍스트)과 측정 구간 구분, Phase 1 알려진 한계, 개발용 미리보기 용도 구분. Phase 2는 보류.
