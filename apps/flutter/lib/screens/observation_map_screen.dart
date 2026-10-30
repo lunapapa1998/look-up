@@ -18,6 +18,7 @@ import '../utils/bird_scatter.dart';
 import '../utils/observation_spot_filter.dart';
 import '../widgets/observation_map_overlays.dart';
 import '../widgets/app_header_logo.dart';
+import '../widgets/common/lookup_scroll_behavior.dart';
 import '../widgets/observation_marker.dart';
 import '../widgets/observation_spot_sheet.dart';
 import '../widgets/sample_data_notice.dart';
@@ -668,59 +669,68 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                         const AppHeaderLogo(),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                Semantics(
-                                  label:
-                                      _activeKinds.length == _layerKinds.length
-                                      ? '전체 레이어 끄기'
-                                      : '전체 레이어 켜기',
-                                  child: SizedBox(
-                                    height: 44,
-                                    child: Center(
-                                      child: FilterChip(
-                                        key: const Key('obsmap_chip_all'),
-                                        showCheckmark: true,
-                                        label: const Text('전체'),
-                                        selected:
-                                            _activeKinds.length ==
-                                            _layerKinds.length,
-                                        onSelected: (selected) => setState(() {
-                                          if (selected) {
-                                            _activeKinds.addAll(_layerKinds);
-                                          } else {
-                                            _activeKinds.clear();
-                                          }
-                                        }),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                for (final kind in _layerKinds) ...[
+                          child: ScrollConfiguration(
+                            behavior: const LookUpScrollBehavior(),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
                                   Semantics(
                                     label:
-                                        '${_layerLabels[kind]} 레이어 '
-                                        '${_activeKinds.contains(kind) ? '끄기' : '켜기'}',
+                                        _activeKinds.length ==
+                                            _layerKinds.length
+                                        ? '전체 레이어 끄기'
+                                        : '전체 레이어 켜기',
                                     child: SizedBox(
                                       height: 44,
                                       child: Center(
                                         child: FilterChip(
-                                          key: Key('obsmap_chip_$kind'),
+                                          key: const Key('obsmap_chip_all'),
                                           showCheckmark: true,
-                                          label: Text(_layerLabels[kind]!),
-                                          selected: _activeKinds.contains(kind),
+                                          label: const Text('전체'),
+                                          selected:
+                                              _activeKinds.length ==
+                                              _layerKinds.length,
                                           onSelected: (selected) =>
-                                              _toggleKind(kind, selected),
+                                              setState(() {
+                                                if (selected) {
+                                                  _activeKinds.addAll(
+                                                    _layerKinds,
+                                                  );
+                                                } else {
+                                                  _activeKinds.clear();
+                                                }
+                                              }),
                                         ),
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
+                                  for (final kind in _layerKinds) ...[
+                                    Semantics(
+                                      label:
+                                          '${_layerLabels[kind]} 레이어 '
+                                          '${_activeKinds.contains(kind) ? '끄기' : '켜기'}',
+                                      child: SizedBox(
+                                        height: 44,
+                                        child: Center(
+                                          child: FilterChip(
+                                            key: Key('obsmap_chip_$kind'),
+                                            showCheckmark: true,
+                                            label: Text(_layerLabels[kind]!),
+                                            selected: _activeKinds.contains(
+                                              kind,
+                                            ),
+                                            onSelected: (selected) =>
+                                                _toggleKind(kind, selected),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),

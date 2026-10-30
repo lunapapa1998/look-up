@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/stay_package.dart';
 import '../theme/layout_tokens.dart';
 import '../widgets/app_sliver_header.dart';
+import '../widgets/common/lookup_scroll_behavior.dart';
 import '../widgets/packages/package_card.dart';
 import '../widgets/packages/package_extras.dart';
 import 'package_booking_preview_screen.dart';
@@ -71,36 +72,39 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
               sliver: SliverToBoxAdapter(child: _PackagesIntro()),
             ),
             SliverToBoxAdapter(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.page,
-                ),
-                child: Row(
-                  children: [
-                    for (final category in [null, ...PackageCategory.values])
-                      Padding(
-                        padding: const EdgeInsets.only(right: AppSpacing.sm),
-                        child: ChoiceChip(
-                          key: Key(
-                            'packages_filter_${category?.name ?? 'all'}',
+              child: ScrollConfiguration(
+                behavior: const LookUpScrollBehavior(),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.page,
+                  ),
+                  child: Row(
+                    children: [
+                      for (final category in [null, ...PackageCategory.values])
+                        Padding(
+                          padding: const EdgeInsets.only(right: AppSpacing.sm),
+                          child: ChoiceChip(
+                            key: Key(
+                              'packages_filter_${category?.name ?? 'all'}',
+                            ),
+                            label: Text(
+                              category?.label ??
+                                  '전체 패키지 (${widget.packages.length})',
+                            ),
+                            selected: _category == category,
+                            selectedColor: colors.secondary,
+                            labelStyle: text.labelMedium?.copyWith(
+                              color: _category == category
+                                  ? colors.onSecondary
+                                  : colors.onSurfaceVariant,
+                            ),
+                            onSelected: (_) =>
+                                setState(() => _category = category),
                           ),
-                          label: Text(
-                            category?.label ??
-                                '전체 패키지 (${widget.packages.length})',
-                          ),
-                          selected: _category == category,
-                          selectedColor: colors.secondary,
-                          labelStyle: text.labelMedium?.copyWith(
-                            color: _category == category
-                                ? colors.onSecondary
-                                : colors.onSurfaceVariant,
-                          ),
-                          onSelected: (_) =>
-                              setState(() => _category = category),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

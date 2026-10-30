@@ -1,5 +1,13 @@
 # flutter handoff note
 
+## Spec 054-2d — local mouse-drag scroll for horizontal lists (no contract change)
+
+- New `lib/widgets/common/lookup_scroll_behavior.dart`: `LookUpScrollBehavior extends MaterialScrollBehavior`, only override `dragDevices => {...super.dragDevices, PointerDeviceKind.mouse}`; scrollbars, Shift+wheel (`pointerAxisModifiers`), trackpad/touch/stylus inherited.
+- Applied LOCALLY via `ScrollConfiguration(behavior: const LookUpScrollBehavior(), child: <unchanged horizontal SingleChildScrollView>)` at: `lib/screens/observation_map_screen.dart:672` (map layer chips), `lib/screens/packages_catalog_screen.dart:75` (category filter), `lib/screens/trails_catalog_screen.dart:124` (region filter), `lib/widgets/observation_spot_sheet.dart:352` (sheet sort/SQM chips; sheet and its TextField NOT wrapped). Each wrapped subtree holds only the chip Row.
+- NOT global: no `MaterialApp.scrollBehavior`, main.dart/theme untouched — vertical pages, the map sheet and text fields keep Flutter's default (no mouse drag).
+- Tests: new `test/widgets/common/lookup_scroll_behavior_test.dart` (dragDevices superset, mouse drag scrolls w/o selecting, unwrapped default, mouse click selects, touch drag, Shift+wheel + modifiers equality, no leak to vertical ListView/TextField). Existing tests untouched.
+- Backend contract: none. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test`.
+
 ## Spec 054-2c — SampleDataNotice/SampleMark on ProvenanceChip (no contract change)
 
 - `lib/widgets/sample_data_notice.dart`: `SampleMark` (same ctor/path) now returns `Semantics(label: '예시 데이터', excludeSemantics: true, child: ProvenanceChip.sample(compact:))` — non-container wrapper keeps the old screen-reader behavior (label merges into the enclosing card node; chip's container node is excluded); its private `_DashedBorderPainter` + `dart:math` import deleted (single painter lives in `provenance_chip.dart`, doc comment updated there only). Same paddings/11-9px/height 1.2, so box height is unchanged; look changes to the chip's (fill `surface`, `provenanceSample` dashed pill, `onSurface` w500 text).

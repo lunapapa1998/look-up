@@ -6,6 +6,7 @@ import '../theme/layout_tokens.dart';
 import '../utils/observation_spot_filter.dart';
 import '../utils/spot_name.dart';
 import '../utils/trail_format.dart';
+import 'common/lookup_scroll_behavior.dart';
 import 'observation_spot_detail.dart';
 import 'sample_data_notice.dart';
 import 'spot_detail/species_detail.dart';
@@ -348,59 +349,62 @@ class _SpotFilterChips extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            SizedBox(
-              height: 44,
-              child: Center(
-                child: ChoiceChip(
-                  key: const Key('obsmap_sort_distance'),
-                  label: const Text('거리순'),
-                  selected: sortBy == SpotSort.distance,
-                  onSelected: (_) => onSortChanged(SpotSort.distance),
+      child: ScrollConfiguration(
+        behavior: const LookUpScrollBehavior(),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              SizedBox(
+                height: 44,
+                child: Center(
+                  child: ChoiceChip(
+                    key: const Key('obsmap_sort_distance'),
+                    label: const Text('거리순'),
+                    selected: sortBy == SpotSort.distance,
+                    onSelected: (_) => onSortChanged(SpotSort.distance),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              height: 44,
-              child: Center(
-                child: ChoiceChip(
-                  key: const Key('obsmap_sort_recent'),
-                  label: const Text('최신순'),
-                  selected: sortBy == SpotSort.recent,
-                  onSelected: (_) => onSortChanged(SpotSort.recent),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 44,
+                child: Center(
+                  child: ChoiceChip(
+                    key: const Key('obsmap_sort_recent'),
+                    label: const Text('최신순'),
+                    selected: sortBy == SpotSort.recent,
+                    onSelected: (_) => onSortChanged(SpotSort.recent),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              height: 44,
-              child: Center(
-                child: ChoiceChip(
-                  key: const Key('obsmap_sort_sqm'),
-                  label: const Text('SQM순'),
-                  selected: sortBy == SpotSort.sqm,
-                  onSelected: (_) => onSortChanged(SpotSort.sqm),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 44,
+                child: Center(
+                  child: ChoiceChip(
+                    key: const Key('obsmap_sort_sqm'),
+                    label: const Text('SQM순'),
+                    selected: sortBy == SpotSort.sqm,
+                    onSelected: (_) => onSortChanged(SpotSort.sqm),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              height: 44,
-              child: Center(
-                child: FilterChip(
-                  key: const Key('obsmap_filter_sqm'),
-                  showCheckmark: true,
-                  label: const Text('SQM 21.5 이상 · 빛공해 적음'),
-                  selected: sqmFilterActive,
-                  onSelected: onSqmFilterChanged,
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 44,
+                child: Center(
+                  child: FilterChip(
+                    key: const Key('obsmap_filter_sqm'),
+                    showCheckmark: true,
+                    label: const Text('SQM 21.5 이상 · 빛공해 적음'),
+                    selected: sqmFilterActive,
+                    onSelected: onSqmFilterChanged,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

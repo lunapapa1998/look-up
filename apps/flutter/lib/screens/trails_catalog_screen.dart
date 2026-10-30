@@ -7,6 +7,7 @@ import '../theme/layout_tokens.dart';
 import '../state/discovery_providers.dart';
 import '../state/sample_data_provider.dart';
 import '../widgets/app_sliver_header.dart';
+import '../widgets/common/lookup_scroll_behavior.dart';
 import '../widgets/course_card.dart';
 import '../widgets/sample_data_notice.dart';
 import '../utils/trail_format.dart';
@@ -120,43 +121,47 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
                         ref.watch(selectedRegionProvider) ??
                         regionsResponse.nearestId;
                     return SliverToBoxAdapter(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.page,
-                        ),
-                        child: Row(
-                          children: [
-                            for (final region in regionsResponse.regions)
-                              Padding(
-                                padding: const EdgeInsets.only(
-                                  right: AppSpacing.sm,
-                                ),
-                                child: ChoiceChip(
-                                  key: Key('trail_region_${region.id}'),
-                                  avatar: region.id == regionsResponse.nearestId
-                                      ? Icon(
-                                          Icons.near_me,
-                                          size: 16,
-                                          color: effectiveRegion == region.id
-                                              ? colors.onSecondary
-                                              : colors.onSurfaceVariant,
-                                        )
-                                      : null,
-                                  label: Text(region.label),
-                                  selected: effectiveRegion == region.id,
-                                  selectedColor: colors.secondary,
-                                  labelStyle: text.labelMedium?.copyWith(
-                                    color: effectiveRegion == region.id
-                                        ? colors.onSecondary
-                                        : colors.onSurfaceVariant,
+                      child: ScrollConfiguration(
+                        behavior: const LookUpScrollBehavior(),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.page,
+                          ),
+                          child: Row(
+                            children: [
+                              for (final region in regionsResponse.regions)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: AppSpacing.sm,
                                   ),
-                                  onSelected: (_) => ref
-                                      .read(selectedRegionProvider.notifier)
-                                      .state = region.id,
+                                  child: ChoiceChip(
+                                    key: Key('trail_region_${region.id}'),
+                                    avatar:
+                                        region.id == regionsResponse.nearestId
+                                        ? Icon(
+                                            Icons.near_me,
+                                            size: 16,
+                                            color: effectiveRegion == region.id
+                                                ? colors.onSecondary
+                                                : colors.onSurfaceVariant,
+                                          )
+                                        : null,
+                                    label: Text(region.label),
+                                    selected: effectiveRegion == region.id,
+                                    selectedColor: colors.secondary,
+                                    labelStyle: text.labelMedium?.copyWith(
+                                      color: effectiveRegion == region.id
+                                          ? colors.onSecondary
+                                          : colors.onSurfaceVariant,
+                                    ),
+                                    onSelected: (_) => ref
+                                        .read(selectedRegionProvider.notifier)
+                                        .state = region.id,
+                                  ),
                                 ),
-                              ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     );
