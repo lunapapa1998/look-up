@@ -1,5 +1,14 @@
 # flutter handoff note
 
+## Spec 054-3b — LookUpHeader (no contract change)
+
+- New `lib/widgets/common/lookup_header.dart`: provider-independent `LookUpHeader({title='위를 봐요', subtitle='LOOK UP', modeToggle, actions=[]})` + `LookUpSliverHeader` (same params). Leading = `AppHeaderLogo(excludeFromSemantics: true)` + 8 + Column(title `titleMedium` maxLines 1 ellipsis in `Semantics(container, header)`; subtitle `labelSmall` `colorScheme.secondary` letterSpacing 1.1 in `ExcludeSemantics`). Background = flat `Material(color: appBarTheme.backgroundColor ?? colorScheme.surface, elevation 0)` (key `LookUpHeader.backgroundKey`), shared by both variants. Inner horizontal padding 16, no outer margin.
+- Layout: private `SlottedMultiChildRenderObjectWidget` (`_HeaderLayout`, slots leading/toggle/actions) decides at layout time. One row `[leading] … [toggle][actions]` (right-aligned group, gaps 12/8, row >= 64, all vertically centred) only if width >= 480 AND `leadingMin + 12 + toggle.maxIntrinsicWidth + 8 + actions.maxIntrinsicWidth <= width - 32`; `leadingMin = 40 + max(48, TextPainter width of the title's first 2 characters + '…' in titleMedium at the current TextScaler)`. Else two rows: row 1 `[leading (ellipsis)][actions]` (>= 64), row 2 toggle left-aligned + 8 bottom padding. No toggle → always one row. Toggle wrapped in `FittedBox(scaleDown)` — no-op unless the toggle alone exceeds the inner width (extreme text scale; then its targets shrink below 44). Heights grow with content; RTL mirrored.
+- Focus: `FocusTraversalGroup(ReadingOrderTraversalPolicy)` → one row = toggle then actions; two rows = actions then toggle (geometry, verified by Tab tests).
+- Sliver: Flutter `SliverFloatingHeader(snapMode: overlay)` (floats back on scroll-up, snaps open on release, sizes to the child so two rows need no precomputation, no status-bar padding = `primary:false`); instant snap when `MediaQuery.disableAnimations`.
+- Tests: `test/widgets/common/lookup_header_test.dart` (day+night: 5 widths × 3 scales × toggle × action no-overflow matrix, row modes, 480/600@2.0 consistency, long title ellipsis, semantics, Tab order, 44px, contrast, sliver hide/float/snap at 320 and 1024, background parity). Not applied to any screen; AppSliverHeader/AppHeaderLogo/ModeHeader/CompassButton/ModeToggle/theme/main/providers untouched.
+- Backend contract: none. No shell — **lead must run** `cd apps/flutter && flutter analyze && flutter test test/widgets/common/lookup_header_test.dart && flutter test`.
+
 ## Spec 054-3a — ModeToggle (no contract change)
 
 - New `lib/widgets/common/mode_toggle.dart`: pure `ModeToggle(mode, source, onModeSelected, onAutoSelected)` (no Riverpod, no haptics, no animations — Material `animationDuration: Duration.zero`) + thin `ObsModeToggle` ConsumerWidget (`setManual(m)` / `resetToAuto()` on `obsModeProvider`; mode for auto comes from the existing `modeForHour(now)`).
