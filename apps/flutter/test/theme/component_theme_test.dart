@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:lookup/models/discovery.dart';
 import 'package:lookup/theme/app_theme.dart';
-import 'package:lookup/theme/scene_transition.dart';
 
 /// Spec 054-1 widget checks for the theme-level chip / navigation bar
 /// styles at the narrowest supported width (320 logical px).
@@ -142,16 +141,10 @@ void main() {
   for (final mode in [ObsMode.day, ObsMode.night]) {
     group('$mode', () {
       testWidgets(
-        'at-rest app theme (sceneTheme t=1) keeps selected chip labels on '
-        'surface',
+        'at-rest app theme keeps selected chip labels on surface',
         (WidgetTester tester) async {
-          // Mirrors main.dart's at-rest path: two separately built themes for
-          // the same mode, combined via sceneTheme at t == 1.
-          final theme = sceneTheme(
-            AppTheme.themeFor(mode),
-            AppTheme.themeFor(mode),
-            1.0,
-          );
+          // main.dart now passes the cached mode theme itself (spec 060).
+          final theme = AppTheme.themeFor(mode);
           final scheme = theme.colorScheme;
           await tester.pumpWidget(selectedChipsHarness(theme));
           await tester.pumpAndSettle();

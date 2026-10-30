@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/discovery.dart' show ObsMode;
 import '../state/discovery_providers.dart' show ObsModeSource;
@@ -21,18 +22,15 @@ class NightToDayGlareCurve extends Curve {
   }
 }
 
-/// Duration of a scene transition into [to], based on who triggered it and
-/// whether reduce-motion is active.
+/// Total duration of a scene transition into [to], based on who triggered
+/// it. With reduce-motion the scene swaps instantly (no curtain), so the
+/// duration is [Duration.zero] (spec 060).
 Duration sceneTransitionDuration({
   required ObsMode to,
   required ObsModeSource source,
   required bool reduceMotion,
 }) {
-  if (reduceMotion) {
-    return to == ObsMode.day
-        ? const Duration(milliseconds: 250)
-        : const Duration(milliseconds: 150);
-  }
+  if (reduceMotion) return Duration.zero;
   if (source == ObsModeSource.auto) {
     return const Duration(milliseconds: 800);
   }
@@ -51,16 +49,109 @@ Curve sceneTransitionCurve({required ObsMode to, required bool reduceMotion}) {
       : const NightToDayGlareCurve();
 }
 
-/// Returns [to] when the transition is finished (t >= 1) and [from] when it
-/// hasn't started (t <= 0), so state-dependent theme values (e.g.
-/// WidgetStateColor chip labels) survive at rest; lerps only mid-transition.
-ThemeData sceneTheme(ThemeData from, ThemeData to, double t) {
-  if (t >= 1.0) return to;
-  if (t <= 0.0) return from;
-  return ThemeData.lerp(from, to, t);
-}
-
 /// Manual transitions get a haptic tap on entry; auto (ambient) ones don't.
 bool shouldHapticOnTransition(ObsModeSource source) {
   return source == ObsModeSource.manual;
+}
+
+/// Fade-through curtain color (spec 060): the same near-black for both
+/// directions, so a transition never flashes white.
+const Color kSceneCurtainColor = Color(0xFF141414);
+
+/// Share of the total transition duration spent raising the curtain; the
+/// rest lowers it. The theme swaps when the curtain is fully opaque.
+const double kCurtainRiseFraction = 0.5;
+
+/// Pointer and keyboard input are blocked while the curtain opacity is at
+/// or above this value (the screen is mostly hidden).
+const double kCurtainBlockThreshold = 0.5;
+
+/// Curve used while the curtain rises (opacity 0 -> 1) towards [to].
+Curve curtainRiseCurve(ObsMode to) {
+  return to == ObsMode.night ? Curves.easeInOutCubic : Curves.easeInCubic;
+}
+
+/// Curve used while the curtain falls (opacity 1 -> 0) into [to].
+///
+/// Used with `animateTo(0)`, so opacity = 1 - curve(t): into day the
+/// brightness follows the [NightToDayGlareCurve] ramp.
+Curve curtainFallCurve(ObsMode to) {
+  return to == ObsMode.night
+      ? Curves.easeInOutCubic
+      : const NightToDayGlareCurve();
+}
+
+/// Full-screen #141414 curtain painted above the app's Navigator.
+///
+/// Uses the color's alpha instead of an `Opacity` widget (no saveLayer on
+/// web). Invisible to the accessibility tree, never focusable, and only
+/// absorbs pointers while [opacity] >= [kCurtainBlockThreshold].
+class SceneCurtain extends StatelessWidget {
+  const SceneCurtain({super.key, required this.opacity});
+
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    if (opacity <= 0) return const SizedBox.shrink();
+    return ExcludeSemantics(
+      child: IgnorePointer(
+        ignoring: opacity < kCurtainBlockThreshold,
+        child: SizedBox.expand(
+          // ColoredBox hit-tests opaque, so when not ignoring it absorbs
+          // every pointer aimed at the content underneath.
+          child: ColoredBox(
+            key: const Key('scene_curtain'),
+            color: kSceneCurtainColor.withValues(
+              alpha: opacity >= 1.0 ? 1.0 : opacity,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Keyboard guard placed directly above the Navigator (inside
+/// `MaterialApp.builder`), i.e. under the app-root default shortcuts, so its
+/// bindings win. While [blocked], activation (Enter/Space/NumpadEnter),
+/// focus-traversal (Tab/Shift+Tab/arrows) and dismiss (Escape) keys are
+/// consumed by a [DoNothingIntent]; nothing is queued or replayed.
+///
+/// It never moves or removes focus, and its widget structure is identical
+/// whether blocked or not, so the Navigator subtree is never reparented.
+class SceneInputGuard extends StatelessWidget {
+  const SceneInputGuard({
+    super.key,
+    required this.blocked,
+    required this.child,
+  });
+
+  final bool blocked;
+  final Widget child;
+
+  static const Map<ShortcutActivator, Intent> _blockedShortcuts =
+      <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.enter): DoNothingIntent(),
+        SingleActivator(LogicalKeyboardKey.numpadEnter): DoNothingIntent(),
+        SingleActivator(LogicalKeyboardKey.space): DoNothingIntent(),
+        SingleActivator(LogicalKeyboardKey.tab): DoNothingIntent(),
+        SingleActivator(LogicalKeyboardKey.tab, shift: true):
+            DoNothingIntent(),
+        SingleActivator(LogicalKeyboardKey.arrowUp): DoNothingIntent(),
+        SingleActivator(LogicalKeyboardKey.arrowDown): DoNothingIntent(),
+        SingleActivator(LogicalKeyboardKey.arrowLeft): DoNothingIntent(),
+        SingleActivator(LogicalKeyboardKey.arrowRight): DoNothingIntent(),
+        SingleActivator(LogicalKeyboardKey.escape): DoNothingIntent(),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return Shortcuts(
+      shortcuts: blocked
+          ? _blockedShortcuts
+          : const <ShortcutActivator, Intent>{},
+      child: child,
+    );
+  }
 }
