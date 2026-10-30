@@ -57,7 +57,7 @@
 
 ### Phase 1: 기반 위젯
 
-- [ ] `LookUpScrollBehavior` 작성 및 등록
+- [x] `LookUpScrollBehavior` 작성 및 등록 — 054-2d 완료(B-1: 전역 등록 대신 가로 목록 4곳에만 적용), 사용자 브라우저 확인 통과
 - [x] `ProvenanceChip`, `StatusView`, `DataSourceFooter` 작성과 테스트 — 054-2a(ProvenanceChip·EyebrowLabel), 054-2b(StatusView·DataSourceFooter) 완료, 사용자 시각 검증 통과. 화면 적용은 055/058
 
 **Phase validation**: `just flutter-check` 통과.
@@ -128,3 +128,14 @@ just flutter-check
   - 검증: analyze 문제 없음, 테스트 479개 통과(기존 테스트 무수정 통과 — sample_data_notice_test 7, demo_fallback_wiring_test 2, observation_map_wiring_test 11 포함; 새 16개: 실제↔예시 전환, 재시도, 낮·밤 대비, 화면 낭독기 합침, 320px). 첫 검증에서 새 높이 테스트 2개가 공식 계산 오류로 실패 → 측정값 기준으로 테스트만 수정. 웹 빌드 DEMO_FALLBACK ON/OFF 성공(8080/8081 갱신). 시각 검증은 **미확인**.
 
 - 2026-10-30: **054-2c 완료.** 사용자 시각 검증 통과(8080 DEMO_FALLBACK ON: 예시 배너·태그 표시, 8081 OFF: 예시 표시 없음 — 디자인·레이아웃 문제 없음). 054-2d·054-3은 미착수. 참고: 확인 시점에 운영 백엔드(Cloud Run)가 HTTP 500을 반환해 8080은 예시 데이터로 대체됨 — 백엔드는 이 spec 범위 밖이며 별도 후속 점검.
+
+- 2026-10-30: **054-2d 방식 변경(사용자 결정 B-1)과 구현·자동 검증(완료 판정은 사용자 브라우저 확인 후).**
+  - 결정: `MaterialApp.scrollBehavior` 전역 등록은 하지 않는다(위 불변 조건·Phase 1의 "등록" 문구를 대체). 전역 등록은 세로 페이지·지도 시트·입력란까지 마우스 드래그로 바꾸므로, 마우스 드래그가 필요한 가로 목록에만 지역 적용한다.
+  - 화면 파일 수정 금지 규칙의 **예외(이 단계 한정, 사용자 승인)**: 아래 4곳에서 기존 가로 `SingleChildScrollView`를 `ScrollConfiguration(behavior: const LookUpScrollBehavior())`로 감싸는 줄과 import만 추가(배치·디자인·데이터 로직·키·콜백 무변경, 들여쓰기 재정렬만 발생).
+    - `observation_map_screen.dart` 지도 레이어 칩, `packages_catalog_screen.dart` 패키지 분류 필터, `trails_catalog_screen.dart` 트레일 지역 필터, `observation_spot_sheet.dart` 지도 시트 정렬·SQM 필터(시트 자체와 검색창은 감싸지 않음).
+  - `lib/widgets/common/lookup_scroll_behavior.dart`: `MaterialScrollBehavior`에 마우스만 드래그 장치로 추가. 터치·스타일러스·트랙패드, Shift+휠(가로), 스크롤바는 상속 그대로. `main.dart`·테마 무변경.
+  - 자동 검증: analyze 문제 없음, 테스트 487개 통과(새 8개: 마우스 드래그로 가로 스크롤·드래그 시 칩 오선택 없음, 감싸지 않은 목록은 마우스로 안 움직임(기본 동작), 짧은 클릭 1회 선택, 터치 드래그, Shift+휠, 세로 목록·입력란으로 동작이 번지지 않음). 네 화면의 기존 테스트 100개 무수정 통과. 웹 빌드 DEMO_FALLBACK ON/OFF 성공(8080/8081 갱신).
+  - **수동 검증 대기(실제 브라우저):** 실제 마우스로 네 가로 목록 끌기·짧은 클릭 선택·끌고 놓을 때 오선택 없음, 지도 이동과 지도 시트 마우스 동작이 이전과 같음, 시트 검색창 마우스 텍스트 선택, 실제 트랙패드 두 손가락 가로 스크롤·물리 휠 Shift+휠, 데스크톱 웹 스크롤바 모양, 모바일 터치.
+  - 백엔드 HTTP 500/503(Cloud Run 플랫폼 단계 추정, 원인 미확정)과 CORS 미설정은 서로 별개의 후속 점검 항목. GCP 접근 권한 준비 전까지 진단 보류, GCP 설정·배포·결제·IAM·백엔드 코드는 변경하지 않음.
+
+- 2026-10-30: **054-2d 완료.** 사용자가 실제 브라우저(8080, 마우스)에서 네 가로 목록 동작을 확인했고 발견된 문제 없음. 실제 트랙패드 두 손가락 스크롤·물리 휠 Shift+휠의 개별 확인과 모바일 실기기(터치) 검증은 **하지 않았으며 미확인**으로 남긴다(자동 테스트의 합성 이벤트 검증만 있음). 054-2(a~d) 전체 완료. 054-3은 미착수.
