@@ -5,14 +5,25 @@ import '../api/ecolog_api.dart';
 import '../models/observation.dart';
 import '../state/providers.dart';
 import '../state/sample_data_provider.dart';
+import 'diary_list_screen.dart';
 
 /// Create/edit form for a single [Observation].
 ///
 /// Create mode when [existing] is null, edit mode (pre-filled) otherwise.
+///
+/// [initialSpeciesType]/[initialSpeciesName] optionally prefill a NEW record
+/// (spec 058 Phase 1); they are ignored in edit mode, where [existing] wins.
 class ObservationFormScreen extends ConsumerStatefulWidget {
   final Observation? existing;
+  final SpeciesType? initialSpeciesType;
+  final String? initialSpeciesName;
 
-  const ObservationFormScreen({super.key, this.existing});
+  const ObservationFormScreen({
+    super.key,
+    this.existing,
+    this.initialSpeciesType,
+    this.initialSpeciesName,
+  });
 
   @override
   ConsumerState<ObservationFormScreen> createState() =>
@@ -35,9 +46,14 @@ class _ObservationFormScreenState extends ConsumerState<ObservationFormScreen> {
   void initState() {
     super.initState();
     final existing = widget.existing;
-    _speciesType = existing?.speciesType ?? SpeciesType.bird;
-    _speciesNameController =
-        TextEditingController(text: existing?.speciesName ?? '');
+    _speciesType = existing != null
+        ? existing.speciesType
+        : widget.initialSpeciesType ?? SpeciesType.bird;
+    _speciesNameController = TextEditingController(
+      text: existing != null
+          ? existing.speciesName
+          : widget.initialSpeciesName ?? '',
+    );
     _noteController = TextEditingController(text: existing?.note ?? '');
     _photoUrlController =
         TextEditingController(text: existing?.photoUrl ?? '');
@@ -97,14 +113,36 @@ class _ObservationFormScreenState extends ConsumerState<ObservationFormScreen> {
         );
       }
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
       // Demo fallback (spec 052) kept the write on-device only. It vanishes
       // from the list once the server answers again, hence "임시".
-      if (ref.read(sampleSourcesProvider).contains(SampleSource.ecolog)) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      final isSample =
+          ref.read(sampleSourcesProvider).contains(SampleSource.ecolog);
+      if (!_isEditing) {
+        // Spec 058 Phase 4: a new record offers a jump to the diary. The
+        // sample notice keeps its own copy but gets the same action.
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              isSample ? '서버에 연결할 수 없어 이 기기에만 임시 저장됐어요' : '기록했어요',
+            ),
+            action: SnackBarAction(
+              label: '생태일기 보기',
+              onPressed: () => navigator.push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const DiaryListScreen(),
+                ),
+              ),
+            ),
+          ),
+        );
+      } else if (isSample) {
+        messenger.showSnackBar(
           const SnackBar(content: Text('서버에 연결할 수 없어 이 기기에만 임시 저장됐어요')),
         );
       }
-      Navigator.of(context).pop();
+      navigator.pop();
     } on EcologApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

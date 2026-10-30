@@ -1,39 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../state/journey_providers.dart';
 import 'home_discovery_screen.dart';
 import 'observation_map_screen.dart';
 import 'packages_catalog_screen.dart';
 import 'trails_catalog_screen.dart';
 
-/// Bottom-navigation shell hosting the app's 4 top-level tabs.
-class AppShell extends StatefulWidget {
+/// Bottom-navigation shell hosting the app's 4 top-level tabs. The selected
+/// tab lives in [appTabIndexProvider] so other screens can switch tabs.
+class AppShell extends ConsumerWidget {
   const AppShell({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedIndex = ref.watch(appTabIndexProvider);
+    void select(int index) =>
+        ref.read(appTabIndexProvider.notifier).state = index;
 
-class _AppShellState extends State<AppShell> {
-  int _selectedIndex = 0;
-
-  List<Widget> get _tabs => [
-    HomeDiscoveryScreen(
-      onViewMapPressed: () => setState(() => _selectedIndex = 1),
-    ),
-    const ObservationMapScreen(),
-    const TrailsCatalogScreen(),
-    const PackagesCatalogScreen(),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _tabs),
+      body: IndexedStack(
+        index: selectedIndex,
+        children: [
+          HomeDiscoveryScreen(
+            onViewMapPressed: () => select(AppTab.observationMap),
+          ),
+          const ObservationMapScreen(),
+          const TrailsCatalogScreen(),
+          const PackagesCatalogScreen(),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() => _selectedIndex = index);
-        },
+        selectedIndex: selectedIndex,
+        onDestinationSelected: select,
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home), label: '홈'),
           NavigationDestination(icon: Icon(Icons.map), label: '관찰 지도'),

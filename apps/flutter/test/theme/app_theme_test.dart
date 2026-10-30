@@ -135,45 +135,85 @@ void main() {
     };
 
     for (final mode in [ObsMode.day, ObsMode.night]) {
-      testWidgets('$mode: body/title/labelLarge use Pretendard', (
+      testWidgets('$mode: ThemeData default family is BithumbGothic', (
         WidgetTester tester,
       ) async {
-        final t = AppTheme.themeFor(mode).textTheme;
-        final styles = <String, TextStyle?>{
-          'bodyLarge': t.bodyLarge,
-          'bodyMedium': t.bodyMedium,
-          'bodySmall': t.bodySmall,
-          'titleLarge': t.titleLarge,
-          'titleMedium': t.titleMedium,
-          'titleSmall': t.titleSmall,
-          'labelLarge': t.labelLarge,
-        };
-        styles.forEach((name, style) {
-          expect(style, isNotNull, reason: name);
-          expect(style!.fontFamily, 'Pretendard', reason: name);
-        });
+        final theme = AppTheme.themeFor(mode);
+        expect(AppTheme.bithumbGothic, 'BithumbGothic');
+        // ThemeData.fontFamily also reaches primaryTextTheme (buttons on
+        // primary fills, etc.).
+        expect(theme.primaryTextTheme.bodyMedium!.fontFamily, 'BithumbGothic');
+        expect(theme.textTheme.bodyMedium!.fontFamily, 'BithumbGothic');
       });
 
-      testWidgets('$mode: every style resolves Hangul to Pretendard', (
-        WidgetTester tester,
-      ) async {
+      testWidgets('$mode: every textTheme style is bundled BithumbGothic, '
+          'no Google Fonts family', (WidgetTester tester) async {
+        const googleFamilies = <String>[
+          'SpaceGrotesk',
+          'Space Grotesk',
+          'JetBrainsMono',
+          'JetBrains Mono',
+          'Inter',
+        ];
         final styles = allStyles(AppTheme.themeFor(mode).textTheme);
         expect(styles, hasLength(15));
         styles.forEach((name, style) {
           expect(style, isNotNull, reason: name);
-          final viaFamily = style!.fontFamily == 'Pretendard';
-          final viaFallback =
-              style.fontFamilyFallback?.contains('Pretendard') ?? false;
-          expect(viaFamily || viaFallback, isTrue, reason: name);
+          expect(style!.fontFamily, 'BithumbGothic', reason: name);
+          expect(style.fontFamilyFallback, contains('Pretendard'),
+              reason: name);
+          for (final family in [
+            style.fontFamily!,
+            ...?style.fontFamilyFallback,
+          ]) {
+            for (final g in googleFamilies) {
+              expect(family.contains(g), isFalse, reason: '$name: $family');
+            }
+          }
         });
       });
 
-      testWidgets('$mode: headlineSmall falls back to Pretendard, height >= 1.2',
-          (WidgetTester tester) async {
-        final headline = AppTheme.themeFor(mode).textTheme.headlineSmall!;
-        expect(headline.fontFamilyFallback, contains('Pretendard'));
-        expect(headline.height, isNotNull);
-        expect(headline.height!, greaterThanOrEqualTo(1.2));
+      testWidgets('$mode: no style requests a weight above w700', (
+        WidgetTester tester,
+      ) async {
+        final styles = allStyles(AppTheme.themeFor(mode).textTheme);
+        styles.forEach((name, style) {
+          final w = style!.fontWeight;
+          if (w != null) {
+            expect(w.value, lessThanOrEqualTo(700), reason: name);
+          }
+        });
+      });
+
+      testWidgets('$mode: Bithumb line-height floors (titles >= 1.25, '
+          'body >= 1.4)', (WidgetTester tester) async {
+        final t = AppTheme.themeFor(mode).textTheme;
+        final titles = [
+          t.displayLarge,
+          t.displayMedium,
+          t.displaySmall,
+          t.headlineLarge,
+          t.headlineMedium,
+          t.headlineSmall,
+          t.titleLarge,
+          t.titleMedium,
+          t.titleSmall,
+        ];
+        for (final s in titles) {
+          expect(s!.height, greaterThanOrEqualTo(1.25));
+        }
+        for (final s in [t.bodyLarge, t.bodyMedium, t.bodySmall]) {
+          expect(s!.height, greaterThanOrEqualTo(1.4));
+        }
+      });
+
+      testWidgets('$mode: monoLabel is bundled BithumbGothic, 0.06em', (
+        WidgetTester tester,
+      ) async {
+        final mono = AppTheme.monoLabel(AppTheme.themeFor(mode));
+        expect(mono.fontFamily, 'BithumbGothic');
+        expect(mono.fontFamilyFallback, contains('Pretendard'));
+        expect(mono.letterSpacing, closeTo(0.06 * mono.fontSize!, 1e-9));
       });
 
       testWidgets('$mode: no style has a line height below 1.1', (

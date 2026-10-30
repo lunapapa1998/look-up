@@ -80,7 +80,7 @@ class _HeritageEatRow extends StatelessWidget {
           Text(
             formatDistanceM(eat.distanceM),
             style: textTheme.labelMedium?.copyWith(
-              color: colorScheme.tertiary,
+              color: colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
             ),
           ),

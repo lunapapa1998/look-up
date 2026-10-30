@@ -518,7 +518,7 @@ void main() {
             .text
             .style!
             .color!;
-        expect(subtitleColor, themeData.colorScheme.secondary);
+        expect(subtitleColor, themeData.colorScheme.onSurfaceVariant);
         expect(
           contrastRatio(titleColor, background),
           greaterThanOrEqualTo(4.5),

@@ -4,18 +4,46 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config.dart';
 import '../models/discovery.dart';
 import '../models/trails.dart';
-import '../state/auth_providers.dart';
 import '../state/discovery_providers.dart';
 import '../state/sample_data_provider.dart';
 import '../theme/layout_tokens.dart';
 import '../theme/lookup_colors.dart';
-import '../widgets/app_header_logo.dart';
+import '../utils/keep_all.dart';
+import '../widgets/common/lookup_header.dart';
+import '../widgets/common/mode_toggle.dart';
+import '../widgets/journey/journey_card.dart';
 import '../widgets/night_sky_scale.dart';
 import '../widgets/night_sky_tag.dart';
 import '../widgets/sample_data_notice.dart';
 import '../widgets/score_gauge.dart';
 import '../widgets/tonight_sky_section.dart';
 import 'account_screen.dart';
+
+/// Home page title (UI finishing pass, 2026-10-31). Rendered through
+/// [keepAll] so lines only break between words.
+const String homeGreetingTitle = '오늘은 하늘을 보기 좋은 날이에요.';
+
+/// Home page description under [homeGreetingTitle].
+const String homeGreetingDescription =
+    '갯벌을 찾은 새부터 밤하늘의 별까지, 오늘의 관찰을 시작해 보세요.';
+
+const Key homeGreetingTitleKey = Key('home_greeting_title');
+const Key homeGreetingDescriptionKey = Key('home_greeting_description');
+
+/// Night-mode moon row: title ('오늘의 달 · …') and right-aligned times.
+const Key homeMoonTitleKey = Key('home_moon_title');
+const Key homeMoonsetKey = Key('home_moonset');
+const Key homeMoonriseKey = Key('home_moonrise');
+
+/// Night-mode night-sky label ('오늘 밤 · …'), rendered through [keepAll].
+const Key homeNightSkyLabelKey = Key('home_night_sky_label');
+
+/// Responsive home page title size: 22 at <=360, 24 below 600, 28 wider.
+double homeTitleFontSize(double width) {
+  if (width <= AppBreakpoints.narrowMax) return 22;
+  if (width < AppBreakpoints.mediumMin) return 24;
+  return 28;
+}
 
 class HomeDiscoveryScreen extends ConsumerStatefulWidget {
   const HomeDiscoveryScreen({super.key, required this.onViewMapPressed});
@@ -39,6 +67,7 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
 
   late final AnimationController _staggerController;
   final Set<ObsMode> _degradedModes = {};
+  final GlobalKey _conditionsKey = GlobalKey();
 
   @override
   void initState() {
@@ -73,10 +102,8 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
       SampleSource.suitability,
     );
     final isStarlightSample = sampleSources.contains(SampleSource.starlight);
-    final user = ref.watch(authUserProvider);
-    final displayName = (user?.displayName?.isNotEmpty ?? false)
-        ? user!.displayName!
-        : '관찰자';
+    final width = MediaQuery.sizeOf(context).width;
+    final isWide = width >= AppBreakpoints.mediumMin;
     final locationAsync = ref.watch(locationProvider);
     final locationLabel = locationAsync.when(
       data: (loc) => loc.placeName ?? fallbackPlaceName,
@@ -129,78 +156,56 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
           child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
-            SliverAppBar(
-              primary: false,
-              pinned: false,
-              floating: true,
-              snap: true,
-              toolbarHeight: 64,
-              titleSpacing: 0,
-              automaticallyImplyLeading: false,
-              title: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    const AppHeaderLogo(),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            LookUpSliverHeader(
+              modeToggle: const ObsModeToggle(),
+              actions: [
+                // Capped so a long place name ellipsizes instead of
+                // squeezing the brand title out of row 1 at 320px.
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 140),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('위를 봐요', style: textTheme.headlineSmall),
-                        Text(
-                          'LOOK UP',
-                          style: textTheme.labelSmall?.copyWith(
-                            color: colorScheme.secondary,
+                        const Icon(Icons.explore, size: 16),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            locationLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.explore, size: 16),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  locationLabel,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: '내 계정',
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const AccountScreen(),
-                        ),
-                      ),
-                      icon: const CircleAvatar(child: Icon(Icons.person)),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: '내 계정',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AccountScreen(),
+                    ),
+                  ),
+                  icon: const CircleAvatar(child: Icon(Icons.person)),
+                ),
+              ],
             ),
             SliverPadding(
-              padding: const EdgeInsets.all(16),
+              // One horizontal page gutter (20 at <=360, 24 phone, 32-40
+              // wide, capped at maxContentWidth) shared by every card.
+              padding: AppLayout.pageInsets(
+                width,
+              ).copyWith(top: AppSpacing.lg, bottom: AppSpacing.lg),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   SampleDataNotice(
@@ -214,74 +219,43 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                       ref.invalidate(tonightSkyForecastProvider);
                     },
                   ),
+                  JourneyCard(onConditionsTap: _showConditions),
+                  const SizedBox(height: AppSpacing.xl),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            const TextSpan(text: '하늘을 올려다보기 완벽한 하루예요, '),
-                            TextSpan(
-                              text: '$displayName님',
-                              style: TextStyle(color: colorScheme.secondary),
-                            ),
-                          ],
-                        ),
-                        style: textTheme.headlineMedium,
-                      ),
-                      const SizedBox(height: 8),
                       Text(
-                        '지상 갯벌의 날갯짓부터 성운의 심연까지, 오늘 관찰의 최적 기점입니다.',
+                        keepAll(homeGreetingTitle),
+                        key: homeGreetingTitleKey,
+                        semanticsLabel: homeGreetingTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.titleLarge?.copyWith(
+                          fontSize: homeTitleFontSize(width),
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        keepAll(homeGreetingDescription),
+                        key: homeGreetingDescriptionKey,
+                        semanticsLabel: homeGreetingDescription,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                         style: textTheme.bodyMedium?.copyWith(
+                          fontSize: 15,
+                          height: 1.5,
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Text('지금 시선의 초점', style: textTheme.headlineSmall),
-                      const Spacer(),
-                      _buildFocusModeSourceBadge(colorScheme, modeState),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _FocusModeSegmentButton(
-                          buttonKey: const Key('focusModeDaySegment'),
-                          icon: Icons.light_mode,
-                          label: '낮의 새를 찾아서',
-                          active: currentMode == ObsMode.day,
-                          activeBackground: colorScheme.tertiary,
-                          activeForeground: colorScheme.onTertiary,
-                          semanticsLabel: '낮 모드로 전환합니다',
-                          onTap: () => ref
-                              .read(obsModeProvider.notifier)
-                              .setManual(ObsMode.day),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _FocusModeSegmentButton(
-                          buttonKey: const Key('focusModeNightSegment'),
-                          icon: Icons.nightlight_round,
-                          label: '밤의 별을 보러',
-                          active: currentMode == ObsMode.night,
-                          activeBackground: colorScheme.secondary,
-                          activeForeground: colorScheme.onSecondary,
-                          semanticsLabel: '밤 모드로 전환합니다',
-                          onTap: () => ref
-                              .read(obsModeProvider.notifier)
-                              .setManual(ObsMode.night),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  AnimatedSwitcher(
+                  KeyedSubtree(
+                    key: _conditionsKey,
+                    child: AnimatedSwitcher(
                     duration: modeTransitionDuration,
                     child: KeyedSubtree(
                       key: ValueKey(currentMode),
@@ -300,12 +274,12 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                     shape: BoxShape.circle,
                                     gradient: RadialGradient(
                                       colors: [
-                                        colorScheme.secondary.withValues(
+                                        colorScheme.onSurface.withValues(
                                           alpha: currentMode == ObsMode.night
                                               ? 0.03
                                               : 0.10,
                                         ),
-                                        colorScheme.secondary.withValues(
+                                        colorScheme.onSurface.withValues(
                                           alpha: 0.0,
                                         ),
                                       ],
@@ -315,7 +289,9 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: EdgeInsets.all(
+                                isWide ? 20 : AppSpacing.lg,
+                              ),
                               decoration: BoxDecoration(
                                 color: colorScheme.surfaceContainer,
                                 borderRadius: BorderRadius.circular(12),
@@ -424,6 +400,8 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                                 overview.suitabilityIndex.score,
                                             size: 56,
                                             scoreFontSize: 20,
+                                            progressColor:
+                                                colorScheme.onSurface,
                                           ),
                                           const SizedBox(width: 16),
                                           Expanded(
@@ -453,7 +431,7 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                                             .titleMedium
                                                             ?.copyWith(
                                                               color: colorScheme
-                                                                  .secondary,
+                                                                  .onSurface,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .bold,
@@ -463,8 +441,8 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                                     const SizedBox(width: 4),
                                                     Icon(
                                                       Icons.verified,
-                                                      color:
-                                                          colorScheme.secondary,
+                                                      color: colorScheme
+                                                          .onSurfaceVariant,
                                                       size: 18,
                                                     ),
                                                   ],
@@ -540,9 +518,14 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                               final gh = sortedGoldenHours[i];
                                               final isDay =
                                                   gh.mode == ObsMode.day;
+                                              // Day/night-meaning accents
+                                              // (yellow / lavender), same in
+                                              // both themes.
+                                              final modeColors =
+                                                  LookUpColors.of(context);
                                               final accent = isDay
-                                                  ? colorScheme.tertiary
-                                                  : colorScheme.secondary;
+                                                  ? modeColors.modeDayAccent
+                                                  : modeColors.modeNightAccent;
                                               return Padding(
                                                 padding: EdgeInsets.only(
                                                   top: i == 0 ? 0 : 8,
@@ -594,8 +577,10 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                                                                     style: textTheme
                                                                         .labelSmall
                                                                         ?.copyWith(
-                                                                          color:
-                                                                              accent,
+                                                                          color: accentText(
+                                                                            context,
+                                                                            accent,
+                                                                          ),
                                                                           fontSize:
                                                                               12,
                                                                           height:
@@ -795,7 +780,8 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
                   if (currentMode == ObsMode.night) ...[
                     _StaggerReveal(
                       controller: _staggerController,
@@ -834,129 +820,11 @@ class _HomeDiscoveryScreenState extends ConsumerState<HomeDiscoveryScreen>
     );
   }
 
-  Widget _buildFocusModeSourceBadge(
-    ColorScheme colorScheme,
-    ObsModeState modeState,
-  ) {
-    if (modeState.source == ObsModeSource.auto) {
-      return Semantics(
-        label: '자동 모드입니다',
-        container: true,
-        excludeSemantics: true,
-        child: Container(
-          key: const Key('focusModeSourceBadgeAuto'),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            border: Border.all(color: colorScheme.outline),
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-          ),
-          child: Text(
-            'AUTO',
-            style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
-          ),
-        ),
-      );
-    }
-
-    return Semantics(
-      label: '수동 모드입니다. 탭하면 자동 모드로 돌아갑니다.',
-      container: true,
-      excludeSemantics: true,
-      onTap: () => ref.read(obsModeProvider.notifier).resetToAuto(),
-      child: GestureDetector(
-        key: const Key('focusModeSourceBadgeManual'),
-        onTap: () => ref.read(obsModeProvider.notifier).resetToAuto(),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: colorScheme.secondary,
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-          ),
-          child: Text(
-            'MANUAL',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSecondary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Full-width day/night focus-mode segment button, shown in pairs below the
-/// suitability card. Active state uses a filled accent background (not color
-/// alone) so it stays legible without relying on hue perception.
-class _FocusModeSegmentButton extends StatelessWidget {
-  const _FocusModeSegmentButton({
-    required this.buttonKey,
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.activeBackground,
-    required this.activeForeground,
-    required this.semanticsLabel,
-    required this.onTap,
-  });
-
-  final Key buttonKey;
-  final IconData icon;
-  final String label;
-  final bool active;
-  final Color activeBackground;
-  final Color activeForeground;
-  final String semanticsLabel;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final background = active
-        ? activeBackground
-        : colorScheme.surfaceContainerHigh;
-    final foreground = active ? activeForeground : colorScheme.onSurfaceVariant;
-
-    return Semantics(
-      label: semanticsLabel,
-      button: true,
-      selected: active,
-      container: true,
-      excludeSemantics: true,
-      onTap: onTap,
-      child: GestureDetector(
-        key: buttonKey,
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 44),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 18, color: foreground),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: active ? FontWeight.bold : FontWeight.normal,
-                    color: foreground,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  /// Journey step ①: brings the conditions section into view (jump, no
+  /// animation).
+  void _showConditions() {
+    final target = _conditionsKey.currentContext;
+    if (target != null) Scrollable.ensureVisible(target);
   }
 }
 
@@ -995,6 +863,7 @@ class _TodayMoonSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final nightAccent = LookUpColors.of(context).modeNightAccent;
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -1010,7 +879,7 @@ class _TodayMoonSection extends StatelessWidget {
               label: '${moon.phaseName}, 달빛 ${moon.illumination} 퍼센트',
               child: Icon(
                 moonPhaseIcon(moon.phaseName),
-                color: colorScheme.secondary,
+                color: nightAccent,
                 size: 28,
               ),
             ),
@@ -1021,7 +890,9 @@ class _TodayMoonSection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '오늘의 달 · ${moon.phaseName}',
+                  keepAll('오늘의 달 · ${moon.phaseName}'),
+                  key: homeMoonTitleKey,
+                  semanticsLabel: '오늘의 달 · ${moon.phaseName}',
                   style: (textTheme.titleSmall ?? textTheme.labelLarge)
                       ?.copyWith(
                         fontWeight: FontWeight.bold,
@@ -1037,20 +908,24 @@ class _TodayMoonSection extends StatelessWidget {
               ],
             ),
           ),
+          // Keeps the wrapping title clear of the right-aligned times.
+          const SizedBox(width: 8),
           Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 '월몰 ${moon.moonset ?? '—'}',
+                key: homeMoonsetKey,
                 style: (textTheme.bodyMedium ?? textTheme.labelMedium)
                     ?.copyWith(
-                      color: colorScheme.secondary,
+                      color: accentText(context, nightAccent),
                       fontWeight: FontWeight.w600,
                     ),
               ),
               Text(
                 '월출 ${moon.moonrise ?? '—'}',
+                key: homeMoonriseKey,
                 style: textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -1061,17 +936,6 @@ class _TodayMoonSection extends StatelessWidget {
       ),
     );
   }
-}
-
-Color _nightSkyTierColor(
-  BuildContext context,
-  int filledStars,
-  ColorScheme colorScheme,
-) {
-  if (filledStars >= 4) return colorScheme.tertiary;
-  if (filledStars == 3) return colorScheme.onSurfaceVariant;
-  if (filledStars >= 1) return LookUpColors.of(context).rating;
-  return colorScheme.outline;
 }
 
 class _NightSkySection extends StatelessWidget {
@@ -1087,8 +951,10 @@ class _NightSkySection extends StatelessWidget {
       bortleClass: nightSky.bortleClass,
       status: nightSky.status ?? '',
     );
-    final tierColor =
-        _nightSkyTierColor(context, display.filledStars, colorScheme);
+    // Star-observation icon means night (lavender); the star rating row is
+    // neutral grey — only the filled count carries the tier.
+    final guideColor = LookUpColors.of(context).modeNightAccent;
+    final tierColor = colorScheme.onSurfaceVariant;
 
     return Container(
       padding: const EdgeInsets.all(8),
@@ -1107,8 +973,8 @@ class _NightSkySection extends StatelessWidget {
               color: display.hasNoData
                   ? colorScheme.outline
                   : display.isApprox
-                  ? tierColor.withValues(alpha: 0.6)
-                  : tierColor,
+                  ? guideColor.withValues(alpha: 0.6)
+                  : guideColor,
             ),
           ),
           const SizedBox(width: 8),
@@ -1119,7 +985,9 @@ class _NightSkySection extends StatelessWidget {
                   ? const [Text('밤하늘 밝기 정보 없음')]
                   : [
                       Text(
-                        '오늘 밤 · ${display.label}',
+                        keepAll('오늘 밤 · ${display.label}'),
+                        key: homeNightSkyLabelKey,
+                        semanticsLabel: '오늘 밤 · ${display.label}',
                         style: textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -1194,8 +1062,8 @@ class _NightSkyDayLine extends StatelessWidget {
       bortleClass: nightSky.bortleClass,
       status: nightSky.status ?? '',
     );
-    final tierColor =
-        _nightSkyTierColor(context, display.filledStars, colorScheme);
+    final guideColor = LookUpColors.of(context).modeNightAccent;
+    final tierColor = colorScheme.onSurfaceVariant;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -1204,7 +1072,7 @@ class _NightSkyDayLine extends StatelessWidget {
           Icon(
             Icons.auto_awesome,
             size: 16,
-            color: display.hasNoData ? colorScheme.outline : tierColor,
+            color: display.hasNoData ? colorScheme.outline : guideColor,
           ),
           const SizedBox(width: 6),
           Expanded(

@@ -12,6 +12,7 @@ import '../models/observation_map.dart';
 import '../models/trails.dart';
 import '../services/location_service.dart';
 import '../state/discovery_providers.dart';
+import '../state/journey_providers.dart';
 import '../state/sample_data_provider.dart';
 import '../theme/layout_tokens.dart';
 import '../utils/bird_scatter.dart';
@@ -19,6 +20,7 @@ import '../utils/observation_spot_filter.dart';
 import '../widgets/observation_map_overlays.dart';
 import '../widgets/app_header_logo.dart';
 import '../widgets/common/lookup_scroll_behavior.dart';
+import '../widgets/common/status_view.dart';
 import '../widgets/observation_marker.dart';
 import '../widgets/observation_spot_sheet.dart';
 import '../widgets/sample_data_notice.dart';
@@ -84,7 +86,6 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     'trail': '탐방로',
   };
   static const _sheetMidSnap = 0.45;
-  static const _trailColor = Color(0xFF5C8A72);
 
   @override
   void initState() {
@@ -337,6 +338,32 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
     });
   }
 
+  /// Opens the spot requested via [pendingMapSpotIdProvider] (spec 058
+  /// Phase 1, e.g. from the home journey card) like a marker tap, once the
+  /// observation-map data is loaded, then clears the request. An id that is
+  /// not in the loaded data is dropped (the tab switch alone still happens).
+  void _openPendingSpot() {
+    final id = ref.read(pendingMapSpotIdProvider);
+    if (id == null) return;
+    final spots = ref.read(observationMapProvider).valueOrNull?.spots;
+    if (spots == null) return; // Not loaded yet; retried on load.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ref.read(pendingMapSpotIdProvider) != id) return;
+      ref.read(pendingMapSpotIdProvider.notifier).state = null;
+      final spot = spots.where((s) => s.id == id).firstOrNull;
+      if (spot == null) return;
+      if (!_sheetController.isAttached) {
+        setState(() {
+          _selectedSpot = spot;
+          _selectedTrail = null;
+          _selectedSpecies = null;
+        });
+        return;
+      }
+      _selectSpot(spot);
+    });
+  }
+
   void _retryObservationMap() {
     ref.invalidate(observationMapProvider);
   }
@@ -386,7 +413,13 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
+    ref.listen<String?>(pendingMapSpotIdProvider, (previous, next) {
+      if (next != null) _openPendingSpot();
+    });
+
     ref.listen(observationMapProvider, (previous, next) {
+      // Selection runs post-frame, i.e. after the auto-fit below.
+      if (next.hasValue) _openPendingSpot();
       if (_lastFetchCenter == null) {
         final loc = ref.read(locationProvider).valueOrNull;
         if (loc != null) _lastFetchCenter = LatLng(loc.lat, loc.lng);
@@ -590,10 +623,14 @@ class _ObservationMapScreenState extends ConsumerState<ObservationMapScreen> {
                   polylines: [
                     for (final track in trailTracks)
                       if (track.points.isNotEmpty)
+                        // Neutral ink line with a white casing (no hue):
+                        // reads on the dark tiles in both themes.
                         Polyline<TrailTrack>(
                           points: track.points,
                           strokeWidth: 3,
-                          color: _trailColor,
+                          color: kMapPinFill,
+                          borderStrokeWidth: 1.5,
+                          borderColor: kMapPinRing,
                           pattern: StrokePattern.dashed(segments: const [8, 6]),
                           hitValue: track,
                         ),
@@ -1061,17 +1098,23 @@ class _TrailheadMarker extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Center(
+                // Neutral pin (same ink + white ring as the spot pins);
+                // the hiking glyph, not a hue, marks it as a trailhead.
                 child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: const BoxDecoration(
-                    color: _ObservationMapScreenState._trailColor,
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: kMapPinFill,
                     shape: BoxShape.circle,
+                    border: Border.all(
+                      color: kMapPinRing,
+                      width: kMapPinRingWidth,
+                    ),
                   ),
                   child: const Icon(
                     Icons.hiking,
                     size: 13,
-                    color: Colors.white,
+                    color: kMapPinGlyph,
                   ),
                 ),
               ),
@@ -1209,10 +1252,9 @@ class _ScatteredBirdCaptionBanner extends StatelessWidget {
   }
 }
 
-/// Data-state banner for [observationMapProvider]: loading spinner,
-/// errorContainer-toned error/degraded banners (both retryable), or a
-/// neutral surfaceContainer empty-state banner. Renders nothing once data
-/// has loaded successfully with spots.
+/// Data-state banner for [observationMapProvider], built on the shared
+/// [StatusView]: loading, error/degraded (both retryable) or a neutral
+/// empty state. Renders nothing once data has loaded successfully with spots.
 class _ObservationMapStatusBanner extends StatelessWidget {
   const _ObservationMapStatusBanner({
     required this.mapAsync,
@@ -1224,135 +1266,30 @@ class _ObservationMapStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return mapAsync.when(
-      loading: () => const _LoadingStatusBanner(),
+    final Widget? status = mapAsync.when(
+      loading: () => const StatusView.loading(message: '관찰 스팟 불러오는 중'),
       error: (_, _) =>
-          _ErrorStatusBanner(message: '관찰 스팟을 불러오지 못했어요', onRetry: onRetry),
+          StatusView.error(message: '관찰 스팟을 불러오지 못했어요', onRetry: onRetry),
       data: (response) {
         if (response.degraded) {
-          return _ErrorStatusBanner(
+          return StatusView.degraded(
             message: '데이터를 일부 불러오지 못했어요',
             onRetry: onRetry,
           );
         }
         if (response.spots.isEmpty) {
-          return const _EmptyStatusBanner();
+          return const StatusView.empty(
+            message: '주변에 표시할 관찰 스팟이 없어요',
+            icon: Icons.info_outline,
+          );
         }
-        return const SizedBox.shrink();
+        return null;
       },
     );
-  }
-}
-
-class _LoadingStatusBanner extends StatelessWidget {
-  const _LoadingStatusBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 8),
-          Text('관찰 스팟 불러오는 중', style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
-}
-
-/// errorContainer-toned banner for both hard errors (AsyncError) and
-/// degraded responses (partial-data). Both are retryable via [onRetry].
-class _ErrorStatusBanner extends StatelessWidget {
-  const _ErrorStatusBanner({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            color: colorScheme.onErrorContainer,
-            size: 18,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onErrorContainer,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: onRetry,
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.onErrorContainer,
-            ),
-            child: const Text('다시 시도'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Neutral surfaceContainer banner for the "no spots nearby" empty state.
-/// Must never use errorContainer tones: an empty result set is not an error.
-class _EmptyStatusBanner extends StatelessWidget {
-  const _EmptyStatusBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.info_outline,
-            color: colorScheme.onSurfaceVariant,
-            size: 18,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '주변에 표시할 관찰 스팟이 없어요',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
+    if (status == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: status,
     );
   }
 }

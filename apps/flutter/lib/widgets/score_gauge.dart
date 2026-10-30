@@ -9,12 +9,18 @@ class ScoreGauge extends StatelessWidget {
     this.size = 120,
     this.progressColor,
     this.scoreFontSize,
+    this.scoreTextColor,
   });
 
   final int score;
   final double size;
   final Color? progressColor;
   final double? scoreFontSize;
+
+  /// Score number color; defaults to the progress color. Pass
+  /// `accentText(context, accent)` when [progressColor] is a day/night
+  /// accent so the number stays readable on the light theme.
+  final Color? scoreTextColor;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +29,7 @@ class ScoreGauge extends StatelessWidget {
     final textStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
       fontSize: scoreFontSize ?? 32,
       fontWeight: FontWeight.bold,
-      color: resolvedProgressColor,
+      color: scoreTextColor ?? resolvedProgressColor,
     );
 
     return SizedBox.square(

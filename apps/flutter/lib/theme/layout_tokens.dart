@@ -46,6 +46,16 @@ abstract final class AppRadius {
   static const legacyBar = 20.0;
 }
 
+/// Catalog filter chips (발견 region / 패키지 category rows): 4 + 8 = 12px
+/// on each side of the label and 10px vertical padding, so with the theme's
+/// 14px label (line height ~20) the visual chip is >= 40px tall; call sites
+/// add `MaterialTapTargetSize.padded` for a 48px tap target.
+const EdgeInsets catalogChipPadding = EdgeInsets.symmetric(
+  horizontal: 4,
+  vertical: 10,
+);
+const EdgeInsets catalogChipLabelPadding = EdgeInsets.symmetric(horizontal: 8);
+
 /// Window-width breakpoints for responsive layout (spec 053 Phase 3).
 abstract final class AppBreakpoints {
   /// Widths at or below this are "narrow" phones.

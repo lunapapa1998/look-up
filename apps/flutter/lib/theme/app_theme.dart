@@ -1,49 +1,58 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../models/discovery.dart' show ObsMode;
 import 'layout_tokens.dart';
 import 'lookup_colors.dart';
 
 class AppTheme {
-  /// Bundled Hangul-capable font family (pubspec `flutter.fonts`, spec 053).
+  /// App default font (bundled, pubspec `flutter.fonts`). Only a single 700
+  /// face exists (Basic upright + Original italic), so every requested
+  /// weight up to w700 renders with that real face; styles never request
+  /// more than w700, so no synthetic emboldening happens.
+  static const String bithumbGothic = 'BithumbGothic';
+
+  /// Bundled Hangul-capable fallback (spec 053) for glyphs Bithumb Gothic
+  /// lacks. Still bundled; no longer the primary family.
   static const String pretendard = 'Pretendard';
 
-  /// Appends Pretendard to [style]'s fallback chain (keeping any existing
-  /// fallbacks) so Hangul glyphs missing from Google Fonts render in it.
-  static TextStyle? _withPretendardFallback(TextStyle? style) {
-    if (style == null) return null;
-    return style.copyWith(
-      fontFamilyFallback: <String>[
-        ...?style.fontFamilyFallback,
-        pretendard,
-      ],
-    );
-  }
+  static const List<String> _fallback = <String>[pretendard];
 
-  /// Display/headline role: Space Grotesk kept (Latin/number emphasis) with
-  /// Pretendard fallback, -0.02em tracking, and line height not below 1.2 so
-  /// Hangul titles are not clipped. Size/height resolve against [geometry]
-  /// when the Google Fonts style leaves them unset.
-  static TextStyle? _headline(TextStyle? style, TextStyle? geometry) {
+  /// Bundled-only text style: Bithumb Gothic + Pretendard fallback, line
+  /// height floored at [minHeight] (resolved against the M3 [geometry] when
+  /// the style leaves it unset) so Bithumb's tall Hangul is not clipped.
+  static TextStyle? _bundled(
+    TextStyle? style,
+    TextStyle? geometry, {
+    required double minHeight,
+    bool tightTracking = false,
+  }) {
     if (style == null) return null;
     final fontSize = style.fontSize ?? geometry?.fontSize;
     final height = style.height ?? geometry?.height;
-    return _withPretendardFallback(style)!.copyWith(
-      letterSpacing: fontSize == null ? style.letterSpacing : -0.02 * fontSize,
-      height: (height == null || height < 1.2) ? 1.2 : height,
+    return style.copyWith(
+      fontFamily: bithumbGothic,
+      fontFamilyFallback: _fallback,
+      // Display/headline role keeps its -0.02em tracking.
+      letterSpacing: tightTracking && fontSize != null
+          ? -0.02 * fontSize
+          : style.letterSpacing,
+      height: (height == null || height < minHeight) ? minHeight : height,
     );
   }
 
-  /// English/number-only mono label (Flim label style): JetBrains Mono,
-  /// 0.06em tracking, Pretendard fallback. Callers pass already-uppercased
-  /// Latin text; never use for Korean labels. Defined for later phases only.
+  /// English/number-only label (Flim label style): uppercase callers,
+  /// 0.06em tracking, tabular figures. Bundled Bithumb Gothic (formerly
+  /// runtime-loaded JetBrains Mono) with Pretendard fallback.
   static TextStyle monoLabel(ThemeData theme) {
     final base = theme.textTheme.labelSmall ?? const TextStyle();
     final fontSize = base.fontSize ?? 11;
-    return _withPretendardFallback(
-      GoogleFonts.jetBrainsMono(textStyle: base),
-    )!.copyWith(fontSize: fontSize, letterSpacing: 0.06 * fontSize);
+    return base.copyWith(
+      fontFamily: bithumbGothic,
+      fontFamilyFallback: _fallback,
+      fontSize: fontSize,
+      letterSpacing: 0.06 * fontSize,
+      fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+    );
   }
 
   /// Night scheme (spec 053 Phase 2, user-approved direction B): Flim
@@ -145,54 +154,47 @@ class AppTheme {
     final surfaceContainerHigh = colorScheme.surfaceContainerHigh;
     final onSurface = colorScheme.onSurface;
 
-    // Spec 053 Phase 1: title/body/labelLarge use the bundled Pretendard
-    // (Hangul-capable). The family is set explicitly on each style because a
+    // 2026-10-31: every role uses the bundled Bithumb Gothic (no runtime
+    // Google Fonts). The family is set explicitly on each style because a
     // style's own fontFamily wins over `ThemeData.fontFamily` when merged.
-    final bodyTextTheme = ThemeData(
+    final base = ThemeData(
       useMaterial3: true,
       brightness: colorScheme.brightness,
-    ).textTheme.apply(fontFamily: pretendard);
+    ).textTheme;
     // M3 geometry (sizes/heights) the theme is localized with at runtime;
-    // used to resolve em-based tracking and the Hangul line-height floor.
+    // used to resolve em-based tracking and the line-height floors.
     final geometry = Typography.material2021().englishLike;
-    final displayTextTheme = GoogleFonts.spaceGroteskTextTheme();
-    final telemetryTextTheme = GoogleFonts.jetBrainsMonoTextTheme();
-    final textTheme = bodyTextTheme
-        .copyWith(
-          displayLarge: _headline(
-            displayTextTheme.displayLarge,
-            geometry.displayLarge,
-          ),
-          displayMedium: _headline(
-            displayTextTheme.displayMedium,
-            geometry.displayMedium,
-          ),
-          displaySmall: _headline(
-            displayTextTheme.displaySmall,
-            geometry.displaySmall,
-          ),
-          headlineLarge: _headline(
-            displayTextTheme.headlineLarge,
-            geometry.headlineLarge,
-          ),
-          headlineMedium: _headline(
-            displayTextTheme.headlineMedium,
-            geometry.headlineMedium,
-          ),
-          headlineSmall: _headline(
-            displayTextTheme.headlineSmall,
-            geometry.headlineSmall,
-          ),
-          // Mono stays for these roles but they carry Korean labels, so no
-          // uppercase/wide tracking here; Hangul falls back to Pretendard.
-          labelSmall: _withPretendardFallback(telemetryTextTheme.labelSmall),
-          labelMedium: _withPretendardFallback(telemetryTextTheme.labelMedium),
-        )
-        .apply(bodyColor: onSurface, displayColor: onSurface);
+    TextStyle? headline(TextStyle? s, TextStyle? g) =>
+        _bundled(s, g, minHeight: 1.25, tightTracking: true);
+    TextStyle? title(TextStyle? s, TextStyle? g) =>
+        _bundled(s, g, minHeight: 1.25);
+    TextStyle? body(TextStyle? s, TextStyle? g) =>
+        _bundled(s, g, minHeight: 1.4);
+    // Labels keep their M3 heights (>= 1.33); the 1.1 floor is a no-op guard.
+    TextStyle? label(TextStyle? s, TextStyle? g) =>
+        _bundled(s, g, minHeight: 1.1);
+    final textTheme = TextTheme(
+      displayLarge: headline(base.displayLarge, geometry.displayLarge),
+      displayMedium: headline(base.displayMedium, geometry.displayMedium),
+      displaySmall: headline(base.displaySmall, geometry.displaySmall),
+      headlineLarge: headline(base.headlineLarge, geometry.headlineLarge),
+      headlineMedium: headline(base.headlineMedium, geometry.headlineMedium),
+      headlineSmall: headline(base.headlineSmall, geometry.headlineSmall),
+      titleLarge: title(base.titleLarge, geometry.titleLarge),
+      titleMedium: title(base.titleMedium, geometry.titleMedium),
+      titleSmall: title(base.titleSmall, geometry.titleSmall),
+      bodyLarge: body(base.bodyLarge, geometry.bodyLarge),
+      bodyMedium: body(base.bodyMedium, geometry.bodyMedium),
+      bodySmall: body(base.bodySmall, geometry.bodySmall),
+      labelLarge: label(base.labelLarge, geometry.labelLarge),
+      labelMedium: label(base.labelMedium, geometry.labelMedium),
+      labelSmall: label(base.labelSmall, geometry.labelSmall),
+    ).apply(bodyColor: onSurface, displayColor: onSurface);
 
     return ThemeData(
       useMaterial3: true,
-      fontFamily: pretendard,
+      fontFamily: bithumbGothic,
+      fontFamilyFallback: _fallback,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: background,
       textTheme: textTheme,

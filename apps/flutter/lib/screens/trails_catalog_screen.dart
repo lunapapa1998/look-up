@@ -6,10 +6,13 @@ import '../models/trails.dart';
 import '../theme/layout_tokens.dart';
 import '../state/discovery_providers.dart';
 import '../state/sample_data_provider.dart';
-import '../widgets/app_sliver_header.dart';
+import '../widgets/common/lookup_header.dart';
 import '../widgets/common/lookup_scroll_behavior.dart';
+import '../widgets/common/mode_toggle.dart';
+import '../widgets/common/status_view.dart';
 import '../widgets/course_card.dart';
 import '../widgets/sample_data_notice.dart';
+import '../utils/keep_all.dart';
 import '../utils/trail_format.dart';
 import 'course_detail_screen.dart';
 import 'trail_route_screen.dart';
@@ -37,7 +40,7 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
         child: trails.when(
           loading: () => const CustomScrollView(
             slivers: [
-              AppSliverHeader(),
+              LookUpSliverHeader(modeToggle: ObsModeToggle()),
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(child: CircularProgressIndicator()),
@@ -46,11 +49,21 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
           ),
           error: (err, st) => CustomScrollView(
             slivers: [
-              const AppSliverHeader(),
+              const LookUpSliverHeader(modeToggle: ObsModeToggle()),
+              // hasScrollBody: true -- StatusView's LayoutBuilder cannot
+              // report intrinsic heights, which hasScrollBody: false needs.
               SliverFillRemaining(
-                hasScrollBody: false,
-                child: _ErrorState(
-                  onRetry: () => ref.invalidate(trailsProvider),
+                hasScrollBody: true,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.page,
+                    ),
+                    child: StatusView.error(
+                      message: '트레일 정보를 불러오지 못했어요',
+                      onRetry: () => ref.invalidate(trailsProvider),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -74,7 +87,7 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
             return CustomScrollView(
               key: const Key('trails_catalog_scroll'),
               slivers: [
-                const AppSliverHeader(),
+                const LookUpSliverHeader(modeToggle: ObsModeToggle()),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.page,
@@ -101,11 +114,14 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
                 ),
                 if (response.degraded)
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.page,
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.page,
+                      0,
+                      AppSpacing.page,
+                      AppSpacing.lg,
                     ),
                     sliver: SliverToBoxAdapter(
-                      child: _DegradedBanner(
+                      child: StatusView.degraded(
                         onRetry: () => ref.invalidate(trailsProvider),
                       ),
                     ),
@@ -143,18 +159,28 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
                                             Icons.near_me,
                                             size: 16,
                                             color: effectiveRegion == region.id
-                                                ? colors.onSecondary
+                                                ? colors.onPrimary
                                                 : colors.onSurfaceVariant,
                                           )
                                         : null,
                                     label: Text(region.label),
                                     selected: effectiveRegion == region.id,
-                                    selectedColor: colors.secondary,
-                                    labelStyle: text.labelMedium?.copyWith(
+                                    // Neutral (black/white) selected fill.
+                                    selectedColor: colors.primary,
+                                    // Bundled Bithumb Gothic labelLarge, not the
+                                    // runtime-loaded mono labelMedium that
+                                    // clipped labels on web (see
+                                    // packages_catalog_screen.dart).
+                                    labelStyle: text.labelLarge?.copyWith(
                                       color: effectiveRegion == region.id
-                                          ? colors.onSecondary
+                                          ? colors.onPrimary
                                           : colors.onSurfaceVariant,
                                     ),
+                                    padding: catalogChipPadding,
+                                    labelPadding: catalogChipLabelPadding,
+                                    visualDensity: VisualDensity.standard,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.padded,
                                     onSelected: (_) => ref
                                         .read(selectedRegionProvider.notifier)
                                         .state = region.id,
@@ -290,6 +316,9 @@ class _TrailsCatalogScreenState extends ConsumerState<TrailsCatalogScreen> {
   }
 }
 
+const trailsIntroDescription =
+    '낮에는 숲과 바다의 새소리를 걷고, 밤에는 별빛 아래 쉬어가는 저탄소 도보길';
+
 class _CatalogIntro extends StatelessWidget {
   const _CatalogIntro();
   @override
@@ -302,7 +331,7 @@ class _CatalogIntro extends StatelessWidget {
         Text(
           'DURUNUBI × ECO-OBSERVATORY',
           style: text.labelSmall?.copyWith(
-            color: colors.secondary,
+            color: colors.onSurfaceVariant,
             letterSpacing: 0.55,
           ),
         ),
@@ -310,11 +339,12 @@ class _CatalogIntro extends StatelessWidget {
         Text('두루누비 코리아둘레길', style: text.headlineSmall),
         Text(
           '생태 관찰 트레일',
-          style: text.headlineSmall?.copyWith(color: colors.secondary),
+          style: text.headlineSmall?.copyWith(color: colors.onSurfaceVariant),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          '낮에는 숲과 바다의 새소리를 걷고, 밤에는 별빛 아래 쉬어가는 저탄소 도보길',
+          keepAll(trailsIntroDescription),
+          semanticsLabel: trailsIntroDescription,
           style: text.bodySmall?.copyWith(
             color: colors.onSurfaceVariant,
             height: 1.6,
@@ -344,7 +374,7 @@ class _SectionTitle extends StatelessWidget {
         Text(
           eyebrow,
           style: text.labelSmall?.copyWith(
-            color: colors.tertiary,
+            color: colors.onSurfaceVariant,
             letterSpacing: 0.6,
           ),
         ),
@@ -389,7 +419,7 @@ class _RouteStops extends StatelessWidget {
                     backgroundColor: colors.surfaceContainerHigh,
                     child: Text(
                       '${i + 1}',
-                      style: text.labelSmall?.copyWith(color: colors.secondary),
+                      style: text.labelSmall?.copyWith(color: colors.onSurface),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -450,7 +480,11 @@ class _HeritageCard extends StatelessWidget {
                   color: colors.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
-                child: Icon(Icons.storefront, color: colors.tertiary, size: 28),
+                child: Icon(
+                  Icons.storefront,
+                  color: colors.onSurfaceVariant,
+                  size: 28,
+                ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -459,7 +493,9 @@ class _HeritageCard extends StatelessWidget {
                   children: [
                     Text(
                       '종점에서 ${formatDistanceM(eat.distanceM)}',
-                      style: text.labelSmall?.copyWith(color: colors.tertiary),
+                      style: text.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     if (isSample)
@@ -494,64 +530,10 @@ class _HeritageCard extends StatelessWidget {
   }
 }
 
-/// Mirrors the degraded banner in home_discovery_screen.dart (errorContainer
-/// background, warning_amber_rounded icon, onErrorContainer text) plus a
-/// retry button this screen requires that the home banner does not have.
-class _DegradedBanner extends StatelessWidget {
-  const _DegradedBanner({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            size: 16,
-            color: colorScheme.onErrorContainer,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              '일부 데이터를 불러오지 못했어요',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onErrorContainer,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: onRetry,
-            child: Text(
-              '다시 시도',
-              style: textTheme.labelMedium?.copyWith(
-                color: colorScheme.onErrorContainer,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Neutral "nothing here" state -- deliberately avoids every error color
 /// token (errorContainer/error/onErrorContainer) and the warning icon so it
-/// stays visually distinguishable from [_DegradedBanner] by color alone.
+/// stays visually distinguishable from the degraded [StatusView] by color
+/// alone.
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
@@ -585,28 +567,6 @@ class _EmptyState extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('트레일 정보를 불러오지 못했어요', style: textTheme.bodyMedium),
-          const SizedBox(height: AppSpacing.sm),
-          ElevatedButton(onPressed: onRetry, child: const Text('다시 시도')),
-        ],
       ),
     );
   }

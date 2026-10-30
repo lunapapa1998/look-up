@@ -51,10 +51,13 @@ LookUpColors _colorsOf(WidgetTester tester) => Theme.of(
   tester.element(find.byType(ModeToggle)),
 ).extension<LookUpColors>()!;
 
-/// Final user-confirmed ModeToggle accents (spec 054-3a).
-const _dayAccent = Color(0xFF9CA3F5);
-const _nightAccent = Color(0xFFF4C247);
-const _onAccent = Color(0xFF141414);
+/// Final user-confirmed day/night accents (spec 054-3a):
+/// day = yellow with #141414 text/icon, night = lavender with white
+/// text/icon.
+const _dayAccent = Color(0xFFF4C247);
+const _nightAccent = Color(0xFF9CA3F5);
+const _onDayAccent = Color(0xFF141414);
+const _onNightAccent = Color(0xFFFFFFFF);
 
 BorderSide _side(WidgetTester tester, Finder control) =>
     (_material(tester, control).shape! as RoundedRectangleBorder).side;
@@ -295,12 +298,24 @@ void main() {
             fill,
             mode == ObsMode.day ? _dayAccent : _nightAccent,
           );
-          expect(onFill, _onAccent);
+          expect(
+            onFill,
+            mode == ObsMode.day ? _onDayAccent : _onNightAccent,
+          );
 
           expect(_material(tester, selected).color, fill);
           expect(selectedText.style!.color, onFill);
           expect(selectedText.style!.fontWeight, FontWeight.w700);
+          // Selected icon matches the text: day sun #141414, night moon
+          // white #FFFFFF (user decision).
           expect(_icon(tester, selected).color, onFill);
+          if (mode == ObsMode.night) {
+            expect(selectedText.style!.color, const Color(0xFFFFFFFF));
+            expect(_icon(tester, selected).color, const Color(0xFFFFFFFF));
+          } else {
+            expect(selectedText.style!.color, const Color(0xFF141414));
+            expect(_icon(tester, selected).color, const Color(0xFF141414));
+          }
           // No border on the selected segment (user decision).
           expect(_side(tester, selected), BorderSide.none);
 
@@ -553,35 +568,52 @@ void main() {
             final unselectedLabel = mode == ObsMode.day ? '밤' : '낮';
 
             final fill = _material(tester, selected).color!;
-            // #141414 on #9CA3F5 ~= 7.87:1, on #F4C247 ~= 11.10:1.
-            final fgFloor = mode == ObsMode.day ? 7.5 : 11.0;
             final selectedFg = _text(
               tester,
               selected,
               selectedLabel,
             ).style!.color!;
-            expect(
-              contrastRatio(selectedFg, fill),
-              allOf(greaterThanOrEqualTo(4.5), greaterThanOrEqualTo(fgFloor)),
-              reason: 'selected fg vs fill: $why',
+            final selectedTextRatio = contrastRatio(selectedFg, fill);
+            final selectedIconRatio = contrastRatio(
+              _icon(tester, selected).color!,
+              fill,
             );
-            expect(
-              contrastRatio(_icon(tester, selected).color!, fill),
-              allOf(greaterThanOrEqualTo(4.5), greaterThanOrEqualTo(fgFloor)),
-              reason: 'selected icon vs fill: $why',
-            );
-            // White would fail on these fills (~2.34 / ~1.66).
-            expect(
-              contrastRatio(const Color(0xFFFFFFFF), fill),
-              lessThan(3.0),
-              reason: 'white-on-accent sanity: $why',
-            );
+            if (mode == ObsMode.day) {
+              // #141414 on day #F4C247 ~= 11.1:1.
+              expect(
+                selectedTextRatio,
+                greaterThanOrEqualTo(11.0),
+                reason: 'selected day text vs fill: $why',
+              );
+              expect(
+                selectedIconRatio,
+                greaterThanOrEqualTo(11.0),
+                reason: 'selected day icon vs fill: $why',
+              );
+            } else {
+              // KNOWN LIMITATION (final user decision, accepted; do NOT
+              // "fix" by changing colors or adding a border): the selected
+              // '밤' text and moon icon are white #FFFFFF on lavender
+              // #9CA3F5, ~2.34:1 — below the 4.5:1 text target and the
+              // 3:1 non-text (icon) target.
+              expect(
+                selectedTextRatio,
+                allOf(closeTo(2.34, 0.05), lessThan(4.5)),
+                reason: 'selected night text (white) vs fill: $why',
+              );
+              expect(
+                selectedIconRatio,
+                allOf(closeTo(2.34, 0.05), lessThan(3.0)),
+                reason: 'selected night icon (white) vs fill: $why',
+              );
+            }
 
             // KNOWN LIMITATION (recorded, user-accepted; NOT a target):
             // there is no selected border, so on the white day page the
-            // fill alone is ~2.34 (#9CA3F5) / ~1.66 (#F4C247), below the
-            // 3:1 non-text guideline. Selection still reads via w700 and
-            // semantics. On the night page (#141414) it is ~7.87 / ~11.10.
+            // fill alone is ~1.66 (day #F4C247) / ~2.34 (night #9CA3F5),
+            // below the 3:1 non-text guideline. Selection still reads via
+            // w700 and semantics. On the night page (#141414) it is
+            // ~11.1 / ~7.9.
             if (theme == ObsMode.day) {
               expect(
                 contrastRatio(fill, surface),
@@ -679,14 +711,14 @@ void main() {
             reason: 'outer ring vs surface: $why',
           );
           if (theme == ObsMode.night) {
-            // Inner #141414 on #9CA3F5 ~= 7.87, on #F4C247 ~= 11.10.
+            // Inner #141414 on #F4C247 ~= 11.1, on #9CA3F5 ~= 7.9.
             expect(
               contrastRatio(inner.color, fill),
               greaterThanOrEqualTo(3.0),
               reason: 'inner ring vs fill: $why',
             );
           } else {
-            // Outer #141414 ring on #9CA3F5 ~= 7.87, on #F4C247 ~= 11.10.
+            // Outer #141414 ring on #F4C247 ~= 11.1, on #9CA3F5 ~= 7.9.
             expect(
               contrastRatio(outer.color, fill),
               greaterThanOrEqualTo(3.0),
@@ -859,8 +891,8 @@ void main() {
     const night = LookUpColors.night;
     expect(day.modeDayAccent, _dayAccent);
     expect(day.modeNightAccent, _nightAccent);
-    expect(day.onModeDayAccent, _onAccent);
-    expect(day.onModeNightAccent, _onAccent);
+    expect(day.onModeDayAccent, _onDayAccent);
+    expect(day.onModeNightAccent, _onNightAccent);
     expect(night.modeDayAccent, day.modeDayAccent);
     expect(night.onModeDayAccent, day.onModeDayAccent);
     expect(night.modeNightAccent, day.modeNightAccent);

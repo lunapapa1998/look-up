@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/discovery.dart';
 import '../../models/trails.dart';
 import '../../state/discovery_providers.dart';
+import '../../theme/lookup_colors.dart';
 import '../../utils/trail_format.dart';
 import '../heritage_eats_list.dart';
 import '../night_sky_tag.dart';
@@ -285,6 +286,10 @@ class _TrailSuitabilitySection extends ConsumerWidget {
     final currentMode = ref.watch(obsModeProvider).mode;
     final dayAccent = currentMode == ObsMode.day;
     final nightAccent = currentMode == ObsMode.night;
+    // Day/night-meaning accents (yellow / lavender); text via accentText.
+    final modeColors = LookUpColors.of(context);
+    final dayColor = modeColors.modeDayAccent;
+    final nightColor = modeColors.modeNightAccent;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -297,7 +302,7 @@ class _TrailSuitabilitySection extends ConsumerWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: colorScheme.tertiary.withValues(alpha: 0.4),
+                          color: dayColor.withValues(alpha: 0.4),
                           blurRadius: 12,
                           spreadRadius: 2,
                         ),
@@ -307,7 +312,8 @@ class _TrailSuitabilitySection extends ConsumerWidget {
               child: ScoreGauge(
                 score: daySuitability.score,
                 size: 96,
-                progressColor: colorScheme.tertiary,
+                progressColor: dayColor,
+                scoreTextColor: accentText(context, dayColor),
               ),
             ),
             const SizedBox(height: 4),
@@ -321,7 +327,7 @@ class _TrailSuitabilitySection extends ConsumerWidget {
               Text(
                 '실시간',
                 style: textTheme.labelSmall?.copyWith(
-                  color: colorScheme.tertiary,
+                  color: accentText(context, dayColor),
                   fontSize: 10,
                 ),
               ),
@@ -335,7 +341,7 @@ class _TrailSuitabilitySection extends ConsumerWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: colorScheme.secondary.withValues(alpha: 0.4),
+                          color: nightColor.withValues(alpha: 0.4),
                           blurRadius: 12,
                           spreadRadius: 2,
                         ),
@@ -345,7 +351,8 @@ class _TrailSuitabilitySection extends ConsumerWidget {
               child: ScoreGauge(
                 score: nightSuitability.score,
                 size: 96,
-                progressColor: colorScheme.secondary,
+                progressColor: nightColor,
+                scoreTextColor: accentText(context, nightColor),
               ),
             ),
             const SizedBox(height: 4),
@@ -359,7 +366,7 @@ class _TrailSuitabilitySection extends ConsumerWidget {
               Text(
                 '실시간',
                 style: textTheme.labelSmall?.copyWith(
-                  color: colorScheme.secondary,
+                  color: accentText(context, nightColor),
                   fontSize: 10,
                 ),
               ),

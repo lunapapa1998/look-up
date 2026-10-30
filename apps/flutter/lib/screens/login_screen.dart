@@ -1,16 +1,18 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../auth/auth_repository.dart';
 import '../state/auth_providers.dart';
+import '../theme/app_theme.dart';
 
 /// First-launch intro + social login screen.
 ///
-/// This is a branded, fixed-night-palette entry point shown before the app
-/// shell. Colors are intentionally hardcoded to the Figma spec (node 137:30)
-/// rather than pulled from the day/night [ThemeData], because the intro should
-/// always render in the same atmospheric night look.
+/// Branded entry point shown before the app shell. The backdrop is the brand
+/// intro image picked by the current theme brightness (day/night), shown
+/// full-bleed with no scrim so the bird -> star arc reads as in the mockup.
+/// Copy sits centered below the arc; the three actions sit at the bottom.
 ///
 /// Kakao/Google taps run real sign-in through [authRepositoryProvider]; a
 /// successful sign-in updates [authUserProvider], which the enclosing gate
@@ -19,20 +21,37 @@ import '../state/auth_providers.dart';
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key, this.onGuestPressed});
 
-  /// "로그인 없이 둘러보기 (체험 모드)" tap handler.
+  /// "로그인 없이 둘러보기" (guest / 체험 모드) tap handler — the primary,
+  /// first button; Kakao and Google follow as secondary actions.
   final VoidCallback? onGuestPressed;
 
-  // Figma palette (Intro-Login, node 137:30).
-  static const Color _bg = Color(0xFF08122D);
-  static const Color _wordmark = Color(0xFFDBE1FF);
-  static const Color _taglineDim = Color(0xFFC6C6CE);
-  static const Color _taglineBright = Color(0xFFBEC5E5);
-  static const Color _teal = Color(0xFF42E1BE);
-  static const Color _amber = Color(0xFFF5BC7E);
-  static const Color _kakaoYellow = Color(0xFFFEE500);
-  static const Color _kakaoInk = Color(0xFF191919);
-  static const Color _frostedGlass = Color(0xE6202945); // rgba(32,41,69,0.9)
-  static const Color _logoGlass = Color(0xE6111A36); // rgba(17,26,54,0.9)
+  /// Brand intro backgrounds (portrait, no text; arc of birds/stars on top).
+  static const String introDayAsset = 'assets/brand/intro_day.png';
+  static const String introNightAsset = 'assets/brand/intro_night.png';
+
+  /// Keys on each button's [Material] (fill/shape are asserted in tests).
+  static const Key guestButtonKey = ValueKey('login-guest-button');
+  static const Key kakaoButtonKey = ValueKey('login-kakao-button');
+  static const Key googleButtonKey = ValueKey('login-google-button');
+
+  // Mockup palette.
+  static const Color dayTitleInk = Color(0xFF1F2A44);
+  static const Color dayBodyInk = Color(0xFF3A4560);
+  static const Color nightTitleInk = Color(0xFFFFFFFF);
+  static const Color nightBodyInk = Color(0xD9FFFFFF); // white @ 85%
+  static const Color guestFill = Color(0xFFFFFFFF);
+  static const Color guestInk = Color(0xFF141414);
+  static const Color navyFill = Color(0xFF1E2333);
+  static const Color nightNavyFill = Color(0xD91E2333); // navy @ 85%
+  static const Color nightNavyBorder = Color(0x40FFFFFF); // white @ 25%
+  static const Color kakaoYellow = Color(0xFFFEE500);
+
+  /// Button geometry.
+  static const double buttonHeight = 56;
+  static const double buttonRadius = 12;
+
+  /// Max width of the centered content column on wide screens.
+  static const double maxContentWidth = 480;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -64,73 +83,88 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  bool _precached = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Warm both intro backgrounds once so the day/night swap under the app
+    // root's fade-through never shows a blank frame.
+    if (!_precached) {
+      _precached = true;
+      precacheImage(const AssetImage(LoginScreen.introDayAsset), context);
+      precacheImage(const AssetImage(LoginScreen.introNightAsset), context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isNight = Theme.of(context).brightness == Brightness.dark;
+    final introAsset =
+        isNight ? LoginScreen.introNightAsset : LoginScreen.introDayAsset;
     return Scaffold(
-      backgroundColor: LoginScreen._bg,
+      backgroundColor: scheme.surface,
       body: Stack(
         children: [
-          // Starfield backdrop.
+          // Brand intro backdrop, picked by the current theme brightness.
+          // No scrim/gradient: copy colors are chosen against the image.
           Positioned.fill(
-            child: Opacity(
-              opacity: 0.6,
-              child: Image.asset(
-                'assets/auth/starfield_bg.png',
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
+            child: Image.asset(
+              introAsset,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+              gaplessPlayback: true,
+              excludeFromSemantics: true,
             ),
           ),
-          // Celestial aurora ambient glow (top-center, teal).
-          Positioned(
-            top: -96,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: _GlowOrb(
-                size: 384,
-                colors: [
-                  LoginScreen._teal.withValues(alpha: 0.15),
-                  LoginScreen._teal.withValues(alpha: 0),
-                ],
-              ),
-            ),
-          ),
-          // Warm amber glow (right edge).
-          Positioned(
-            top: 200,
-            right: -120,
-            child: _GlowOrb(
-              size: 320,
-              colors: [
-                LoginScreen._amber.withValues(alpha: 0.10),
-                LoginScreen._amber.withValues(alpha: 0),
-              ],
-            ),
-          ),
-          // Scrolls only when the viewport is shorter than the content; the
-          // min-height + IntrinsicHeight pair keeps the Spacer layout otherwise.
-          SafeArea(
+          Positioned.fill(
             child: LayoutBuilder(
-              builder: (context, constraints) => SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints:
-                      BoxConstraints(minHeight: constraints.maxHeight),
-                  child: IntrinsicHeight(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                      child: Column(
-                        children: [
-                          const Spacer(flex: 3),
-                          _buildHero(context),
-                          const Spacer(flex: 4),
-                          _buildLoginZone(context),
-                        ],
+              builder: (context, constraints) {
+                final insets = MediaQuery.paddingOf(context);
+                final height = constraints.maxHeight;
+                final width = constraints.maxWidth;
+                // Top gap reserved for the arc: 37% of the height on a tall
+                // phone (844), easing to 22% on a short one (568) so all
+                // three buttons fit without scrolling there (Bithumb Gothic).
+                final t = ((height - 568) / (844 - 568)).clamp(0.0, 1.0);
+                final topGap =
+                    math.max(insets.top + 16, height * (0.22 + 0.15 * t));
+                // Copy -> buttons gap: 32, tightened to 24 on short screens.
+                final buttonGap = height < 640 ? 24.0 : 32.0;
+                // Center a column of at most [maxContentWidth], >= 24 gutters.
+                final side = math.max(
+                  24.0,
+                  (width - LoginScreen.maxContentWidth) / 2,
+                );
+                // Scrolls only when the viewport is shorter than the content;
+                // the min-height + IntrinsicHeight pair keeps the Spacer
+                // layout (buttons pinned to the bottom) otherwise.
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: height),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          side + insets.left,
+                          topGap,
+                          side + insets.right,
+                          32 + insets.bottom,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildHero(context, isNight),
+                            const Spacer(),
+                            SizedBox(height: buttonGap),
+                            _buildLoginZone(context, isNight),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -138,156 +172,183 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  /// Shared style for the title and subtitle so both render identically
-  /// (Hangul, so the default font — aBeeZee has no Hangul glyphs).
-  static const TextStyle _headlineStyle = TextStyle(
-    fontSize: 26,
-    height: 34 / 26,
-    fontWeight: FontWeight.w700,
-    letterSpacing: -0.3,
-    color: LoginScreen._wordmark,
-  );
-
-  Widget _buildHero(BuildContext context) {
+  Widget _buildHero(BuildContext context, bool isNight) {
+    final textTheme = Theme.of(context).textTheme;
+    final titleInk =
+        isNight ? LoginScreen.nightTitleInk : LoginScreen.dayTitleInk;
+    final bodyInk = isNight ? LoginScreen.nightBodyInk : LoginScreen.dayBodyInk;
+    // Night only: a faint navy halo (not a scrim) keeps white copy >= 4.5:1
+    // where it crosses the sunset glow. Day copy is dark on a light sky.
+    final shadows = isNight
+        ? const [Shadow(color: Color(0x661B1F45), blurRadius: 12)]
+        : null;
+    final titleStyle = (textTheme.titleLarge ?? const TextStyle()).copyWith(
+      fontFamily: AppTheme.bithumbGothic,
+      fontSize: 44,
+      height: 1.25,
+      // Capped at the only real face (700): w800 would request a heavier
+      // face that does not exist.
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.88,
+      color: titleInk,
+      shadows: shadows,
+    );
+    final subtitleStyle =
+        (textTheme.titleMedium ?? const TextStyle()).copyWith(
+      fontFamily: AppTheme.bithumbGothic,
+      fontSize: 20,
+      height: 1.4,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.4,
+      color: titleInk,
+      shadows: shadows,
+    );
+    final bodyStyle = (textTheme.bodyLarge ?? const TextStyle()).copyWith(
+      fontFamily: AppTheme.bithumbGothic,
+      fontSize: 16,
+      height: 1.5,
+      fontWeight: FontWeight.w400,
+      letterSpacing: -0.16,
+      color: bodyInk,
+      shadows: shadows,
+    );
+    // FittedBox(scaleDown) shrinks each block on narrow screens instead of
+    // wrapping Hangul mid-word.
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Title.
-        const Text(
-          '위를 봐요.',
-          textAlign: TextAlign.center,
-          style: _headlineStyle,
-        ),
-        const SizedBox(height: 20),
-        // Center logo & optical frame.
-        Container(
-          width: 96,
-          height: 96,
-          decoration: BoxDecoration(
-            color: LoginScreen._logoGlass,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: LoginScreen._teal.withValues(alpha: 0.20),
-                blurRadius: 24,
-                spreadRadius: 2,
-              ),
-              BoxShadow(
-                color: LoginScreen._amber.withValues(alpha: 0.18),
-                blurRadius: 24,
-                spreadRadius: 2,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(10),
-          child: Image.asset('assets/auth/logo.png', fit: BoxFit.contain),
-        ),
-        const SizedBox(height: 20),
-        // Subtitle (same style as the title).
-        const Text(
-          '여행이 시작됩니다.',
-          textAlign: TextAlign.center,
-          style: _headlineStyle,
-        ),
-        const SizedBox(height: 20),
-        // Lead line.
-        const Text(
-          '하늘을 보는 일이, 여행이 되도록.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: LoginScreen._taglineBright,
-          ),
-        ),
-        const SizedBox(height: 10),
-        // Body copy; width-capped so wide screens keep a readable line length.
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 320),
-          child: const Text(
-            '하늘을 따라 시작되는 여정\n'
-            '새가 날아드는 낮부터 별이 쏟아지는 밤까지\n'
-            '하늘을 길잡이 삼아 그곳의 자연과 생태를 발견해보세요',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.6,
-              color: LoginScreen._taglineDim,
+        Semantics(
+          header: true,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              '위를 봐요.',
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              softWrap: false,
+              style: titleStyle,
             ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            '고개를 들면 여행이 시작됩니다.',
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            softWrap: false,
+            style: subtitleStyle,
+          ),
+        ),
+        const SizedBox(height: 28),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            '새가 날아드는 낮부터\n'
+            '별이 쏟아지는 밤까지\n'
+            '모두 당신을 위해 펼쳐져 있어요.',
+            textAlign: TextAlign.center,
+            softWrap: false,
+            style: bodyStyle,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildLoginZone(BuildContext context) {
+  Widget _buildLoginZone(BuildContext context, bool isNight) {
+    final navyFill = isNight ? LoginScreen.nightNavyFill : LoginScreen.navyFill;
+    final navyBorder = isNight
+        ? const BorderSide(color: LoginScreen.nightNavyBorder)
+        : BorderSide.none;
+    const navyLabel = TextStyle(
+      fontFamily: AppTheme.bithumbGothic,
+      fontFamilyFallback: [AppTheme.pretendard],
+      fontSize: 17,
+      height: 1.3,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.34,
+      color: Colors.white,
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Sub-headline prompt.
-        Text(
-          '소셜 계정으로 3초 만에 시작하기',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 12,
-            height: 16 / 12,
-            color: LoginScreen._taglineDim,
+        // Primary action: guest exploration (white, most prominent).
+        _IntroButton(
+          materialKey: LoginScreen.guestButtonKey,
+          background: LoginScreen.guestFill,
+          label: '로그인 없이 둘러보기',
+          labelStyle: const TextStyle(
+            fontFamily: AppTheme.bithumbGothic,
+            fontFamilyFallback: [AppTheme.pretendard],
+            fontSize: 17,
+            height: 1.3,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.34,
+            color: LoginScreen.guestInk,
           ),
+          chevronColor: LoginScreen.guestInk,
+          onPressed: _busy ? null : widget.onGuestPressed,
         ),
         const SizedBox(height: 12),
-        // Kakao login.
-        _SocialButton(
-          height: 52,
-          background: LoginScreen._kakaoYellow,
-          leading:
-              Image.asset('assets/auth/kakao_symbol.png', width: 20, height: 20),
-          label: 'Kakao로 시작하기',
-          labelStyle: GoogleFonts.spaceGrotesk(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.4,
-            color: LoginScreen._kakaoInk,
-          ).copyWith(fontFamilyFallback: const ['Pretendard']),
-          trailingColor: LoginScreen._kakaoInk,
+        _IntroButton(
+          materialKey: LoginScreen.kakaoButtonKey,
+          background: navyFill,
+          border: navyBorder,
+          leading: Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: LoginScreen.kakaoYellow,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: Image.asset(
+              'assets/auth/kakao_symbol.png',
+              width: 20,
+              height: 20,
+              excludeFromSemantics: true,
+            ),
+          ),
+          label: '카카오로 시작하기',
+          labelStyle: navyLabel,
+          chevronColor: Colors.white,
           onPressed: _busy ? null : () => _signIn(LoginProvider.kakao),
         ),
-        const SizedBox(height: 8),
-        // Google login.
-        _SocialButton(
-          height: 52,
-          background: LoginScreen._frostedGlass,
-          leading:
-              Image.asset('assets/auth/google_g.png', width: 24, height: 24),
+        const SizedBox(height: 12),
+        _IntroButton(
+          materialKey: LoginScreen.googleButtonKey,
+          background: navyFill,
+          border: navyBorder,
+          leading: Image.asset(
+            'assets/auth/google_g.png',
+            width: 28,
+            height: 28,
+            excludeFromSemantics: true,
+          ),
           label: 'Google로 계속하기',
-          labelStyle: GoogleFonts.spaceGrotesk(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            letterSpacing: -0.4,
-            color: LoginScreen._wordmark,
-          ).copyWith(fontFamilyFallback: const ['Pretendard']),
-          trailingColor: LoginScreen._wordmark,
+          labelStyle: navyLabel,
+          chevronColor: Colors.white,
           onPressed: _busy ? null : () => _signIn(LoginProvider.google),
-        ),
-        const SizedBox(height: 20),
-        // Guest exploration link.
-        _GuestButton(
-          onPressed: _busy ? null : widget.onGuestPressed,
         ),
         // Sign-in progress.
         AnimatedSize(
           duration: const Duration(milliseconds: 150),
           child: _busy
-              ? const Padding(
-                  padding: EdgeInsets.only(top: 20),
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 20),
                   child: Center(
                     child: SizedBox(
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: LoginScreen._teal,
+                        color: isNight
+                            ? LoginScreen.nightTitleInk
+                            : LoginScreen.dayTitleInk,
                       ),
                     ),
                   ),
@@ -299,120 +360,86 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-/// Soft radial glow used for the ambient aurora layers.
-class _GlowOrb extends StatelessWidget {
-  const _GlowOrb({required this.size, required this.colors});
-
-  final double size;
-  final List<Color> colors;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: colors),
-        ),
-      ),
-    );
-  }
-}
-
-/// A full-width social login button: leading brand icon, centered label,
-/// trailing chevron — matching the Figma Kakao / Google button spec.
-class _SocialButton extends StatelessWidget {
-  const _SocialButton({
-    required this.height,
+/// Full-width intro action (56 high, radius 12, flat): optional 32px leading
+/// mark, centered label, trailing chevron. The label stays optically centered
+/// because the leading slot is always reserved.
+class _IntroButton extends StatelessWidget {
+  const _IntroButton({
+    required this.materialKey,
     required this.background,
-    required this.leading,
     required this.label,
     required this.labelStyle,
-    required this.trailingColor,
+    required this.chevronColor,
+    this.border = BorderSide.none,
+    this.leading,
     this.onPressed,
   });
 
-  final double height;
+  final Key materialKey;
   final Color background;
-  final Widget leading;
+  final BorderSide border;
+  final Widget? leading;
   final String label;
   final TextStyle labelStyle;
-  final Color trailingColor;
+  final Color chevronColor;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: background,
-      borderRadius: BorderRadius.circular(12),
-      elevation: 2,
-      shadowColor: Colors.black.withValues(alpha: 0.2),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          height: height,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                SizedBox(width: 24, height: 24, child: Center(child: leading)),
-                Expanded(
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.center,
-                    style: labelStyle,
-                  ),
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(LoginScreen.buttonRadius),
+      side: border,
+    );
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      child: Opacity(
+        opacity: onPressed == null ? 0.6 : 1,
+        child: Material(
+          key: materialKey,
+          color: background,
+          shape: shape,
+          elevation: 0,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            customBorder: shape,
+            child: SizedBox(
+              height: LoginScreen.buttonHeight,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: leading == null ? null : Center(child: leading),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: labelStyle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 32,
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 24,
+                        color: chevronColor,
+                      ),
+                    ),
+                  ],
                 ),
-                Icon(Icons.chevron_right, size: 20, color: trailingColor),
-              ],
+              ),
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// The compact "explore as guest" text button (no filled container).
-class _GuestButton extends StatelessWidget {
-  const _GuestButton({this.onPressed});
-
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        foregroundColor: LoginScreen._teal,
-        minimumSize: const Size.fromHeight(44),
-        shape: const RoundedRectangleBorder(),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.explore_outlined,
-              size: 15, color: LoginScreen._teal),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              '로그인 없이 둘러보기 (체험 모드)',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.spaceGrotesk(
-                fontSize: 13,
-                letterSpacing: -0.325,
-                color: LoginScreen._teal,
-              ).copyWith(fontFamilyFallback: const ['Pretendard']),
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(Icons.arrow_forward, size: 11, color: LoginScreen._teal),
-        ],
       ),
     );
   }

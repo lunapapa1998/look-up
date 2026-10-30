@@ -14,7 +14,7 @@ import '../app_header_logo.dart';
 /// their own tooltips/semantics).
 ///
 /// Visual: matches [AppSliverHeader] (logo 32 + [AppSpacing.sm] + title
-/// `titleMedium` / subtitle `labelSmall` in `colorScheme.secondary` with
+/// `titleMedium` / subtitle `labelSmall` in `colorScheme.onSurfaceVariant` with
 /// letterSpacing 1.1), flat background = the theme's app bar background
 /// (`appBarTheme.backgroundColor ?? colorScheme.surface`), no shadow, no
 /// outer margin. The bar's own horizontal inset is [horizontalPadding].
@@ -121,7 +121,7 @@ class LookUpHeader extends StatelessWidget {
                     softWrap: false,
                     overflow: TextOverflow.ellipsis,
                     style: text.labelSmall?.copyWith(
-                      color: scheme.secondary,
+                      color: scheme.onSurfaceVariant,
                       letterSpacing: 1.1,
                     ),
                   ),

@@ -10,6 +10,8 @@ import 'package:lookup/screens/course_detail_screen.dart';
 import 'package:lookup/screens/trails_catalog_screen.dart';
 import 'package:lookup/services/location_service.dart';
 import 'package:lookup/state/discovery_providers.dart';
+import 'package:lookup/widgets/common/lookup_header.dart';
+import 'package:lookup/widgets/common/mode_toggle.dart';
 import 'package:lookup/widgets/course_card.dart';
 
 /// Pumps [TrailsCatalogScreen] wired to [api] via [trailsApiProvider]
@@ -200,8 +202,27 @@ void main() {
       await _pumpTrails(tester, api: FakeTrailsApi(degraded: true));
       await tester.pump();
 
-      expect(find.text('일부 데이터를 불러오지 못했어요'), findsOneWidget);
+      // Shared StatusView.degraded default copy (was the screen-local
+      // '일부 데이터를 불러오지 못했어요').
+      expect(find.text('일부 정보를 불러오지 못했어요'), findsOneWidget);
       expect(find.text('다시 시도'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'header: LookUpSliverHeader with the day/night ObsModeToggle',
+    (tester) async {
+      await _pumpTrails(tester, api: FakeTrailsApi());
+      await tester.pump();
+
+      expect(find.byType(LookUpSliverHeader), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(LookUpSliverHeader),
+          matching: find.byType(ObsModeToggle),
+        ),
+        findsOneWidget,
+      );
     },
   );
 
@@ -214,7 +235,7 @@ void main() {
       expect(find.text('이 권역에는 아직 등록된 코스가 없어요'), findsOneWidget);
       expect(find.byIcon(Icons.explore_off), findsOneWidget);
 
-      expect(find.text('일부 데이터를 불러오지 못했어요'), findsNothing);
+      expect(find.text('일부 정보를 불러오지 못했어요'), findsNothing);
       expect(find.byIcon(Icons.warning_amber_rounded), findsNothing);
     },
   );

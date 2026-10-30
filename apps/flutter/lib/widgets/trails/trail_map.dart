@@ -4,6 +4,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../models/trails.dart';
+import '../observation_marker.dart'
+    show kMapPinFill, kMapPinGlyph, kMapPinRing, kMapPinRingWidth;
 
 /// Shared map for the course preview and its actual GPX track.
 class TrailMap extends StatelessWidget {
@@ -61,10 +63,19 @@ class TrailMap extends StatelessWidget {
           userAgentPackageName: 'com.feel.lookup',
           maxNativeZoom: 16,
         ),
+        // Route line and pins are neutral ink (#141414) with a white
+        // casing/ring so they read on both the light OSM and dark Esri
+        // tiles; start/end/eatery are told apart by glyph, not hue.
         if (points.length > 1)
           PolylineLayer(
             polylines: [
-              Polyline(points: points, color: colors.secondary, strokeWidth: 4),
+              Polyline(
+                points: points,
+                color: kMapPinFill,
+                strokeWidth: 4,
+                borderStrokeWidth: 2,
+                borderColor: kMapPinRing,
+              ),
             ],
           ),
         MarkerLayer(
@@ -73,20 +84,23 @@ class TrailMap extends StatelessWidget {
               point: start,
               width: 32,
               height: 32,
-              child: _MapPin(label: '출발', color: colors.secondary),
+              child: const _MapPin(
+                label: '출발',
+                icon: Icons.play_arrow_rounded,
+              ),
             ),
             Marker(
               point: end,
               width: 32,
               height: 32,
-              child: _MapPin(label: '도착', color: colors.tertiary),
+              child: const _MapPin(label: '도착', icon: Icons.flag_rounded),
             ),
             if (eat != null)
               Marker(
                 point: LatLng(eat!.lat, eat!.lng),
                 width: 32,
                 height: 32,
-                child: _MapPin(label: eat!.name, color: colors.primary),
+                child: _MapPin(label: eat!.name, icon: Icons.restaurant),
               ),
           ],
         ),
@@ -114,27 +128,20 @@ class TrailMap extends StatelessWidget {
 }
 
 class _MapPin extends StatelessWidget {
-  const _MapPin({required this.label, required this.color});
+  const _MapPin({required this.label, required this.icon});
   final String label;
-  final Color color;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) => Semantics(
     label: label,
     child: Container(
       decoration: BoxDecoration(
-        color: color,
+        color: kMapPinFill,
         shape: BoxShape.circle,
-        border: Border.all(
-          color: Theme.of(context).colorScheme.surface,
-          width: 3,
-        ),
+        border: Border.all(color: kMapPinRing, width: kMapPinRingWidth),
       ),
-      child: Icon(
-        Icons.place,
-        size: 18,
-        color: Theme.of(context).colorScheme.surface,
-      ),
+      child: Icon(icon, size: 18, color: kMapPinGlyph),
     ),
   );
 }

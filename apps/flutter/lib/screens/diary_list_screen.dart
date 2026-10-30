@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/observation.dart';
 import '../state/providers.dart';
+import '../theme/lookup_colors.dart';
 import '../widgets/app_header_logo.dart';
 import 'badges_screen.dart';
 import 'observation_form_screen.dart';
@@ -169,11 +170,12 @@ class _SpeciesIconPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    // Bird = day observation (yellow), star = night observation (lavender).
+    final modeColors = LookUpColors.of(context);
     return Center(
       child: Icon(
         isBird ? Icons.flutter_dash : Icons.star,
-        color: isBird ? colorScheme.tertiary : colorScheme.secondary,
+        color: isBird ? modeColors.modeDayAccent : modeColors.modeNightAccent,
       ),
     );
   }

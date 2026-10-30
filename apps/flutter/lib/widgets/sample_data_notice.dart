@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state/sample_data_provider.dart';
 import '../theme/layout_tokens.dart';
+import '../utils/keep_all.dart';
 import 'common/provenance_chip.dart';
+
+/// Banner copy; rendered via [keepAll] so lines only break at spaces.
+const sampleDataNoticeText = '서버에 연결할 수 없어 예시 데이터를 보여드려요';
 
 /// "Showing sample data" banner (spec 052 Phase 3). Renders only while at
 /// least one of [sources] is in [sampleSourcesProvider]; otherwise it is a
@@ -71,7 +75,8 @@ class SampleDataNotice extends ConsumerWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              '서버에 연결할 수 없어 예시 데이터를 보여드려요',
+              keepAll(sampleDataNoticeText),
+              semanticsLabel: sampleDataNoticeText,
               style: textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurface,
               ),

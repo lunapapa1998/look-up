@@ -111,7 +111,11 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   }
 
   List<Widget> _guestBody(ThemeData theme) => [
-    Icon(Icons.explore_outlined, size: 56, color: theme.colorScheme.secondary),
+    Icon(
+      Icons.explore_outlined,
+      size: 56,
+      color: theme.colorScheme.onSurfaceVariant,
+    ),
     const SizedBox(height: 20),
     Text(
       '게스트로 둘러보는 중이에요',

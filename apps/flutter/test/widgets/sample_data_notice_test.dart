@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:lookup/state/sample_data_provider.dart';
+import 'package:lookup/utils/keep_all.dart';
 import 'package:lookup/widgets/sample_data_notice.dart';
 
 /// Pumps a [SampleDataNotice] watching [sources] inside a fresh container.
@@ -48,7 +49,8 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('sample_data_notice')), findsOneWidget);
-    expect(find.text('서버에 연결할 수 없어 예시 데이터를 보여드려요'), findsOneWidget);
+    expect(find.text(keepAll(sampleDataNoticeText)), findsOneWidget);
+    expect(sampleDataNoticeText, '서버에 연결할 수 없어 예시 데이터를 보여드려요');
     expect(find.text('다시 시도'), findsOneWidget);
   });
 

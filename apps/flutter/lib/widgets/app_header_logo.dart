@@ -4,6 +4,9 @@ import 'package:flutter/widgets.dart';
 class AppHeaderLogo extends StatelessWidget {
   const AppHeaderLogo({super.key, this.excludeFromSemantics = false});
 
+  /// Brand mark asset: the approved app icon's 128x128 UI copy.
+  static const String assetPath = 'assets/brand/app_icon_ui.png';
+
   final bool excludeFromSemantics;
 
   @override
@@ -12,11 +15,17 @@ class AppHeaderLogo extends StatelessWidget {
       label: excludeFromSemantics ? null : '위를 봐요 로고',
       image: !excludeFromSemantics,
       excludeSemantics: excludeFromSemantics,
-      child: Image.asset(
-        'assets/packages/logo.png',
-        width: 32,
-        height: 32,
-        excludeFromSemantics: true,
+      // Approved app icon (128x128 UI copy), rounded like the launcher icon.
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.asset(
+          assetPath,
+          width: 32,
+          height: 32,
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.medium,
+          excludeFromSemantics: true,
+        ),
       ),
     );
   }

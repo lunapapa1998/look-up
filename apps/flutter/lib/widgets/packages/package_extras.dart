@@ -42,14 +42,20 @@ class PackageKitSection extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          child: Image.asset(
-                            'assets/packages/${gear.$1}.jpg',
-                            width: width,
-                            height: width * 0.55,
-                            fit: BoxFit.cover,
-                            semanticLabel: gear.$3,
+                        // Square tile: near-square pixel art keeps the titles
+                        // drawn inside guide/notebook fully visible.
+                        AspectRatio(
+                          key: Key('package_kit_${gear.$1}'),
+                          aspectRatio: 1,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            child: Image.asset(
+                              'assets/packages/${gear.$1}.jpg',
+                              fit: BoxFit.cover,
+                              alignment: Alignment.center,
+                              filterQuality: FilterQuality.none,
+                              semanticLabel: gear.$3,
+                            ),
                           ),
                         ),
                         const SizedBox(height: AppSpacing.sm),
@@ -57,7 +63,9 @@ class PackageKitSection extends StatelessWidget {
                           gear.$2,
                           style: Theme.of(context).textTheme.labelSmall
                               ?.copyWith(
-                                color: Theme.of(context).colorScheme.secondary,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                         ),
                         const SizedBox(height: AppSpacing.xs),
@@ -99,7 +107,7 @@ class PackageImpactSection extends StatelessWidget {
         children: [
           Text(
             'REGENERATIVE TOURISM',
-            style: text.labelSmall?.copyWith(color: colors.secondary),
+            style: text.labelSmall?.copyWith(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text('착한 체류, 지역을 생각하는 여행', style: text.titleLarge),
@@ -112,8 +120,8 @@ class PackageImpactSection extends StatelessWidget {
               runSpacing: AppSpacing.lg,
               children: [
                 for (final item in [
-                  ('68%', '지역 소상공인 기여', colors.tertiary),
-                  ('52%', '탄소 배출 절감', colors.secondary),
+                  ('68%', '지역 소상공인 기여', colors.onSurface),
+                  ('52%', '탄소 배출 절감', colors.onSurface),
                 ])
                   SizedBox(
                     width:
@@ -137,7 +145,7 @@ class PackageImpactSection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
-            '대중교통을 이용하고 로컬 식당과 해설사를 연결하는 여행을 지향합니다. 새와 서식지를 방해하지 않고 밤에는 불빛을 줄여주세요.',
+            '대중교통을 이용하고 로컬 식당과 해설사를 연결하는 여행을 지향합니다. 새와 서식지를 방해하지 않도록 주의하고, 밤에는 불빛을 줄여 주세요.',
             style: text.bodySmall?.copyWith(
               color: colors.onSurfaceVariant,
               height: 1.5,

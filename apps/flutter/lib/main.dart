@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'auth/auth_bootstrap.dart';
+import 'legal/font_licenses.dart';
 import 'models/discovery.dart' show ObsMode;
 import 'screens/auth_gate.dart';
 import 'state/auth_providers.dart';
@@ -12,6 +13,7 @@ import 'theme/scene_transition.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerFontLicenses();
   // Resolves to an UnavailableAuthRepository when auth is not configured, so
   // the app still boots into guest-friendly exploration.
   final auth = await initializeAuth();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/starlight_forecast.dart';
 import '../theme/layout_tokens.dart';
+import '../theme/lookup_colors.dart';
 
 const int _previewCount = 3;
 
@@ -84,7 +85,7 @@ class _TonightSkySectionState extends State<TonightSkySection> {
         Text(
           "TONIGHT'S SKY",
           style: textTheme.labelSmall?.copyWith(
-            color: colorScheme.secondary,
+            color: colorScheme.onSurfaceVariant,
             letterSpacing: 1.2,
           ),
         ),
@@ -126,7 +127,7 @@ class _TonightSkySectionState extends State<TonightSkySection> {
                 child: Text(
                   '$remaining개 더 보기',
                   style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.secondary,
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -179,7 +180,8 @@ class _TonightSkyRow extends StatelessWidget {
                     width: 27,
                     child: Icon(
                       _iconForTargetType(target.targetType),
-                      color: colorScheme.secondary,
+                      // Night-meaning accent (lavender).
+                      color: LookUpColors.of(context).modeNightAccent,
                       size: 28,
                     ),
                   ),

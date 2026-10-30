@@ -71,7 +71,7 @@ class _BadgeCard extends StatelessWidget {
               Icon(
                 achieved ? Icons.emoji_events : Icons.emoji_events_outlined,
                 size: 40,
-                color: achieved ? colorScheme.tertiary : colorScheme.outline,
+                color: achieved ? colorScheme.onSurface : colorScheme.outline,
               ),
               const SizedBox(height: 8),
               Text(

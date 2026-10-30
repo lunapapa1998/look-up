@@ -1,5 +1,16 @@
 import 'package:flutter/material.dart';
 
+/// Text color for a day/night-meaning [accent] (yellow / lavender): the
+/// accent itself on the dark (night) theme, `colorScheme.onSurface` on the
+/// light (day) theme, where yellow/lavender text would be unreadable on a
+/// light background. Icons, bars and dots may keep the raw accent.
+Color accentText(BuildContext context, Color accent) {
+  final theme = Theme.of(context);
+  return theme.brightness == Brightness.dark
+      ? accent
+      : theme.colorScheme.onSurface;
+}
+
 /// LookUp status/provenance accent colors (spec 053 Phase 2), registered on
 /// [ThemeData.extensions] by `AppTheme.themeFor` in a day and a night set.
 ///
@@ -11,12 +22,14 @@ import 'package:flutter/material.dart';
 /// Only [rating] is wired in this phase; the other fields are defined for
 /// later phases (specs 054/055) and are not referenced by screens yet.
 ///
-/// Mode-toggle accents ([modeDayAccent], [onModeDayAccent],
-/// [modeNightAccent], [onModeNightAccent], spec 054-3a) are the exception to
-/// the small-area rule: they are the selected-segment fill and its
-/// text/icon foreground in `ModeToggle` ONLY, identical in the day and
-/// night sets. Never use them for data, scores, golden-hour, provenance, or
-/// any other meaning.
+/// Day/night-meaning accents ([modeDayAccent] yellow #F4C247,
+/// [onModeDayAccent] #141414, [modeNightAccent] lavender #9CA3F5,
+/// [onModeNightAccent] white #FFFFFF; spec 054-3a, final user decision) are
+/// the exception to the small-area rule: they are the `ModeToggle`
+/// selected-segment fill with its text/icon foreground, and the day vs
+/// night suitability elements on home (sun/moon icon, score, bar, golden
+/// hours). Identical in the day and night sets. Never use them for status,
+/// provenance, warnings, ratings, or any other meaning.
 @immutable
 class LookUpColors extends ThemeExtension<LookUpColors> {
   const LookUpColors({
@@ -58,10 +71,10 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
     starAccent: Color(0xFF8A5700),
     mapTrail: Color(0xFF5C8A72),
     mapHeritage: Color(0xFF8A7A68),
-    modeDayAccent: Color(0xFF9CA3F5),
+    modeDayAccent: Color(0xFFF4C247),
     onModeDayAccent: Color(0xFF141414),
-    modeNightAccent: Color(0xFFF4C247),
-    onModeNightAccent: Color(0xFF141414),
+    modeNightAccent: Color(0xFF9CA3F5),
+    onModeNightAccent: Color(0xFFFFFFFF),
   );
 
   /// Night set: Flim signal colors, all >= 3:1 on `#141414`.
@@ -81,10 +94,10 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
     starAccent: Color(0xFFF5BC7E),
     mapTrail: Color(0xFF5C8A72),
     mapHeritage: Color(0xFF8A7A68),
-    modeDayAccent: Color(0xFF9CA3F5),
+    modeDayAccent: Color(0xFFF4C247),
     onModeDayAccent: Color(0xFF141414),
-    modeNightAccent: Color(0xFFF4C247),
-    onModeNightAccent: Color(0xFF141414),
+    modeNightAccent: Color(0xFF9CA3F5),
+    onModeNightAccent: Color(0xFFFFFFFF),
   );
 
   final Color warning;
@@ -103,16 +116,21 @@ class LookUpColors extends ThemeExtension<LookUpColors> {
   final Color mapTrail;
   final Color mapHeritage;
 
-  /// ModeToggle-only: selected '낮' segment fill (same in both sets).
+  /// Day-meaning accent (yellow #F4C247, same in both sets): selected '낮'
+  /// ModeToggle fill and home day-suitability elements.
   final Color modeDayAccent;
 
-  /// ModeToggle-only: text/icon on [modeDayAccent].
+  /// Text/icon drawn on a [modeDayAccent] fill (#141414).
   final Color onModeDayAccent;
 
-  /// ModeToggle-only: selected '밤' segment fill (same in both sets).
+  /// Night-meaning accent (lavender #9CA3F5, same in both sets): selected
+  /// '밤' ModeToggle fill and home night-suitability elements.
   final Color modeNightAccent;
 
-  /// ModeToggle-only: text/icon on [modeNightAccent].
+  /// '밤' text and moon icon drawn on a [modeNightAccent] fill (white
+  /// #FFFFFF, final user decision). Only ~2.34:1 on the lavender fill —
+  /// below 4.5:1 for text and 3:1 for the icon. Known, user-accepted
+  /// limitation; do not change the color or add a border to "fix" it.
   final Color onModeNightAccent;
 
   /// The [LookUpColors] registered on the ambient theme, falling back to

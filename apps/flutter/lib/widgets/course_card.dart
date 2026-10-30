@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/trails.dart';
 import '../theme/layout_tokens.dart';
+import '../theme/lookup_colors.dart';
 import '../utils/trail_format.dart';
 import 'night_sky_tag.dart';
 import 'sample_data_notice.dart';
@@ -35,7 +36,7 @@ class CourseCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
         side: featured
-            ? BorderSide(color: colors.secondary.withValues(alpha: 0.5))
+            ? BorderSide(color: colors.outline.withValues(alpha: 0.5))
             : BorderSide.none,
       ),
       child: Semantics(
@@ -86,11 +87,11 @@ class CourseCard extends StatelessWidget {
                             else
                               _CourseBadge(
                                 label: '두루누비 코스',
-                                color: colors.secondary,
+                                color: colors.onSurface,
                               ),
                             _CourseBadge(
                               label: 'Day-to-Night',
-                              color: colors.tertiary,
+                              color: colors.onSurface,
                             ),
                           ],
                         ),
@@ -105,7 +106,7 @@ class CourseCard extends StatelessWidget {
                             Text(
                               'ECO OBSERVATION ROUTE',
                               style: text.labelSmall?.copyWith(
-                                color: colors.secondary,
+                                color: colors.onSurfaceVariant,
                                 letterSpacing: 1,
                               ),
                             ),
@@ -153,7 +154,8 @@ class CourseCard extends StatelessWidget {
                         label: '낮 적합도',
                         subtitle: '숲과 바다를 걷는 생태 관찰',
                         suitability: course.daySuitability,
-                        color: colors.tertiary,
+                        // Day-meaning accent (yellow), same in both themes.
+                        color: LookUpColors.of(context).modeDayAccent,
                         icon: Icons.wb_sunny_outlined,
                       ),
                       const SizedBox(height: AppSpacing.sm),
@@ -161,7 +163,9 @@ class CourseCard extends StatelessWidget {
                         label: '밤 적합도',
                         subtitle: '코스 종점의 밤하늘 관측 조건',
                         suitability: course.nightSuitability,
-                        color: colors.secondary,
+                        // Night-meaning accent (lavender), same in both
+                        // themes.
+                        color: LookUpColors.of(context).modeNightAccent,
                         icon: Icons.nightlight_round,
                       ),
                       if (course.heritageEats.isNotEmpty) ...[
@@ -180,13 +184,13 @@ class CourseCard extends StatelessWidget {
                         Text(
                           '코스 자세히 보기',
                           style: text.labelMedium?.copyWith(
-                            color: colors.secondary,
+                            color: colors.onSurface,
                           ),
                         ),
                         Icon(
                           Icons.chevron_right,
                           size: 18,
-                          color: colors.secondary,
+                          color: colors.onSurface,
                         ),
                       ],
                     ),
@@ -281,6 +285,8 @@ class _ObservationPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    // Accent text only on the dark theme; onSurface on the light theme.
+    final textColor = accentText(context, color);
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -296,11 +302,11 @@ class _ObservationPanel extends StatelessWidget {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Icon(icon, size: 16, color: color),
-              Text(label, style: text.labelMedium?.copyWith(color: color)),
+              Text(label, style: text.labelMedium?.copyWith(color: textColor)),
               if (suitability != null)
                 Text(
                   '${suitability!.score} / 100',
-                  style: text.labelMedium?.copyWith(color: color),
+                  style: text.labelMedium?.copyWith(color: textColor),
                 ),
               if (suitability != null)
                 Text(

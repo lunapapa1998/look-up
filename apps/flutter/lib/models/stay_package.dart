@@ -55,8 +55,8 @@ const exampleStayPackages = [
     eyebrow: 'GANGWON INJE DMZ · 1 NIGHT 2 DAYS',
     imageAsset: 'assets/packages/inje.jpg',
     badges: ['생태관광 인증', '다크스카이 테마'],
-    benefits: ['입문용 관찰키트 무상대여', '로컬 노포 식음 바우처 20,000원', 'KTX 진부역 전기 셔틀 왕복'],
-    transport: 'KTX + 연계 전기셔틀 포함',
+    benefits: ['입문용 관찰 키트 무상 대여', '로컬 노포 식음 바우처 20,000원', 'KTX 진부역 전기 셔틀 왕복'],
+    transport: 'KTX + 연계 전기 셔틀 포함',
     pricePerPerson: 128000,
     stops: [
       PackageStop(
@@ -68,7 +68,7 @@ const exampleStayPackages = [
       PackageStop(
         '18:00 SUNSET',
         '인제 황태구이 로컬 미식',
-        '자연 건조한 황태구이 정식으로 쉬어가는 석식과 연계 셔틀 일정.',
+        '자연 건조한 황태로 만든 황태구이 정식으로 저녁을 먹고 연계 셔틀로 이동하는 일정.',
         PackageMoment.sunset,
       ),
       PackageStop(
@@ -80,7 +80,7 @@ const exampleStayPackages = [
       PackageStop(
         '08:30 DAY 2',
         '아침 숲새 소리 & 자작나무 숲길',
-        '동고비와 쇠딱따구리 울음소리를 듣고 걷는 4km 숲길 트레킹 일정.',
+        '동고비와 쇠딱따구리 울음소리를 들으며 걷는 4km 숲길 트레킹 일정.',
         PackageMoment.day,
       ),
     ],
@@ -89,17 +89,17 @@ const exampleStayPackages = [
     id: 'heuksando',
     category: PackageCategory.coastal,
     title: '전남 신안 흑산도 — 갯벌 도요새 & 섬 밤하늘 은하수',
-    eyebrow: 'SHIN-AN HEUKSANDO · 1 NIGHT 2 DAYS',
+    eyebrow: 'SINAN HEUKSANDO · 1 NIGHT 2 DAYS',
     imageAsset: 'assets/packages/heuksando.jpg',
     badges: ['갯벌 생태여행 테마', '다크스카이 테마'],
-    benefits: ['조석 만조 타이밍 연계 탐조선', '흑산도 로컬 미식 바우처 25,000원', '고성능 굴절망원경 세션'],
-    transport: '쾌속선 왕복 + 섬내 이동 포함',
+    benefits: ['만조 시간에 맞춘 탐조선', '흑산도 로컬 미식 바우처 25,000원', '고성능 굴절망원경 세션'],
+    transport: '쾌속선 왕복 + 섬 내 이동 포함',
     pricePerPerson: 145000,
     stops: [
       PackageStop(
         '13:30 DAY 1',
         '만조 갯벌 도요물떼새 관찰',
-        '밀물에 맞춰 모여드는 도요물떼새를 목재 관찰데크에서 만나는 탐조 일정.',
+        '밀물에 맞춰 모여드는 도요물떼새를 목재 관찰 데크에서 만나는 탐조 일정.',
         PackageMoment.day,
       ),
       PackageStop(

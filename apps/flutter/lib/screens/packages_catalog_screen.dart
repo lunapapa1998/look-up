@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../models/stay_package.dart';
+import '../theme/app_theme.dart';
 import '../theme/layout_tokens.dart';
-import '../widgets/app_sliver_header.dart';
+import '../utils/keep_all.dart';
+import '../widgets/common/lookup_header.dart';
 import '../widgets/common/lookup_scroll_behavior.dart';
+import '../widgets/common/mode_toggle.dart';
 import '../widgets/packages/package_card.dart';
 import '../widgets/packages/package_extras.dart';
 import 'package_booking_preview_screen.dart';
@@ -32,7 +35,7 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
             Text('패키지 이용 안내', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: AppSpacing.md),
             const Text(
-              '현재는 예시 패키지입니다. 일정·가격·교통·혜택·인증·환경 지표는 실제 상품이나 실시간 정보가 아닙니다.\n\n예약 미리보기에서 희망 날짜와 인원에 따른 예시 금액을 확인할 수 있습니다. 실제 예약·결제·상담 접수는 지원하지 않습니다.',
+              '현재는 예시 패키지입니다. 일정·가격·교통·혜택·인증·환경 지표는 실제 상품이나 실시간 정보가 아닙니다.\n\n예약 미리보기에서 희망 출발일과 인원에 따른 예시 금액을 확인할 수 있습니다. 실제 예약·결제·상담 접수는 지원하지 않습니다.',
             ),
             const SizedBox(height: AppSpacing.lg),
             Align(
@@ -61,7 +64,7 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
         child: CustomScrollView(
           key: const Key('packages_scroll'),
           slivers: [
-            const AppSliverHeader(),
+            const LookUpSliverHeader(modeToggle: ObsModeToggle()),
             const SliverPadding(
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.page,
@@ -93,12 +96,24 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
                                   '전체 패키지 (${widget.packages.length})',
                             ),
                             selected: _category == category,
-                            selectedColor: colors.secondary,
-                            labelStyle: text.labelMedium?.copyWith(
+                            // Neutral (black/white) selected fill.
+                            selectedColor: colors.primary,
+                            // Bundled Bithumb Gothic labelLarge (14/1.43). The
+                            // former `labelMedium` was runtime-loaded
+                            // JetBrains Mono (Google Fonts): on web the chip
+                            // measured the label before that font arrived,
+                            // then painted wider mono spaces/digits/'·' and
+                            // the label faded out at the chip edge.
+                            labelStyle: text.labelLarge?.copyWith(
                               color: _category == category
-                                  ? colors.onSecondary
+                                  ? colors.onPrimary
                                   : colors.onSurfaceVariant,
                             ),
+                            padding: catalogChipPadding,
+                            labelPadding: catalogChipLabelPadding,
+                            visualDensity: VisualDensity.standard,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.padded,
                             onSelected: (_) =>
                                 setState(() => _category = category),
                           ),
@@ -193,30 +208,56 @@ class _PackagesCatalogScreenState extends State<PackagesCatalogScreen> {
   }
 }
 
+const packagesIntroTitle = '낮에는 새를 만나고, 밤에는 별을 만나요.';
+const packagesIntroSubtitle = '하늘을 따라 이어지는 여행';
+const packagesIntroDescription =
+    '새들의 날갯짓에서 은하수까지. 소도시의 낮과 밤을 연결하는 생태 체류형 로컬 여행 코스.';
+
+/// Intro headline size: 22 (≤360), 24 (<600), 28 (≥600).
+double packagesIntroTitleFontSize(double width) =>
+    width <= 360 ? 22 : (width < 600 ? 24 : 28);
+
 class _PackagesIntro extends StatelessWidget {
   const _PackagesIntro();
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final width = MediaQuery.sizeOf(context).width;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('낮에는 탐조, 밤에는 별자리', style: text.headlineSmall),
-        Wrap(
-          spacing: AppSpacing.sm,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              '24시간',
-              style: text.displaySmall?.copyWith(color: colors.secondary),
-            ),
-            Text('수직적 여행', style: text.headlineSmall),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
         Text(
-          '대지의 날갯짓에서 은하수까지. 소도시의 낮과 밤을 연결하는 생태 체류형 로컬 여행 코스.',
+          keepAll(packagesIntroTitle),
+          key: const Key('packages_intro_title'),
+          semanticsLabel: packagesIntroTitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: text.titleLarge?.copyWith(
+            fontFamily: AppTheme.bithumbGothic,
+            fontSize: packagesIntroTitleFontSize(width),
+            fontWeight: FontWeight.w700,
+            height: 1.3,
+            color: colors.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          keepAll(packagesIntroSubtitle),
+          key: const Key('packages_intro_subtitle'),
+          semanticsLabel: packagesIntroSubtitle,
+          style: text.bodyLarge?.copyWith(
+            fontFamily: AppTheme.bithumbGothic,
+            fontSize: width >= 600 ? 18 : 16,
+            fontWeight: FontWeight.w500,
+            height: 1.4,
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          keepAll(packagesIntroDescription),
+          semanticsLabel: packagesIntroDescription,
           style: text.bodySmall?.copyWith(
             color: colors.onSurfaceVariant,
             height: 1.6,

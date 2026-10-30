@@ -8,6 +8,7 @@ import 'package:lookup/models/discovery.dart';
 import 'package:lookup/state/sample_data_provider.dart';
 import 'package:lookup/theme/app_theme.dart';
 import 'package:lookup/theme/lookup_colors.dart';
+import 'package:lookup/utils/keep_all.dart';
 import 'package:lookup/widgets/common/provenance_chip.dart';
 import 'package:lookup/widgets/sample_data_notice.dart';
 
@@ -23,7 +24,7 @@ double contrastRatio(Color a, Color b) {
 void main() {
   const noticeKey = Key('sample_data_notice');
   const retryKey = Key('sample_data_notice_retry');
-  const noticeText = '서버에 연결할 수 없어 예시 데이터를 보여드려요';
+  final noticeText = keepAll(sampleDataNoticeText);
 
   Widget harness(ObsMode mode, Widget child) {
     return MaterialApp(

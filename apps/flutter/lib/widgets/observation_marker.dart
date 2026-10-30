@@ -5,8 +5,43 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
 
 import '../models/observation_map.dart';
+import '../theme/lookup_colors.dart';
 import '../utils/spot_name.dart';
 import 'sample_data_notice.dart';
+
+/// Neutral fill for restaurant/heritage/other pins, trailhead dots and route
+/// lines (branding fix, 2026-10-31): #141414 ink with a white ring/casing
+/// reads on both the dark Esri tiles and the light OSM tiles, in both themes.
+/// Bird and star pins use the day/night-meaning accents instead (see
+/// [mapPinColorsFor]); no teal/amber/brown anywhere.
+const Color kMapPinFill = Color(0xFF141414);
+
+/// White ring around [kMapPinFill] pins / casing around route lines.
+const Color kMapPinRing = Color(0xFFFFFFFF);
+
+/// Glyph drawn on a [kMapPinFill] pin.
+const Color kMapPinGlyph = Color(0xFFFFFFFF);
+
+/// Ring width of an unselected pin; selected pins use [kMapPinRingSelected]
+/// (plus the 1.25x scale) instead of a color change.
+const double kMapPinRingWidth = 2;
+const double kMapPinRingSelected = 3;
+
+/// Pin fill + glyph colors for a spot [kind] (UI finishing pass,
+/// 2026-10-31): bird = day accent yellow #F4C247 with #141414 glyph, star =
+/// night accent lavender #9CA3F5 with white glyph, everything else = neutral
+/// [kMapPinFill] with a white [kMapPinGlyph]. Every pin keeps the white
+/// [kMapPinRing] for contrast on map tiles.
+({Color fill, Color glyph}) mapPinColorsFor(String kind, LookUpColors colors) {
+  switch (kind) {
+    case 'bird':
+      return (fill: colors.modeDayAccent, glyph: colors.onModeDayAccent);
+    case 'star':
+      return (fill: colors.modeNightAccent, glyph: colors.onModeNightAccent);
+    default:
+      return (fill: kMapPinFill, glyph: kMapPinGlyph);
+  }
+}
 
 /// Keeps only the spots whose [ObservationSpot.kind] is in [activeKinds].
 ///
@@ -149,9 +184,12 @@ List<Marker> buildObservationMarkers({
   }).toList();
 }
 
-/// Renders a single observation spot pin, shaped and colored by
-/// [ObservationSpot.kind]: teardrop/teal for birds, circle/amber for night
-/// sky, rounded-square/neutral for heritage eateries.
+/// Renders a single observation spot pin, shaped by [ObservationSpot.kind]
+/// (teardrop + bird glyph for birds, circle + star for night sky,
+/// rounded-square + storefront for heritage eateries). Fill/glyph colors come
+/// from [mapPinColorsFor] (bird yellow, star lavender, others neutral ink),
+/// always with a white [kMapPinRing] ring; selection is shown by size
+/// (1.25x) and a thicker ring, never by color.
 class ObservationMarker extends StatelessWidget {
   const ObservationMarker({
     super.key,
@@ -170,11 +208,6 @@ class ObservationMarker extends StatelessWidget {
   /// Spot comes from demo sample data (spec 052): adds a [SampleMark] to
   /// the pin and ", 예시" to its semantics label.
   final bool isSample;
-
-  /// Desaturated warm gray-brown, hardcoded because it must sit visibly away
-  /// from the amber (star) tertiary token on the color wheel; every other
-  /// kind uses colorScheme tokens.
-  static const _heritageColor = Color(0xFF8A7A68);
 
   static const double _pinSize = 28;
 
@@ -324,33 +357,39 @@ class _ObservationPin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final ringWidth = selected ? kMapPinRingSelected : kMapPinRingWidth;
+    final pinColors = mapPinColorsFor(spot.kind, LookUpColors.of(context));
 
     switch (spot.kind) {
       case 'bird':
         return _TeardropPin(
-          color: colorScheme.secondary,
+          ringWidth: ringWidth,
           elevated: selected,
-          child: const CustomPaint(
-            size: Size(
+          fill: pinColors.fill,
+          child: CustomPaint(
+            size: const Size(
               ObservationMarker._pinSize * 0.5,
               ObservationMarker._pinSize * 0.5,
             ),
-            painter: BirdSilhouettePainter(color: Colors.white),
+            painter: BirdSilhouettePainter(color: pinColors.glyph),
           ),
         );
       case 'star':
         return _RoundPin(
-          color: colorScheme.tertiary,
+          ringWidth: ringWidth,
           elevated: selected,
           icon: Icons.star,
+          fill: pinColors.fill,
+          glyph: pinColors.glyph,
         );
       case 'heritage':
       default:
         return _RoundedSquarePin(
-          color: ObservationMarker._heritageColor,
+          ringWidth: ringWidth,
           elevated: selected,
           icon: Icons.storefront,
+          fill: pinColors.fill,
+          glyph: pinColors.glyph,
         );
     }
   }
@@ -369,14 +408,18 @@ List<BoxShadow> _pinShadow(bool elevated) {
 
 class _RoundPin extends StatelessWidget {
   const _RoundPin({
-    required this.color,
+    required this.ringWidth,
     required this.elevated,
     required this.icon,
+    required this.fill,
+    required this.glyph,
   });
 
-  final Color color;
+  final double ringWidth;
   final bool elevated;
   final IconData icon;
+  final Color fill;
+  final Color glyph;
 
   @override
   Widget build(BuildContext context) {
@@ -384,25 +427,34 @@ class _RoundPin extends StatelessWidget {
       width: ObservationMarker._pinSize,
       height: ObservationMarker._pinSize,
       decoration: BoxDecoration(
-        color: color,
+        color: fill,
         shape: BoxShape.circle,
+        border: Border.all(color: kMapPinRing, width: ringWidth),
         boxShadow: _pinShadow(elevated),
       ),
-      child: Icon(icon, size: ObservationMarker._pinSize * 0.6, color: Colors.white),
+      child: Icon(
+        icon,
+        size: ObservationMarker._pinSize * 0.55,
+        color: glyph,
+      ),
     );
   }
 }
 
 class _RoundedSquarePin extends StatelessWidget {
   const _RoundedSquarePin({
-    required this.color,
+    required this.ringWidth,
     required this.elevated,
     required this.icon,
+    required this.fill,
+    required this.glyph,
   });
 
-  final Color color;
+  final double ringWidth;
   final bool elevated;
   final IconData icon;
+  final Color fill;
+  final Color glyph;
 
   @override
   Widget build(BuildContext context) {
@@ -410,11 +462,16 @@ class _RoundedSquarePin extends StatelessWidget {
       width: ObservationMarker._pinSize,
       height: ObservationMarker._pinSize,
       decoration: BoxDecoration(
-        color: color,
+        color: fill,
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: kMapPinRing, width: ringWidth),
         boxShadow: _pinShadow(elevated),
       ),
-      child: Icon(icon, size: ObservationMarker._pinSize * 0.6, color: Colors.white),
+      child: Icon(
+        icon,
+        size: ObservationMarker._pinSize * 0.55,
+        color: glyph,
+      ),
     );
   }
 }
@@ -444,13 +501,15 @@ class _TeardropClipper extends CustomClipper<Path> {
 
 class _TeardropPin extends StatelessWidget {
   const _TeardropPin({
-    required this.color,
+    required this.ringWidth,
     required this.elevated,
+    required this.fill,
     required this.child,
   });
 
-  final Color color;
+  final double ringWidth;
   final bool elevated;
+  final Color fill;
   final Widget child;
 
   @override
@@ -464,11 +523,22 @@ class _TeardropPin extends StatelessWidget {
         clipBehavior: Clip.none,
         alignment: Alignment.topCenter,
         children: [
+          // White teardrop underneath = the ring; the inset teardrop on top
+          // is the fill.
           PhysicalShape(
             clipper: const _TeardropClipper(),
-            color: color,
+            color: kMapPinRing,
             elevation: elevated ? 6 : 0,
             child: SizedBox(width: width, height: height),
+          ),
+          Positioned.fill(
+            child: Padding(
+              padding: EdgeInsets.all(ringWidth),
+              child: ClipPath(
+                clipper: const _TeardropClipper(),
+                child: ColoredBox(color: fill),
+              ),
+            ),
           ),
           Padding(
             padding: EdgeInsets.only(top: width * 0.22),

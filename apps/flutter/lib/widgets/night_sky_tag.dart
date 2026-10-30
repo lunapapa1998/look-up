@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../models/trails.dart';
-import '../theme/lookup_colors.dart';
 import 'night_sky_scale.dart';
 
 /// WCAG 2.x contrast ratio between two colors, computed from their relative
@@ -89,17 +88,6 @@ class NightSkyTag extends StatelessWidget {
   final NightSky nightSky;
   final bool large;
 
-  Color _tierColor(
-    BuildContext context,
-    int filledStars,
-    ColorScheme colorScheme,
-  ) {
-    if (filledStars >= 4) return colorScheme.tertiary;
-    if (filledStars == 3) return colorScheme.onSurfaceVariant;
-    if (filledStars >= 1) return LookUpColors.of(context).rating;
-    return colorScheme.outline;
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -109,7 +97,9 @@ class NightSkyTag extends StatelessWidget {
       status: nightSky.status ?? '',
     );
 
-    final tierColor = _tierColor(context, display.filledStars, colorScheme);
+    // Star rating decoration is neutral grey; the filled count carries the
+    // tier.
+    final tierColor = colorScheme.onSurfaceVariant;
     final hasSufficientContrast =
         _contrastRatio(tierColor, colorScheme.surfaceContainerHigh) >= 4.5;
     final starColor = hasSufficientContrast ? tierColor : colorScheme.onSurface;

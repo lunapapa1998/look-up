@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/species.dart';
 import '../../state/discovery_providers.dart';
+import '../../theme/lookup_colors.dart';
 import '../../utils/relative_time.dart';
 import '../../utils/spot_name.dart';
 import '../observation_spot_sheet.dart';
@@ -158,7 +159,7 @@ class SpeciesDetail extends ConsumerWidget {
 /// Observation-facts card (Figma 62-154 dark-cell restyle) replacing the old
 /// borderless flat grid: a "최근 관측 정보" header above a 2-column grid of
 /// [colorScheme.surfaceContainerHigh] cell boxes (spot+coords, observed-at
-/// time, and an optional headcount cell with a teal accent), boxed in a
+/// time, and an optional headcount cell with the day (bird) accent), boxed in a
 /// single [colorScheme.surfaceContainer] card with the community badge and a
 /// conditional protected-species notice kept below the grid.
 class _ObservationCard extends StatelessWidget {
@@ -227,6 +228,12 @@ class _ObservationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
+    // Bird observations are day-meaning: yellow accent text on the dark
+    // theme, onSurface on the light theme (accentText).
+    final birdValueColor = accentText(
+      context,
+      LookUpColors.of(context).modeDayAccent,
+    );
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -284,7 +291,8 @@ class _ObservationCard extends StatelessWidget {
                   value: shortSpotName(selection.spotName),
                   subtitle: '${selection.spotCoord.lat.toStringAsFixed(4)}, '
                       '${selection.spotCoord.lng.toStringAsFixed(4)}',
-                  subtitleColor: colorScheme.secondary,
+                  // Coordinates are reference data, not an accent.
+                  subtitleColor: colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(width: 16),
@@ -296,7 +304,7 @@ class _ObservationCard extends StatelessWidget {
                     formatObservedAt(selection.obsDt, now),
                     style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: colorScheme.secondary,
+                      color: birdValueColor,
                     ),
                   ),
                 ),
@@ -319,7 +327,7 @@ class _ObservationCard extends StatelessWidget {
                             text: '${selection.count}',
                             style: textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w700,
-                              color: colorScheme.secondary,
+                              color: birdValueColor,
                             ),
                           ),
                           TextSpan(

@@ -5,6 +5,7 @@ import '../models/discovery.dart';
 import '../models/observation_map.dart';
 import '../models/trails.dart';
 import '../state/discovery_providers.dart';
+import '../theme/lookup_colors.dart';
 import 'observation_spot_sheet.dart';
 import 'score_gauge.dart';
 import 'spot_detail/bird_spot_detail.dart';
@@ -83,12 +84,15 @@ class SuitabilityBlock extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final modeColors = LookUpColors.of(context);
     final mode = ref.watch(obsModeProvider).mode;
     final query = (lat: spot.coord.lat, lng: spot.coord.lng, mode: mode);
     final overviewAsync = ref.watch(spotSuitabilityProvider(query));
-    final progressColor =
-        mode == ObsMode.day ? colorScheme.tertiary : colorScheme.secondary;
+    // Day/night-meaning accent (yellow / lavender); score text via
+    // accentText so it stays readable on the light theme.
+    final progressColor = mode == ObsMode.day
+        ? modeColors.modeDayAccent
+        : modeColors.modeNightAccent;
 
     return Center(
       child: overviewAsync.when(
@@ -107,6 +111,7 @@ class SuitabilityBlock extends ConsumerWidget {
         data: (overview) => ScoreGauge(
           score: overview.suitabilityIndex.score,
           progressColor: progressColor,
+          scoreTextColor: accentText(context, progressColor),
         ),
       ),
     );

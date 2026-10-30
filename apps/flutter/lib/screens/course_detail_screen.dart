@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/discovery.dart';
 import '../models/trails.dart';
 import '../state/discovery_providers.dart';
+import '../theme/lookup_colors.dart';
 import '../utils/trail_format.dart';
 import '../widgets/heritage_eats_list.dart';
 import '../widgets/night_sky_tag.dart';
@@ -170,6 +171,11 @@ class _SuitabilitySection extends StatelessWidget {
         final currentMode = ref.watch(obsModeProvider).mode;
         final dayAccent = currentMode == ObsMode.day;
         final nightAccent = currentMode == ObsMode.night;
+        // Day/night-meaning accents (yellow / lavender); text uses
+        // accentText so it stays readable on the light theme.
+        final modeColors = LookUpColors.of(context);
+        final dayColor = modeColors.modeDayAccent;
+        final nightColor = modeColors.modeNightAccent;
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -182,7 +188,7 @@ class _SuitabilitySection extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: colorScheme.tertiary.withValues(
+                              color: dayColor.withValues(
                                 alpha: 0.4,
                               ),
                               blurRadius: 12,
@@ -194,7 +200,8 @@ class _SuitabilitySection extends StatelessWidget {
                   child: ScoreGauge(
                     score: daySuitability.score,
                     size: 96,
-                    progressColor: colorScheme.tertiary,
+                    progressColor: dayColor,
+                    scoreTextColor: accentText(context, dayColor),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -208,7 +215,7 @@ class _SuitabilitySection extends StatelessWidget {
                   Text(
                     '실시간',
                     style: textTheme.labelSmall?.copyWith(
-                      color: colorScheme.tertiary,
+                      color: accentText(context, dayColor),
                       fontSize: 10,
                     ),
                   ),
@@ -222,7 +229,7 @@ class _SuitabilitySection extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: colorScheme.secondary.withValues(
+                              color: nightColor.withValues(
                                 alpha: 0.4,
                               ),
                               blurRadius: 12,
@@ -234,7 +241,8 @@ class _SuitabilitySection extends StatelessWidget {
                   child: ScoreGauge(
                     score: nightSuitability.score,
                     size: 96,
-                    progressColor: colorScheme.secondary,
+                    progressColor: nightColor,
+                    scoreTextColor: accentText(context, nightColor),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -248,7 +256,7 @@ class _SuitabilitySection extends StatelessWidget {
                   Text(
                     '실시간',
                     style: textTheme.labelSmall?.copyWith(
-                      color: colorScheme.secondary,
+                      color: accentText(context, nightColor),
                       fontSize: 10,
                     ),
                   ),

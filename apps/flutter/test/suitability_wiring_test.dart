@@ -6,6 +6,7 @@ import 'package:lookup/api/suitability_api.dart';
 import 'package:lookup/screens/home_discovery_screen.dart';
 import 'package:lookup/services/location_service.dart';
 import 'package:lookup/state/discovery_providers.dart';
+import 'package:lookup/widgets/common/mode_toggle.dart';
 
 /// Pumps [HomeDiscoveryScreen] wired to [api] via [suitabilityApiProvider]
 /// override, mirroring the pattern in home_discovery_screen_test.dart.
@@ -41,6 +42,23 @@ Future<ProviderContainer> _pumpHome(
 }
 
 void main() {
+  // The finishing pass (page gutters, card padding, 12px journey-step
+  // padding, larger home title) moved the conditions card below the default
+  // 800x600 view + sliver cache, so the lazy SliverList no longer built it.
+  // A taller view keeps it built; assertions are unchanged.
+  setUp(() {
+    final view = TestWidgetsFlutterBinding.instance.platformDispatcher
+        .implicitView!;
+    view.physicalSize = const Size(800, 1600);
+    view.devicePixelRatio = 1.0;
+  });
+  tearDown(() {
+    final view = TestWidgetsFlutterBinding.instance.platformDispatcher
+        .implicitView!;
+    view.resetPhysicalSize();
+    view.resetDevicePixelRatio();
+  });
+
   testWidgets('data state: renders score, label, golden time and a telemetry icon', (
     tester,
   ) async {
@@ -64,13 +82,8 @@ void main() {
     expect(find.text('88'), findsOneWidget);
     expect(find.text('매우 쾌적 (Prime)'), findsOneWidget);
 
-    await tester.dragUntilVisible(
-      find.byKey(const Key('focusModeNightSegment')),
-      find.byType(CustomScrollView),
-      const Offset(0, -200),
-    );
-
-    await tester.tap(find.byKey(const Key('focusModeNightSegment')));
+    // Spec 058: the header ModeToggle replaced the in-body focus segments.
+    await tester.tap(find.byKey(ModeToggle.nightKey));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
@@ -122,25 +135,14 @@ void main() {
       expect(fetchCount, 1);
       expect(find.text('88'), findsOneWidget);
 
-      await tester.dragUntilVisible(
-        find.byKey(const Key('focusModeNightSegment')),
-        find.byType(CustomScrollView),
-        const Offset(0, -200),
-      );
-
-      await tester.tap(find.byKey(const Key('focusModeNightSegment')));
+      // Spec 058: the header ModeToggle replaced the in-body segments.
+      await tester.tap(find.byKey(ModeToggle.nightKey));
       await tester.pumpAndSettle();
 
       expect(fetchCount, 2);
       expect(find.text('92'), findsOneWidget);
 
-      await tester.dragUntilVisible(
-        find.byKey(const Key('focusModeDaySegment')),
-        find.byType(CustomScrollView),
-        const Offset(0, -200),
-      );
-
-      await tester.tap(find.byKey(const Key('focusModeDaySegment')));
+      await tester.tap(find.byKey(ModeToggle.dayKey));
       await tester.pump();
       await tester.pumpAndSettle();
       await tester.dragUntilVisible(
@@ -153,13 +155,8 @@ void main() {
       expect(find.text('88'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
 
-      await tester.dragUntilVisible(
-        find.byKey(const Key('focusModeNightSegment')),
-        find.byType(CustomScrollView),
-        const Offset(0, -200),
-      );
-
-      await tester.tap(find.byKey(const Key('focusModeNightSegment')));
+      // Spec 058: the header ModeToggle replaced the in-body segments.
+      await tester.tap(find.byKey(ModeToggle.nightKey));
       await tester.pump();
 
       expect(fetchCount, 2);

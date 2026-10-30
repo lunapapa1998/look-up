@@ -13,13 +13,17 @@ import '../../theme/lookup_colors.dart';
 /// once per accepted manual change, spec 060), no animations. Flat, no
 /// shadow, no outer margin.
 ///
-/// - Selected segment: ModeToggle-only accent fill from [LookUpColors]
-///   (day `modeDayAccent` #9CA3F5, night `modeNightAccent` #F4C247, the
-///   same in both themes) with dark `onMode*Accent` (#141414) text/icon
-///   w700 (7.87:1 / 11.10:1); no border. Selection = fill + w700 +
-///   semantics. Known limitation (user decision, no border): on the white
-///   day page the fill is only ~2.34:1 / ~1.66:1, below the 3:1 non-text
-///   target; on the night page (#141414) it is 7.87:1 / 11.10:1.
+/// - Selected segment: day/night accent fill from [LookUpColors]
+///   (day `modeDayAccent` yellow #F4C247, night `modeNightAccent` lavender
+///   #9CA3F5, the same in both themes) with `onMode*Accent` text (w700)
+///   and icon: day sun + '낮' #141414 (~11.1:1); night moon + '밤' white
+///   #FFFFFF (final user decision, only ~2.34:1 on lavender — below 4.5:1
+///   text / 3:1 icon targets, a known, accepted limitation); no border.
+///   Selection =
+///   fill + w700 + semantics. Known limitation (user decision, no border):
+///   on the white day page the fill is only ~1.66:1 (day) / ~2.34:1
+///   (night), below the 3:1 non-text target; on the night page (#141414)
+///   it is ~11.1:1 / ~7.9:1.
 ///   Unselected: transparent, `onSurface` w500 text, `onSurfaceVariant`
 ///   icon. Exposed as `selected` + `inMutuallyExclusiveGroup` semantics.
 /// - '자동': filled inverted mono (`onSurface` bg, `surface` fg) when
@@ -148,6 +152,7 @@ class ModeToggle extends StatelessWidget {
         text: isDay ? '낮' : '밤',
         background: selected ? fill : Colors.transparent,
         foreground: selected ? onFill : scheme.onSurface,
+        // Selected text and icon share onFill (night: white, user decision).
         iconColor: selected ? onFill : scheme.onSurfaceVariant,
         bold: selected,
         // Plain shape, no border, selected or not (user decision).

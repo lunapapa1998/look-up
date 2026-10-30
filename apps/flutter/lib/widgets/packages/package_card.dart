@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../models/stay_package.dart';
 import '../../theme/layout_tokens.dart';
+import '../../theme/lookup_colors.dart';
+
+/// Maximum edge length of the square package hero illustration.
+const double packageHeroMaxExtent = 360;
 
 class PackageCard extends StatelessWidget {
   const PackageCard({
@@ -27,46 +31,58 @@ class PackageCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Image has a separate caption so enlarged titles cannot obscure it.
-          Stack(
-            children: [
-              SizedBox(
-                height: 180,
-                width: double.infinity,
-                child: Image.asset(
-                  package.imageAsset,
-                  fit: BoxFit.cover,
-                  excludeFromSemantics: true,
-                ),
+          // Near-square pixel art: shown as a square (minimal crop), capped at
+          // [packageHeroMaxExtent] on wide screens and centred in the card.
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: packageHeroMaxExtent,
+                maxHeight: packageHeroMaxExtent,
               ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, colors.surfaceContainer],
-                      stops: const [0.4, 1],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: AppSpacing.md,
-                left: AppSpacing.md,
-                right: AppSpacing.md,
-                child: Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xs,
+              child: AspectRatio(
+                key: Key('package_hero_${package.id}'),
+                aspectRatio: 1,
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    for (var i = 0; i < package.badges.length; i++)
-                      PackageTag(
-                        label: package.badges[i],
-                        color: i == 0 ? colors.secondary : colors.tertiary,
+                    Image.asset(
+                      package.imageAsset,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.center,
+                      filterQuality: FilterQuality.none,
+                      excludeFromSemantics: true,
+                    ),
+                    // Only the last ~20% fades into the card surface.
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, colors.surfaceContainer],
+                          stops: const [0.8, 1],
+                        ),
                       ),
+                    ),
+                    Positioned(
+                      top: AppSpacing.md,
+                      left: AppSpacing.md,
+                      right: AppSpacing.md,
+                      child: Wrap(
+                        spacing: AppSpacing.xs,
+                        runSpacing: AppSpacing.xs,
+                        children: [
+                          for (var i = 0; i < package.badges.length; i++)
+                            PackageTag(
+                              label: package.badges[i],
+                              color: colors.onSurface,
+                            ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -81,7 +97,7 @@ class PackageCard extends StatelessWidget {
                 Text(
                   package.eyebrow,
                   style: text.labelSmall?.copyWith(
-                    color: colors.secondary,
+                    color: colors.onSurfaceVariant,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -96,7 +112,7 @@ class PackageCard extends StatelessWidget {
                       PackageTag(
                         label: package.benefits[i],
                         color: i == 1
-                            ? colors.tertiary
+                            ? colors.onSurface
                             : colors.onSurfaceVariant,
                       ),
                   ],
@@ -200,9 +216,17 @@ class PackageTimelineStop extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final color = stop.moment == PackageMoment.night
-        ? colors.secondary
-        : colors.tertiary;
+    // Day stops yellow, night stops lavender, sunset (meal) stops neutral.
+    // Time text uses accentText so it stays readable on the light theme.
+    final modeColors = LookUpColors.of(context);
+    final color = switch (stop.moment) {
+      PackageMoment.day => modeColors.modeDayAccent,
+      PackageMoment.night => modeColors.modeNightAccent,
+      PackageMoment.sunset => colors.onSurfaceVariant,
+    };
+    final timeColor = stop.moment == PackageMoment.sunset
+        ? colors.onSurfaceVariant
+        : accentText(context, color);
     final icon = switch (stop.moment) {
       PackageMoment.day => Icons.wb_sunny_outlined,
       PackageMoment.sunset => Icons.restaurant_outlined,
@@ -244,7 +268,7 @@ class PackageTimelineStop extends StatelessWidget {
                 children: [
                   Text(
                     stop.time,
-                    style: text.labelSmall?.copyWith(color: color),
+                    style: text.labelSmall?.copyWith(color: timeColor),
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(stop.title, style: text.titleSmall),

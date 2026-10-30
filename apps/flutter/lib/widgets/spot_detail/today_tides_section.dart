@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/tide.dart';
 import '../../state/discovery_providers.dart';
+import '../../theme/lookup_colors.dart';
 
 /// Today's tide timeline (Figma 105-461), shown as the last section of
 /// [SpeciesDetail]. The caller resolves [tideTodayProvider] and only
@@ -11,7 +12,7 @@ import '../../state/discovery_providers.dart';
 /// station, so that case is handled by the caller not building this widget.
 ///
 /// Renders a vertical timeline card: each low/high extreme (with water level),
-/// a purple "지금" marker at the current time, and a highlighted "만조기"
+/// a neutral "지금" marker at the current time, and a highlighted "만조기"
 /// window (2h before each high tide -- the tidal feeding/observation peak).
 /// 일몰(sunset) from 105-461 is intentionally omitted: it lives in astronomy
 /// data, not the tide response (follow-up).
@@ -20,7 +21,6 @@ class TodayTidesSection extends ConsumerWidget {
 
   final TodayTides tides;
 
-  static const Color _nowColor = Color(0xFF8152C9); // 105-461 "지금" 보라
 
   static int _parseMin(String hhmm) {
     final parts = hhmm.split(':');
@@ -97,7 +97,7 @@ class TodayTidesSection extends ConsumerWidget {
                 Text(
                   '${tides.stationName} 기준',
                   style: textTheme.labelSmall?.copyWith(
-                    color: colorScheme.secondary,
+                    color: colorScheme.onSurfaceVariant,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -159,6 +159,10 @@ class _TimelineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    // 만조기 is the bird feeding/observation peak -> day-meaning accent
+    // (yellow); its text goes through accentText for light-theme contrast.
+    final dayAccent = LookUpColors.of(context).modeDayAccent;
+    final dayAccentText = accentText(context, dayAccent);
 
     late final Color dotColor;
     late final bool glow;
@@ -166,27 +170,29 @@ class _TimelineRow extends StatelessWidget {
 
     switch (entry.kind) {
       case _TideEntryKind.now:
-        dotColor = TodayTidesSection._nowColor;
+        // Neutral "지금" marker (was off-brand purple #8152C9, ~3.1:1 on
+        // the night card): onSurface dot + bold onSurface text.
+        dotColor = colorScheme.onSurface;
         glow = false;
         content = Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
             entry.label!,
             style: textTheme.labelSmall?.copyWith(
-              color: TodayTidesSection._nowColor,
-              fontWeight: FontWeight.w600,
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
             ),
           ),
         );
       case _TideEntryKind.peak:
-        dotColor = colorScheme.secondary;
+        dotColor = dayAccent;
         glow = true;
         content = Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: colorScheme.secondary.withValues(alpha: 0.1),
+            color: dayAccent.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
@@ -195,7 +201,7 @@ class _TimelineRow extends StatelessWidget {
               Text(
                 entry.windowLabel!,
                 style: textTheme.labelSmall?.copyWith(
-                  color: colorScheme.secondary,
+                  color: dayAccentText,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.5,
                 ),
@@ -242,7 +248,7 @@ class _TimelineRow extends StatelessWidget {
                     '조위 ${extreme.levelCm}cm',
                     style: textTheme.labelSmall?.copyWith(
                       color: isHigh
-                          ? colorScheme.secondary
+                          ? dayAccentText
                           : colorScheme.onSurfaceVariant,
                       letterSpacing: 0.5,
                     ),

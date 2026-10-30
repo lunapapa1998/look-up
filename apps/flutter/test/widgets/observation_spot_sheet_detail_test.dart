@@ -16,6 +16,7 @@ import 'package:lookup/models/trails.dart';
 import 'package:lookup/screens/observation_map_screen.dart';
 import 'package:lookup/services/location_service.dart';
 import 'package:lookup/state/discovery_providers.dart';
+import 'package:lookup/theme/lookup_colors.dart';
 import 'package:lookup/utils/observation_spot_filter.dart';
 import 'package:lookup/utils/relative_time.dart';
 import 'package:lookup/widgets/observation_spot_sheet.dart';
@@ -574,14 +575,24 @@ void main() {
           colorScheme.surfaceContainerHigh,
         );
 
-        // Figma 62-154: the coordinate subtitle carries the teal accent.
+        // Branding fix (2026-10-31): the coordinate subtitle is neutral
+        // reference text, never the old teal (colorScheme.secondary).
         final coordTextWidget = tester.widget<Text>(
           find.descendant(
             of: find.byType(SpeciesDetail),
             matching: find.text(coordText),
           ),
         );
-        expect(coordTextWidget.style?.color, colorScheme.secondary);
+        expect(coordTextWidget.style?.color, colorScheme.onSurfaceVariant);
+        expect(coordTextWidget.style?.color, isNot(colorScheme.secondary));
+
+        // Bird values (관측 시각, 군집 규모 count) are day-meaning: the
+        // yellow accent via accentText (onSurface on the light theme).
+        final speciesContext = tester.element(find.byType(SpeciesDetail));
+        final birdValueColor = accentText(
+          speciesContext,
+          LookUpColors.of(speciesContext).modeDayAccent,
+        );
 
         // Figma 62-154: 관측 시각 now shows an absolute formatObservedAt
         // string, and none of the old relative-only phrasing survives.
@@ -596,6 +607,14 @@ void main() {
           ),
           findsOneWidget,
         );
+        final observedAtWidget = tester.widget<Text>(
+          find.descendant(
+            of: find.byType(SpeciesDetail),
+            matching: find.text(expectedObservedAt),
+          ),
+        );
+        expect(observedAtWidget.style?.color, birdValueColor);
+        expect(observedAtWidget.style?.color, isNot(colorScheme.secondary));
         for (final relativeFragment in const ['분 전', '시간 전', '일 전', '방금']) {
           expect(
             find.descendant(
@@ -606,8 +625,8 @@ void main() {
           );
         }
 
-        // Figma 62-154: 군집 규모 renders as one Text.rich with a large teal
-        // count span and a plain onSurface "개체" span.
+        // Figma 62-154: 군집 규모 renders as one Text.rich with a large
+        // day-accent count span and a plain onSurface "개체" span.
         final countRichTextFinder = find.descendant(
           of: find.byType(SpeciesDetail),
           matching: find.byWidgetPredicate(
@@ -638,7 +657,8 @@ void main() {
         final countUnitSpan =
             findSpan(countRootSpan, (text) => text.contains('개체'))!;
 
-        expect(countNumberSpan.style?.color, colorScheme.secondary);
+        expect(countNumberSpan.style?.color, birdValueColor);
+        expect(countNumberSpan.style?.color, isNot(colorScheme.secondary));
         expect(countNumberSpan.style?.fontSize, greaterThanOrEqualTo(18));
         expect(countUnitSpan.style?.color, colorScheme.onSurface);
       },

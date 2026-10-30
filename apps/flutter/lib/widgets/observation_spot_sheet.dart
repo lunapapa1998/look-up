@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../models/observation_map.dart';
@@ -7,6 +9,7 @@ import '../utils/observation_spot_filter.dart';
 import '../utils/spot_name.dart';
 import '../utils/trail_format.dart';
 import 'common/lookup_scroll_behavior.dart';
+import 'observation_marker.dart' show BirdSilhouettePainter;
 import 'observation_spot_detail.dart';
 import 'sample_data_notice.dart';
 import 'spot_detail/species_detail.dart';
@@ -16,6 +19,11 @@ import 'spot_detail/species_detail.dart';
 /// three snap points. Shared with observation_map_screen.dart so the peek
 /// overlay fade threshold and the sheet's own peek stay in sync.
 const double kObsSheetPeek = 0.24;
+
+/// Minimum layout height of the sheet's content column. Must cover the fixed
+/// grabber + header + search block (~132px) so a short peek clips instead of
+/// overflowing.
+const double _kMinSheetContentHeight = 160;
 
 /// One bird species tapped from a bird spot's measurement list or its
 /// on-map scatter marker -- carries both the species' own observation
@@ -77,19 +85,6 @@ class ObservationSpotSheet extends StatelessWidget {
   /// [spots] come from demo sample data (spec 052): each list row gets a
   /// [SampleMark].
   final bool isSample;
-
-  /// Same kind -> color mapping as [ObservationMarker]'s pins.
-  static Color kindColor(ColorScheme colorScheme, String kind) {
-    switch (kind) {
-      case 'bird':
-        return colorScheme.secondary;
-      case 'star':
-        return colorScheme.tertiary;
-      case 'heritage':
-      default:
-        return const Color(0xFF8A7A68);
-    }
-  }
 
   String _measurementSummary(ObservationSpot spot) {
     switch (spot.kind) {
@@ -154,7 +149,18 @@ class ObservationSpotSheet extends StatelessWidget {
           color: colorScheme.surfaceContainerLowest,
           clipBehavior: Clip.antiAlias,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          child: Column(
+          // On short viewports (e.g. 800x600) the peek extent is smaller
+          // than the fixed grabber+header+search block, which used to
+          // overflow the Column. Lay the column out at least
+          // [_kMinSheetContentHeight] tall and clip whatever sits below the
+          // visible sheet; at sheet heights >= that minimum the layout is
+          // unchanged. Layout-only (no rebuild while dragging).
+          child: ClipRect(
+            child: CustomSingleChildLayout(
+              delegate: const _MinHeightLayoutDelegate(
+                _kMinSheetContentHeight,
+              ),
+              child: Column(
             children: [
               GestureDetector(
                 key: const Key('obsmap_sheet_handle'),
@@ -249,12 +255,7 @@ class ObservationSpotSheet extends StatelessWidget {
                                   ),
                                   child: Row(
                                     children: [
-                                      Icon(
-                                        Icons.circle,
-                                        size: 10,
-                                        color:
-                                            kindColor(colorScheme, spot.kind),
-                                      ),
+                                      _SpotKindGlyph(kind: spot.kind),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
@@ -285,11 +286,70 @@ class ObservationSpotSheet extends StatelessWidget {
                       ),
               ),
             ],
+              ),
+            ),
           ),
         );
       },
     );
   }
+}
+
+/// Neutral per-kind glyph leading each spot-list row -- the same glyphs as
+/// the map pins (bird silhouette / star / storefront), in onSurfaceVariant.
+/// Kinds are told apart by shape, never by hue (branding fix 2026-10-31
+/// replaced the old teal/amber/brown dots).
+class _SpotKindGlyph extends StatelessWidget {
+  const _SpotKindGlyph({required this.kind});
+
+  final String kind;
+
+  static const double _size = 16;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    switch (kind) {
+      case 'bird':
+        return SizedBox(
+          width: _size,
+          height: _size,
+          child: Center(
+            child: CustomPaint(
+              size: const Size(_size * 0.85, _size * 0.85),
+              painter: BirdSilhouettePainter(color: color),
+            ),
+          ),
+        );
+      case 'star':
+        return Icon(Icons.star, size: _size, color: color);
+      case 'heritage':
+      default:
+        return Icon(Icons.storefront, size: _size, color: color);
+    }
+  }
+}
+
+/// Gives its child the parent's width and `max(parent height, [minHeight])`
+/// as tight constraints while itself taking the parent's size, so a too-tall
+/// child extends past the bottom (clipped by the caller's [ClipRect]) instead
+/// of overflowing a Flex.
+class _MinHeightLayoutDelegate extends SingleChildLayoutDelegate {
+  const _MinHeightLayoutDelegate(this.minHeight);
+
+  final double minHeight;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    return BoxConstraints.tightFor(
+      width: constraints.maxWidth,
+      height: math.max(constraints.maxHeight, minHeight),
+    );
+  }
+
+  @override
+  bool shouldRelayout(_MinHeightLayoutDelegate oldDelegate) =>
+      oldDelegate.minHeight != minHeight;
 }
 
 /// Search field shown above the spot list as a fixed (non-scrolling) sibling
@@ -414,7 +474,7 @@ class _SpotFilterChips extends StatelessWidget {
 /// Neutral surfaceContainer-toned empty-result message shown when an active
 /// search/SQM filter narrows the spot list to zero -- never errorContainer,
 /// since an empty filtered result is not an error state (see
-/// `_EmptyStatusBanner` in observation_map_screen.dart for the same rule
+/// the `StatusView.empty` banner in observation_map_screen.dart for the same rule
 /// applied to the "zero spots in the region" case).
 class _EmptyFilterResult extends StatelessWidget {
   const _EmptyFilterResult();

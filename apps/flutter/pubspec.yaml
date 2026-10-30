@@ -46,7 +46,8 @@ dependencies:
   # Reverse geocoding (lat/lng -> place name) for the location display.
   geocoding: ^5.0.0
 
-  # Design-token theme (Space Grotesk / Inter / JetBrains Mono).
+  # No longer used for text styles since 2026-10-31 (bundled Bithumb Gothic is
+  # the app font); kept to avoid lockfile churn before the demo.
   google_fonts: ^6.2.1
 
   # Map rendering for the observation map (OSM tiles).
@@ -78,11 +79,15 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icon/app_icon.png"
+  # 2026-10-31: approved brand icon (previous sources kept in assets/icon/legacy_2026-09/).
+  image_path: "assets/brand/app_icon.png"
   remove_alpha_ios: true
   min_sdk_android: 21
-  adaptive_icon_background: "assets/icon/adaptive_background.png"
-  adaptive_icon_foreground: "assets/icon/adaptive_foreground.png"
+  adaptive_icon_background: "assets/brand/adaptive_background.png"
+  adaptive_icon_foreground: "assets/brand/app_icon.png"
+  web:
+    generate: true
+    image_path: "assets/brand/app_icon.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -98,10 +103,25 @@ flutter:
   assets:
     - assets/packages/
     - assets/auth/
+    - assets/brand/intro_day.png
+    - assets/brand/intro_night.png
+    - assets/brand/app_icon_ui.png
+    - assets/fonts/OFL.txt
+    - assets/fonts/OFL-BithumbGothic.txt
 
   # Spec 053 Phase 1: bundled Hangul font (SIL OFL 1.1, assets/fonts/OFL.txt).
   # Default app font; Google Fonts styles fall back to it for Hangul glyphs.
   fonts:
+    # 2026-10-31: app default font. Single real weight: Basic = 700 (Bold),
+    # Original = 700 Bold Italic (embedded OS/2 + name metadata). No other
+    # weights exist, so none are registered.
+    - family: BithumbGothic
+      fonts:
+        - asset: assets/fonts/BithumbGothic-Basic.ttf
+          weight: 700
+        - asset: assets/fonts/BithumbGothic-Original.ttf
+          weight: 700
+          style: italic
     - family: Pretendard
       fonts:
         - asset: assets/fonts/Pretendard-Regular.otf

@@ -92,7 +92,7 @@ class _PackageBookingPreviewScreenState
               label: Text(
                 _departure == null
                     ? '날짜 선택'
-                    : '${_departure!.year}.${_departure!.month}.${_departure!.day}',
+                    : '${_departure!.year}.${_departure!.month.toString().padLeft(2, '0')}.${_departure!.day.toString().padLeft(2, '0')}',
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -115,7 +115,7 @@ class _PackageBookingPreviewScreenState
             Text(
               '${formatPackagePrice(widget.package.pricePerPerson * _people)}원',
               key: const Key('package_booking_total'),
-              style: text.headlineMedium?.copyWith(color: colors.secondary),
+              style: text.headlineMedium?.copyWith(color: colors.onSurface),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
