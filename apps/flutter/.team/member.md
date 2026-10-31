@@ -1,5 +1,12 @@
 # flutter handoff note
 
+## Observation-map pins -> shared teardrop + per-kind glyph (no contract change)
+
+- `observation_marker.dart`: new `MapPinKind {bird, star, restaurant('heritage'), other}` + `MapPin(kind:, selected:)` / `MapPin.bird/star/restaurant/other` (28x36, tip = bottom-center), `mapPinOutlinePath` (head r14 + tangent edges to tip; `inset` = ring), `MapPinShapePainter` (white ring 2/3px, fill, subtle `drawShadow` when selected), glyph painters `MapPinBirdGlyphPainter` (upright plump songbird facing right: white round body/head, `kMapPinBirdAccent` #1F2A44 head cap/wing/tail/beak/eye; 17px box `MapPin.birdGlyphSize`, others 15), `MapPinStarGlyphPainter`, `MapPinBinocularsGlyphPainter`; restaurant = `Icons.flatware`. Old `_RoundPin`/`_RoundedSquarePin`/`_TeardropPin` removed; `BirdSilhouettePainter` kept unchanged (sheet/scatter/species detail).
+- `mapPinColorsFor('bird')` glyph now white `kMapPinGlyph` (was #141414). Fills unchanged.
+- Anchor: pin tip at bottom-center of the 44 pin box (`Align`/`Transform.scale` both bottomCenter); `ObservationMarker.tipOffset` + `markerAlignment` via `Marker.computePixelAlignment` -> unlabeled (0,-1), labeled (0,1-88/72). Box sizes/hit area/labels/semantics unchanged.
+- Tests: `test/widgets/branding_map_colors_test.dart` updated; new `test/widgets/observation_marker_pin_test.dart` (tip == anchor ±1px for label/selected combos, glyph per kind, outline probes). No shell: lead runs `cd apps/flutter && flutter analyze && flutter test`.
+
 ## Default font -> bundled Bithumb Gothic (no contract change)
 
 - `app_theme.dart`: `AppTheme.bithumbGothic = 'BithumbGothic'`; `ThemeData(fontFamily: bithumbGothic, fontFamilyFallback: [pretendard])`; all 15 TextTheme roles BithumbGothic + Pretendard fallback; Space Grotesk / JetBrains Mono (GoogleFonts) removed (google_fonts dep now unused, left in pubspec). Height floors: display/headline/title >= 1.25, body >= 1.4; headline -0.02em kept. `monoLabel` = Bithumb, 0.06em, tabular figures.

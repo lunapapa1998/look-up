@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -27,15 +28,20 @@ const Color kMapPinGlyph = Color(0xFFFFFFFF);
 const double kMapPinRingWidth = 2;
 const double kMapPinRingSelected = 3;
 
+/// Dark navy for the bird glyph's head/wing/tail/beak on the yellow pin (the
+/// body itself is the white [kMapPinGlyph]), per the 2026-10-31 pin sheet.
+const Color kMapPinBirdAccent = Color(0xFF1F2A44);
+
 /// Pin fill + glyph colors for a spot [kind] (UI finishing pass,
-/// 2026-10-31): bird = day accent yellow #F4C247 with #141414 glyph, star =
-/// night accent lavender #9CA3F5 with white glyph, everything else = neutral
-/// [kMapPinFill] with a white [kMapPinGlyph]. Every pin keeps the white
+/// 2026-10-31; pin-shape pass 2026-10-31): bird = day accent yellow #F4C247,
+/// star = night accent lavender #9CA3F5, everything else = neutral
+/// [kMapPinFill]. Every glyph is the white [kMapPinGlyph] (the bird adds
+/// [kMapPinBirdAccent] navy details) and every pin keeps the white
 /// [kMapPinRing] for contrast on map tiles.
 ({Color fill, Color glyph}) mapPinColorsFor(String kind, LookUpColors colors) {
   switch (kind) {
     case 'bird':
-      return (fill: colors.modeDayAccent, glyph: colors.onModeDayAccent);
+      return (fill: colors.modeDayAccent, glyph: kMapPinGlyph);
     case 'star':
       return (fill: colors.modeNightAccent, glyph: colors.onModeNightAccent);
     default:
@@ -184,12 +190,15 @@ List<Marker> buildObservationMarkers({
   }).toList();
 }
 
-/// Renders a single observation spot pin, shaped by [ObservationSpot.kind]
-/// (teardrop + bird glyph for birds, circle + star for night sky,
-/// rounded-square + storefront for heritage eateries). Fill/glyph colors come
-/// from [mapPinColorsFor] (bird yellow, star lavender, others neutral ink),
-/// always with a white [kMapPinRing] ring; selection is shown by size
-/// (1.25x) and a thicker ring, never by color.
+/// Renders a single observation spot pin: one shared teardrop [MapPin]
+/// silhouette for every kind, told apart by glyph (bird / star / fork+spoon
+/// for heritage eateries / binoculars for anything else). Fill/glyph colors
+/// come from [mapPinColorsFor] (bird yellow, star lavender, others neutral
+/// ink), always with a white [kMapPinRing] ring; selection is shown by size
+/// (1.25x, scaled about the tip) and a thicker ring, never by color.
+///
+/// The pin's tip sits at the bottom-center of the 44x44 [pinBoxSize] hit
+/// box, and [markerAlignment] puts exactly that point on the spot's LatLng.
 class ObservationMarker extends StatelessWidget {
   const ObservationMarker({
     super.key,
@@ -208,8 +217,6 @@ class ObservationMarker extends StatelessWidget {
   /// Spot comes from demo sample data (spec 052): adds a [SampleMark] to
   /// the pin and ", 예시" to its semantics label.
   final bool isSample;
-
-  static const double _pinSize = 28;
 
   /// Hit-testable pin box side length -- unchanged from before on-map
   /// labels existed.
@@ -234,15 +241,27 @@ class ObservationMarker extends StatelessWidget {
   static double markerHeight(bool showLabel) =>
       showLabel ? pinBoxSize + _labelGap + _labelPillHeight : pinBoxSize;
 
-  /// flutter_map `Marker.alignment` -- which point of the box lands on the
-  /// spot's LatLng. Unlabeled markers use the original center-of-box anchor
-  /// (box == pin, so this exactly reproduces pre-label behavior). Labeled
-  /// markers grow taller for the pill below, so they re-anchor to
-  /// top-center: the pin (the first, centered child of the column) then
-  /// still sits right at the coordinate instead of drifting down as the box
-  /// grows.
-  static Alignment markerAlignment(bool showLabel) =>
-      showLabel ? Alignment.topCenter : Alignment.center;
+  /// Where the pin's tip lands inside the marker box: bottom-center of the
+  /// [pinBoxSize] hit box, which is horizontally centered in the marker
+  /// (alone, or as the first child of the label column).
+  static Offset tipOffset(bool showLabel) =>
+      Offset(markerWidth(showLabel) / 2, pinBoxSize);
+
+  /// flutter_map `Marker.alignment` that puts [tipOffset] exactly on the
+  /// spot's LatLng. flutter_map 8 positions the box so the point lands at
+  /// `(0.5 * w * (1 - x), 0.5 * h * (1 - y))` inside it, which
+  /// [Marker.computePixelAlignment] inverts: unlabeled -> (0, -1) (box
+  /// bottom-center), labeled -> (0, 1 - 2 * 44 / 72) (the pin's tip, above
+  /// the gap and the pill).
+  static Alignment markerAlignment(bool showLabel) {
+    final tip = tipOffset(showLabel);
+    return Marker.computePixelAlignment(
+      width: markerWidth(showLabel),
+      height: markerHeight(showLabel),
+      left: tip.dx,
+      top: tip.dy,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -252,10 +271,17 @@ class ObservationMarker extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Center(
+        // Tip at the box's bottom-center; the selected 1.25x scale pivots on
+        // the tip so it never leaves the coordinate.
+        child: Align(
+          alignment: Alignment.bottomCenter,
           child: Transform.scale(
             scale: selected ? 1.25 : 1.0,
-            child: _ObservationPin(spot: spot, selected: selected),
+            alignment: Alignment.bottomCenter,
+            child: MapPin(
+              kind: MapPinKind.fromSpotKind(spot.kind),
+              selected: selected,
+            ),
           ),
         ),
       ),
@@ -305,7 +331,7 @@ class ObservationMarker extends StatelessWidget {
 
 /// Semi-transparent pill label shown below a marker's pin (spec 016 P1):
 /// measurement-only text, never a suitability score. Own widget class per
-/// this file's no-private-build-method convention (see [_RoundPin] et al).
+/// this file's no-private-build-method convention (see [MapPin] et al).
 class _ObservationLabelPill extends StatelessWidget {
   const _ObservationLabelPill({required this.text, required this.selected});
 
@@ -346,53 +372,374 @@ class _ObservationLabelPill extends StatelessWidget {
   }
 }
 
-/// Renders the kind-specific pin shape/color for [ObservationMarker],
-/// extracted so the shape switch is a standalone, independently testable
-/// widget rather than a private builder method.
-class _ObservationPin extends StatelessWidget {
-  const _ObservationPin({required this.spot, required this.selected});
+/// The four map-pin glyph kinds (pin-shape pass, 2026-10-31). Spot data
+/// only has 'bird' / 'star' / 'heritage' today; any other kind falls back
+/// to [other] (binoculars).
+enum MapPinKind {
+  bird('bird'),
+  star('star'),
+  restaurant('heritage'),
+  other('other');
 
-  final ObservationSpot spot;
+  const MapPinKind(this.spotKind);
+
+  /// The [ObservationSpot.kind] string this pin kind stands for (fed to
+  /// [mapPinColorsFor]).
+  final String spotKind;
+
+  static MapPinKind fromSpotKind(String kind) {
+    switch (kind) {
+      case 'bird':
+        return MapPinKind.bird;
+      case 'star':
+        return MapPinKind.star;
+      case 'heritage':
+        return MapPinKind.restaurant;
+      default:
+        return MapPinKind.other;
+    }
+  }
+}
+
+/// One shared teardrop map pin (round head narrowing to a single bottom
+/// point) with a kind glyph centered in the head. Box is exactly
+/// [width] x [height] with no padding, and the tip is its bottom-center
+/// ([tip]), so a parent can anchor the tip precisely.
+class MapPin extends StatelessWidget {
+  const MapPin({super.key, required this.kind, this.selected = false});
+
+  const MapPin.bird({super.key, this.selected = false})
+    : kind = MapPinKind.bird;
+  const MapPin.star({super.key, this.selected = false})
+    : kind = MapPinKind.star;
+  const MapPin.restaurant({super.key, this.selected = false})
+    : kind = MapPinKind.restaurant;
+  const MapPin.other({super.key, this.selected = false})
+    : kind = MapPinKind.other;
+
+  final MapPinKind kind;
   final bool selected;
+
+  /// Pin width == head diameter (same 28px as the previous pins).
+  static const double width = 28;
+  static const double height = 36;
+
+  /// Tip position inside the pin box.
+  static const Offset tip = Offset(width / 2, height);
+
+  /// Glyph box side, centered on the head circle's center.
+  static const double glyphSize = 15;
+
+  /// The bird glyph is a little larger (17px; its round silhouette stays
+  /// >= 2px inside the fill edge of the 12px-radius inner head).
+  static const double birdGlyphSize = 17;
 
   @override
   Widget build(BuildContext context) {
-    final ringWidth = selected ? kMapPinRingSelected : kMapPinRingWidth;
-    final pinColors = mapPinColorsFor(spot.kind, LookUpColors.of(context));
-
-    switch (spot.kind) {
-      case 'bird':
-        return _TeardropPin(
-          ringWidth: ringWidth,
+    final colors = mapPinColorsFor(kind.spotKind, LookUpColors.of(context));
+    const headCenter = width / 2;
+    final glyphSize = kind == MapPinKind.bird
+        ? MapPin.birdGlyphSize
+        : MapPin.glyphSize;
+    return SizedBox(
+      width: width,
+      height: height,
+      child: CustomPaint(
+        painter: MapPinShapePainter(
+          fill: colors.fill,
+          ringWidth: selected ? kMapPinRingSelected : kMapPinRingWidth,
           elevated: selected,
-          fill: pinColors.fill,
-          child: CustomPaint(
-            size: const Size(
-              ObservationMarker._pinSize * 0.5,
-              ObservationMarker._pinSize * 0.5,
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              left: headCenter - glyphSize / 2,
+              top: headCenter - glyphSize / 2,
+              width: glyphSize,
+              height: glyphSize,
+              child: MapPinGlyph(kind: kind, color: colors.glyph),
             ),
-            painter: BirdSilhouettePainter(color: pinColors.glyph),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The white glyph drawn inside a [MapPin]'s head for [kind]: custom vector
+/// paths for bird/star/binoculars, Material [Icons.flatware] (fork + spoon)
+/// for restaurants. Fills its parent box.
+class MapPinGlyph extends StatelessWidget {
+  const MapPinGlyph({super.key, required this.kind, required this.color});
+
+  final MapPinKind kind;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (kind) {
+      case MapPinKind.bird:
+        return CustomPaint(
+          size: Size.infinite,
+          painter: MapPinBirdGlyphPainter(
+            body: color,
+            accent: kMapPinBirdAccent,
           ),
         );
-      case 'star':
-        return _RoundPin(
-          ringWidth: ringWidth,
-          elevated: selected,
-          icon: Icons.star,
-          fill: pinColors.fill,
-          glyph: pinColors.glyph,
+      case MapPinKind.star:
+        return CustomPaint(
+          size: Size.infinite,
+          painter: MapPinStarGlyphPainter(color: color),
         );
-      case 'heritage':
-      default:
-        return _RoundedSquarePin(
-          ringWidth: ringWidth,
-          elevated: selected,
-          icon: Icons.storefront,
-          fill: pinColors.fill,
-          glyph: pinColors.glyph,
+      case MapPinKind.restaurant:
+        return Icon(Icons.flatware, size: MapPin.glyphSize, color: color);
+      case MapPinKind.other:
+        return CustomPaint(
+          size: Size.infinite,
+          painter: MapPinBinocularsGlyphPainter(color: color),
         );
     }
   }
+}
+
+/// Teardrop outline in a [width] x [height] box: head circle of radius
+/// `width / 2` at `(width / 2, width / 2)`, two straight edges tangent to
+/// it meeting at the tip `(width / 2, height)`. [inset] shrinks the shape
+/// uniformly inward (same tangent angle), used for the fill inside the ring.
+Path mapPinOutlinePath(double width, double height, {double inset = 0}) {
+  final r = width / 2;
+  final center = Offset(r, r);
+  final d = height - r; // head center -> tip
+  final sinTip = r / d; // sine of the half-angle at the tip
+  final ri = r - inset;
+  final di = d - inset / sinTip;
+  final phi = math.acos(ri / di); // tangent point angle from straight down
+  final tipPoint = Offset(center.dx, center.dy + di);
+  return Path()
+    ..moveTo(tipPoint.dx, tipPoint.dy)
+    ..lineTo(
+      center.dx + ri * math.sin(phi),
+      center.dy + ri * math.cos(phi),
+    )
+    ..arcTo(
+      Rect.fromCircle(center: center, radius: ri),
+      math.pi / 2 - phi,
+      -(2 * math.pi - 2 * phi),
+      false,
+    )
+    ..close();
+}
+
+/// Paints the [MapPin] silhouette: white [ring] teardrop, the [fill]
+/// teardrop inset by [ringWidth] on top, plus a subtle shadow when
+/// [elevated] (selected), like the previous pins.
+class MapPinShapePainter extends CustomPainter {
+  const MapPinShapePainter({
+    required this.fill,
+    required this.ringWidth,
+    this.ring = kMapPinRing,
+    this.elevated = false,
+  });
+
+  final Color fill;
+  final Color ring;
+  final double ringWidth;
+  final bool elevated;
+
+  /// The pin tip in this painter's local coordinates.
+  static Offset tipFor(Size size) => Offset(size.width / 2, size.height);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outer = mapPinOutlinePath(size.width, size.height);
+    if (elevated) {
+      canvas.drawShadow(outer, const Color(0x59000000), 3, false);
+    }
+    canvas.drawPath(outer, Paint()..color = ring);
+    canvas.drawPath(
+      mapPinOutlinePath(size.width, size.height, inset: ringWidth),
+      Paint()..color = fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant MapPinShapePainter oldDelegate) =>
+      oldDelegate.fill != fill ||
+      oldDelegate.ring != ring ||
+      oldDelegate.ringWidth != ringWidth ||
+      oldDelegate.elevated != elevated;
+}
+
+/// Upright, plump side-view songbird facing right (no rotation): round
+/// white [body] and head, [accent] navy head cap, wing, tail, beak and eye
+/// dot. Drawn in a unit box scaled to the canvas.
+class MapPinBirdGlyphPainter extends CustomPainter {
+  const MapPinBirdGlyphPainter({required this.body, required this.accent});
+
+  final Color body;
+  final Color accent;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    Offset p(double x, double y) => Offset(x * w, y * h);
+    final bodyPaint = Paint()..color = body;
+    final accentPaint = Paint()..color = accent;
+    Path poly(List<Offset> points) => Path()..addPolygon(points, true);
+
+    // Everything stays within ~0.5 (unit) of the box center, so on the 17px
+    // glyph it keeps >= 2px from the fill edge of the pin head.
+
+    // Tail (navy): short wedge at the lower left, behind the body.
+    canvas.drawPath(
+      poly([p(0.28, 0.70), p(0.10, 0.82), p(0.20, 0.90), p(0.36, 0.84)]),
+      accentPaint,
+    );
+
+    // Body (white): round, upright, centered slightly low (~60% of box).
+    final bodyCenter = p(0.47, 0.60);
+    canvas.drawCircle(bodyCenter, 0.28 * w, bodyPaint);
+
+    // Head (white) sitting on the body's upper right.
+    final headCenter = p(0.62, 0.36);
+    final headRadius = 0.19 * w;
+    canvas.drawCircle(headCenter, headRadius, bodyPaint);
+
+    // Head cap (navy): top and back of the head, clipped to the head circle
+    // so the lower-right face stays white.
+    canvas
+      ..save()
+      ..clipPath(
+        Path()..addOval(Rect.fromCircle(center: headCenter, radius: headRadius)),
+      )
+      ..drawPath(
+        poly([
+          p(0.30, 0.05),
+          p(0.95, 0.05),
+          p(0.80, 0.30),
+          p(0.58, 0.40),
+          p(0.40, 0.56),
+          p(0.30, 0.56),
+        ]),
+        accentPaint,
+      )
+      ..restore();
+
+    // Wing (navy): rounded teardrop on the body's back half, rounded end
+    // forward/up, point trailing back toward the tail.
+    canvas.drawPath(
+      Path()
+        ..moveTo(p(0.22, 0.80).dx, p(0.22, 0.80).dy)
+        ..quadraticBezierTo(
+          p(0.26, 0.52).dx,
+          p(0.26, 0.52).dy,
+          p(0.48, 0.52).dx,
+          p(0.48, 0.52).dy,
+        )
+        ..quadraticBezierTo(
+          p(0.64, 0.56).dx,
+          p(0.64, 0.56).dy,
+          p(0.58, 0.68).dx,
+          p(0.58, 0.68).dy,
+        )
+        ..quadraticBezierTo(
+          p(0.46, 0.82).dx,
+          p(0.46, 0.82).dy,
+          p(0.22, 0.80).dx,
+          p(0.22, 0.80).dy,
+        )
+        ..close(),
+      accentPaint,
+    );
+
+    // Beak (navy): small triangle at the right of the head.
+    canvas.drawPath(
+      poly([p(0.79, 0.36), p(0.97, 0.42), p(0.79, 0.48)]),
+      accentPaint,
+    );
+
+    // Eye (navy dot) on the white face, just below the cap edge.
+    canvas.drawCircle(p(0.70, 0.41), 0.045 * w, accentPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant MapPinBirdGlyphPainter oldDelegate) =>
+      oldDelegate.body != body || oldDelegate.accent != accent;
+}
+
+/// Solid five-point star centered in the canvas.
+class MapPinStarGlyphPainter extends CustomPainter {
+  const MapPinStarGlyphPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outer = math.min(size.width, size.height) / 2;
+    final inner = outer * 0.45;
+    // A point-up star's bounding box sits slightly high; nudge it down so it
+    // reads optically centered.
+    final center = Offset(size.width / 2, size.height / 2 + outer * 0.06);
+    final path = Path();
+    for (var i = 0; i < 10; i++) {
+      final radius = i.isEven ? outer : inner;
+      final angle = -math.pi / 2 + i * math.pi / 5;
+      final point =
+          center + Offset(math.cos(angle) * radius, math.sin(angle) * radius);
+      if (i == 0) {
+        path.moveTo(point.dx, point.dy);
+      } else {
+        path.lineTo(point.dx, point.dy);
+      }
+    }
+    canvas.drawPath(path..close(), Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant MapPinStarGlyphPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+/// Front-view binoculars: two barrels with round lenses (holes cut through
+/// so the pin fill shows), joined by a bridge. Material has no binoculars
+/// icon, so this is a custom path.
+class MapPinBinocularsGlyphPainter extends CustomPainter {
+  const MapPinBinocularsGlyphPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    Rect r(double l, double t, double rr, double b) =>
+        Rect.fromLTRB(l * w, t * h, rr * w, b * h);
+    final corner = Radius.circular(0.06 * w);
+
+    final solid = Path()
+      // Eyepiece tubes.
+      ..addRRect(RRect.fromRectAndRadius(r(0.14, 0.14, 0.40, 0.56), corner))
+      ..addRRect(RRect.fromRectAndRadius(r(0.60, 0.14, 0.86, 0.56), corner))
+      // Bridge.
+      ..addRect(r(0.38, 0.36, 0.62, 0.58))
+      // Objective barrels.
+      ..addOval(r(0.02, 0.42, 0.48, 0.88))
+      ..addOval(r(0.52, 0.42, 0.98, 0.88));
+    final lenses = Path()
+      ..addOval(r(0.13, 0.53, 0.37, 0.77))
+      ..addOval(r(0.63, 0.53, 0.87, 0.77));
+    // All solid contours share one winding direction, so the default
+    // nonzero fill treats overlaps as a union; then punch the lenses out.
+    canvas.drawPath(
+      Path.combine(PathOperation.difference, solid, lenses),
+      Paint()..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant MapPinBinocularsGlyphPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 List<BoxShadow> _pinShadow(bool elevated) {
@@ -404,150 +751,6 @@ List<BoxShadow> _pinShadow(bool elevated) {
       offset: const Offset(0, 3),
     ),
   ];
-}
-
-class _RoundPin extends StatelessWidget {
-  const _RoundPin({
-    required this.ringWidth,
-    required this.elevated,
-    required this.icon,
-    required this.fill,
-    required this.glyph,
-  });
-
-  final double ringWidth;
-  final bool elevated;
-  final IconData icon;
-  final Color fill;
-  final Color glyph;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: ObservationMarker._pinSize,
-      height: ObservationMarker._pinSize,
-      decoration: BoxDecoration(
-        color: fill,
-        shape: BoxShape.circle,
-        border: Border.all(color: kMapPinRing, width: ringWidth),
-        boxShadow: _pinShadow(elevated),
-      ),
-      child: Icon(
-        icon,
-        size: ObservationMarker._pinSize * 0.55,
-        color: glyph,
-      ),
-    );
-  }
-}
-
-class _RoundedSquarePin extends StatelessWidget {
-  const _RoundedSquarePin({
-    required this.ringWidth,
-    required this.elevated,
-    required this.icon,
-    required this.fill,
-    required this.glyph,
-  });
-
-  final double ringWidth;
-  final bool elevated;
-  final IconData icon;
-  final Color fill;
-  final Color glyph;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: ObservationMarker._pinSize,
-      height: ObservationMarker._pinSize,
-      decoration: BoxDecoration(
-        color: fill,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: kMapPinRing, width: ringWidth),
-        boxShadow: _pinShadow(elevated),
-      ),
-      child: Icon(
-        icon,
-        size: ObservationMarker._pinSize * 0.55,
-        color: glyph,
-      ),
-    );
-  }
-}
-
-/// Circle top tapering to a point at the bottom (map-pin/teardrop shape),
-/// built as the union of a circle and a triangular tail so the geometry
-/// stays simple and robust at any size.
-class _TeardropClipper extends CustomClipper<Path> {
-  const _TeardropClipper();
-
-  @override
-  Path getClip(Size size) {
-    final circleDiameter = size.width;
-    final circle = Path()
-      ..addOval(Rect.fromLTWH(0, 0, circleDiameter, circleDiameter));
-    final tail = Path()
-      ..moveTo(size.width * 0.28, circleDiameter * 0.72)
-      ..lineTo(size.width * 0.72, circleDiameter * 0.72)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-    return Path.combine(PathOperation.union, circle, tail);
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-class _TeardropPin extends StatelessWidget {
-  const _TeardropPin({
-    required this.ringWidth,
-    required this.elevated,
-    required this.fill,
-    required this.child,
-  });
-
-  final double ringWidth;
-  final bool elevated;
-  final Color fill;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final width = ObservationMarker._pinSize;
-    final height = width * 1.3;
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.topCenter,
-        children: [
-          // White teardrop underneath = the ring; the inset teardrop on top
-          // is the fill.
-          PhysicalShape(
-            clipper: const _TeardropClipper(),
-            color: kMapPinRing,
-            elevation: elevated ? 6 : 0,
-            child: SizedBox(width: width, height: height),
-          ),
-          Positioned.fill(
-            child: Padding(
-              padding: EdgeInsets.all(ringWidth),
-              child: ClipPath(
-                clipper: const _TeardropClipper(),
-                child: ColoredBox(color: fill),
-              ),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.only(top: width * 0.22),
-            child: child,
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// No Material [Icons] constant depicts a bird (and [Icons.flutter_dash] is

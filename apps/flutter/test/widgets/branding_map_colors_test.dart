@@ -162,6 +162,10 @@ List<Color> _renderedColors(Finder root) {
     } else if (w is CustomPaint) {
       for (final p in [w.painter, w.foregroundPainter]) {
         if (p is BirdSilhouettePainter) colors.add(p.color);
+        if (p is MapPinShapePainter) colors.addAll([p.fill, p.ring]);
+        if (p is MapPinBirdGlyphPainter) colors.addAll([p.body, p.accent]);
+        if (p is MapPinStarGlyphPainter) colors.add(p.color);
+        if (p is MapPinBinocularsGlyphPainter) colors.add(p.color);
       }
     } else if (w is LinearProgressIndicator) {
       if (w.color != null) colors.add(w.color!);
@@ -261,80 +265,67 @@ void main() {
           final root = find.byKey(const Key('marker_set'));
           _expectNoForbidden(tester, root);
 
-          // Positive: bird = day yellow + ink glyph, star = night lavender +
-          // white glyph, heritage = neutral ink + white glyph; all keep the
-          // white ring and the selected (star) pin gets the thicker ring,
-          // not a new color.
+          // Positive: one shared teardrop shape for every kind; bird = day
+          // yellow, star = night lavender, heritage = neutral ink; every
+          // glyph white (bird adds navy head/wing); all keep the white ring
+          // and the selected (star) pin gets the thicker ring, not a new
+          // color.
           const dayAccent = Color(0xFFF4C247);
-          const onDayAccent = Color(0xFF141414);
           const nightAccent = Color(0xFF9CA3F5);
-          const onNightAccent = Color(0xFFFFFFFF);
+          const white = Color(0xFFFFFFFF);
+          const navy = Color(0xFF1F2A44);
           final lookUp = LookUpColors.of(tester.element(root));
           expect(lookUp.modeDayAccent, dayAccent);
           expect(lookUp.modeNightAccent, nightAccent);
+          expect(kMapPinFill, const Color(0xFF141414));
+          expect(kMapPinGlyph, white);
+          expect(kMapPinBirdAccent, navy);
 
-          final boxes = tester
-              .widgetList<Container>(
-                find.descendant(of: root, matching: find.byType(Container)),
+          List<T> painters<T>() => tester
+              .widgetList<CustomPaint>(
+                find.descendant(of: root, matching: find.byType(CustomPaint)),
               )
-              .map((c) => c.decoration)
-              .whereType<BoxDecoration>()
+              .map((p) => p.painter)
+              .whereType<T>()
               .toList();
-          final starBox = boxes.singleWhere((d) => d.color == nightAccent);
-          final heritageBox = boxes.singleWhere((d) => d.color == kMapPinFill);
-          expect(starBox.shape, BoxShape.circle);
-          expect(heritageBox.borderRadius, BorderRadius.circular(8));
-          for (final d in [starBox, heritageBox]) {
-            expect((d.border! as Border).top.color, kMapPinRing);
-          }
-          expect((starBox.border! as Border).top.width, kMapPinRingSelected);
-          expect((heritageBox.border! as Border).top.width, kMapPinRingWidth);
-          expect(
-            tester.widget<Icon>(find.byIcon(Icons.star)).color,
-            onNightAccent,
-          );
-          expect(
-            tester.widget<Icon>(find.byIcon(Icons.storefront)).color,
-            kMapPinGlyph,
-          );
 
-          // Bird teardrop: white ring shape under a yellow fill, ink glyph.
-          expect(
-            tester
-                .widgetList<PhysicalShape>(
-                  find.descendant(
-                    of: root,
-                    matching: find.byType(PhysicalShape),
-                  ),
-                )
-                .map((p) => p.color),
-            contains(kMapPinRing),
+          final shapes = painters<MapPinShapePainter>();
+          expect(shapes, hasLength(3));
+          final birdShape = shapes.singleWhere((s) => s.fill == dayAccent);
+          final starShape = shapes.singleWhere((s) => s.fill == nightAccent);
+          final heritageShape = shapes.singleWhere(
+            (s) => s.fill == kMapPinFill,
           );
-          final coloredBoxes = tester
-              .widgetList<ColoredBox>(
-                find.descendant(of: root, matching: find.byType(ColoredBox)),
-              )
-              .map((b) => b.color);
-          expect(coloredBoxes, contains(dayAccent));
+          for (final s in shapes) {
+            expect(s.ring, kMapPinRing);
+          }
+          expect(starShape.ringWidth, kMapPinRingSelected);
+          expect(starShape.elevated, isTrue);
+          expect(birdShape.ringWidth, kMapPinRingWidth);
+          expect(heritageShape.ringWidth, kMapPinRingWidth);
+          expect(birdShape.elevated, isFalse);
+
+          final birdGlyph = painters<MapPinBirdGlyphPainter>().single;
+          expect(birdGlyph.body, white);
+          expect(birdGlyph.accent, navy);
+          expect(painters<MapPinStarGlyphPainter>().single.color, white);
           expect(
-            tester
-                .widgetList<CustomPaint>(
-                  find.descendant(of: root, matching: find.byType(CustomPaint)),
-                )
-                .map((p) => p.painter)
-                .whereType<BirdSilhouettePainter>()
-                .map((p) => p.color),
-            [onDayAccent],
+            tester.widget<Icon>(find.byIcon(Icons.flatware)).color,
+            white,
           );
+          // The old per-kind shapes/glyphs are gone.
+          expect(find.byIcon(Icons.storefront), findsNothing);
+          expect(find.byIcon(Icons.star), findsNothing);
+          expect(painters<BirdSilhouettePainter>(), isEmpty);
 
           // Helper mapping (restaurant/other kinds stay neutral).
           expect(mapPinColorsFor('bird', lookUp), (
             fill: dayAccent,
-            glyph: onDayAccent,
+            glyph: white,
           ));
           expect(mapPinColorsFor('star', lookUp), (
             fill: nightAccent,
-            glyph: onNightAccent,
+            glyph: white,
           ));
           for (final kind in ['heritage', 'restaurant', 'other']) {
             expect(mapPinColorsFor(kind, lookUp), (
