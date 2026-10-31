@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import (
     auth_kakao,
@@ -14,7 +15,17 @@ from app.routers import (
 )
 from app.regions.router import router as regions_router
 
+# GitHub Pages demo origin (exact match only).
+ALLOWED_ORIGINS = ["https://lunapapa1998.github.io"]
+
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
+    allow_credentials=False,
+)
 
 app.include_router(auth_kakao.router)
 app.include_router(observations.router)
