@@ -96,7 +96,7 @@ void main() {
     expect(header, findsOneWidget);
   });
 
-  testWidgets('title sits in the central band on a 390x844 phone',
+  testWidgets('title sits inside the illustration arc on a 390x844 phone',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
@@ -104,12 +104,81 @@ void main() {
 
     await _pumpLogin(tester, onGuest: () {}, mode: ObsMode.day);
 
+    // Title starts at 30% of the full-width 3:4 intro image (~156 of 844).
     final titleTop = tester.getTopLeft(find.text(_title)).dy;
-    expect(titleTop / 844, inInclusiveRange(0.33, 0.45));
+    expect(titleTop / 844, inInclusiveRange(0.15, 0.25));
     final guestTop =
         tester.getTopLeft(find.byKey(LoginScreen.guestButtonKey)).dy;
     expect(guestTop / 844, inInclusiveRange(0.62, 0.78));
     expect(tester.takeException(), isNull);
+  });
+
+  for (final mode in ObsMode.values) {
+    for (final size in const [Size(360, 740), Size(430, 932)]) {
+      testWidgets(
+          'copy and buttons fit without overlap at '
+          '${size.width.toInt()}x${size.height.toInt()} (${mode.name})',
+          (tester) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+        tester.view.padding = FakeViewPadding.zero;
+        tester.view.viewPadding = FakeViewPadding.zero;
+        addTearDown(tester.view.reset);
+
+        await _pumpLogin(tester, onGuest: () {}, mode: mode);
+        expect(tester.takeException(), isNull);
+
+        // Title and subtitle fully on screen.
+        for (final text in [_title, _subtitle]) {
+          final rect = tester.getRect(find.text(text));
+          expect(rect.top, greaterThanOrEqualTo(0));
+          expect(rect.bottom, lessThanOrEqualTo(size.height));
+        }
+
+        final guest = tester.getRect(find.byKey(LoginScreen.guestButtonKey));
+        final kakao = tester.getRect(find.byKey(LoginScreen.kakaoButtonKey));
+        final google =
+            tester.getRect(find.byKey(LoginScreen.googleButtonKey));
+
+        // Last copy block ends above the guest button.
+        final body = tester.getRect(find.text(_body));
+        expect(body.bottom, lessThanOrEqualTo(guest.top));
+
+        // Buttons fully on screen, stacked without overlap.
+        for (final button in [guest, kakao, google]) {
+          expect(button.top, greaterThanOrEqualTo(0));
+          expect(button.bottom, lessThanOrEqualTo(size.height));
+        }
+        expect(guest.bottom, lessThanOrEqualTo(kakao.top));
+        expect(kakao.bottom, lessThanOrEqualTo(google.top));
+      });
+    }
+  }
+
+  testWidgets('day and night share the same layout on a 390x844 phone',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.padding = FakeViewPadding.zero;
+    tester.view.viewPadding = FakeViewPadding.zero;
+    addTearDown(tester.view.reset);
+
+    Future<(Offset, double)> measure(ObsMode mode) async {
+      // Fresh tree per mode so no state carries over between themes.
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpLogin(tester, onGuest: () {}, mode: mode);
+      expect(tester.takeException(), isNull);
+      return (
+        tester.getTopLeft(find.text(_title)),
+        tester.getTopLeft(find.byKey(LoginScreen.guestButtonKey)).dy,
+      );
+    }
+
+    final (dayTitle, dayGuestTop) = await measure(ObsMode.day);
+    final (nightTitle, nightGuestTop) = await measure(ObsMode.night);
+    expect(nightTitle.dx, closeTo(dayTitle.dx, 0.5));
+    expect(nightTitle.dy, closeTo(dayTitle.dy, 0.5));
+    expect(nightGuestTop, closeTo(dayGuestTop, 0.5));
   });
 
   for (final mode in ObsMode.values) {

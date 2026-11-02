@@ -29,6 +29,13 @@ class LoginScreen extends ConsumerStatefulWidget {
   static const String introDayAsset = 'assets/brand/intro_day.png';
   static const String introNightAsset = 'assets/brand/intro_night.png';
 
+  /// Width / height of both intro assets (1086x1448, 3:4).
+  static const double introAspectRatio = 1086 / 1448;
+
+  // Tall phones: title starts at 30% of the image height, inside the arc
+  // above the horizon.
+  static const double heroTopFraction = 0.30;
+
   /// Keys on each button's [Material] (fill/shape are asserted in tests).
   static const Key guestButtonKey = ValueKey('login-guest-button');
   static const Key kakaoButtonKey = ValueKey('login-kakao-button');
@@ -45,6 +52,10 @@ class LoginScreen extends ConsumerStatefulWidget {
   static const Color nightNavyFill = Color(0xD91E2333); // navy @ 85%
   static const Color nightNavyBorder = Color(0x40FFFFFF); // white @ 25%
   static const Color kakaoYellow = Color(0xFFFEE500);
+  // Backdrop fill below the intro image; measured from the bottom rows of
+  // intro_day.png / intro_night.png.
+  static const Color dayIntroFill = Color(0xFFC6C5F4);
+  static const Color nightIntroFill = Color(0xFF081840);
 
   /// Button geometry.
   static const double buttonHeight = 56;
@@ -103,19 +114,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isNight = Theme.of(context).brightness == Brightness.dark;
     final introAsset =
         isNight ? LoginScreen.introNightAsset : LoginScreen.introDayAsset;
+    final introFill =
+        isNight ? LoginScreen.nightIntroFill : LoginScreen.dayIntroFill;
     return Scaffold(
       backgroundColor: scheme.surface,
       body: Stack(
         children: [
+          // Solid fill matching the image's bottom edge, shown below it on
+          // tall phones.
+          Positioned.fill(child: ColoredBox(color: introFill)),
           // Brand intro backdrop, picked by the current theme brightness.
-          // No scrim/gradient: copy colors are chosen against the image.
-          Positioned.fill(
-            child: Image.asset(
-              introAsset,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              gaplessPlayback: true,
-              excludeFromSemantics: true,
+          // Full width, top-anchored at its exact 3:4 aspect (1086x1448);
+          // on wider screens it overflows and the bottom is clipped.
+          // No scrim over the art: copy colors are chosen against the image.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AspectRatio(
+              aspectRatio: LoginScreen.introAspectRatio,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    introAsset,
+                    fit: BoxFit.fitWidth,
+                    alignment: Alignment.topCenter,
+                    gaplessPlayback: true,
+                    excludeFromSemantics: true,
+                  ),
+                  // Fade the bottom 15% into the fill so there is no seam.
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: FractionallySizedBox(
+                      heightFactor: 0.15,
+                      widthFactor: 1,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [introFill.withAlpha(0), introFill],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           Positioned.fill(
@@ -124,12 +170,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 final insets = MediaQuery.paddingOf(context);
                 final height = constraints.maxHeight;
                 final width = constraints.maxWidth;
-                // Top gap reserved for the arc: 37% of the height on a tall
-                // phone (844), easing to 22% on a short one (568) so all
-                // three buttons fit without scrolling there (Bithumb Gothic).
+                // Top gap reserved for the arc. When the full-width image
+                // ends above the screen bottom (tall phone), start the title
+                // at [heroTopFraction] of the image height, inside the arc.
+                // Otherwise: 37% of the height on a tall screen (844), easing
+                // to 22% on a short one (568) so all three buttons fit
+                // without scrolling there (Bithumb Gothic).
+                final imageHeight = width / LoginScreen.introAspectRatio;
                 final t = ((height - 568) / (844 - 568)).clamp(0.0, 1.0);
-                final topGap =
-                    math.max(insets.top + 16, height * (0.22 + 0.15 * t));
+                final topGap = imageHeight < height
+                    ? math.max(
+                        insets.top + 16,
+                        imageHeight * LoginScreen.heroTopFraction,
+                      )
+                    : math.max(insets.top + 16, height * (0.22 + 0.15 * t));
                 // Copy -> buttons gap: 32, tightened to 24 on short screens.
                 final buttonGap = height < 640 ? 24.0 : 32.0;
                 // Center a column of at most [maxContentWidth], >= 24 gutters.
